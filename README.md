@@ -4,6 +4,8 @@ datamapx is a Python CLI for CSV-to-CSV migration, transformation, and validatio
 
 It is designed for projects where the migration rules should live in configuration, not in ad hoc Python scripts.
 
+Current release: v0.2.0.
+
 ## What It Can Do
 
 - Read one input CSV and multiple reference CSVs.
@@ -11,7 +13,7 @@ It is designed for projects where the migration rules should live in configurati
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
 - Apply filters and validations before writing the final output.
 - Write `errors.csv`, `skipped.csv`, and `summary.json`.
-- Run `validate-config`, `inspect`, `profile-input`, `dry-run`, and `run`.
+- Run `generate-config`, `validate-config`, `inspect`, `profile-input`, `dry-run`, and `run`.
 
 ## What It Does Not Do in Phase 1
 
@@ -54,8 +56,35 @@ Run the migration and write the main output CSV plus reports:
 datamapx run examples/01_basic_mapping/migration.yml
 ```
 
+Or create a starter YAML first:
+
+```bash
+datamapx generate-config \
+  --input examples/01_basic_mapping/input/users.csv \
+  --output examples/01_basic_mapping/output/generated_users_out.csv \
+  --config /tmp/generated_migration.yml \
+  --input-name users \
+  --output-name users_out
+
+datamapx validate-config /tmp/generated_migration.yml
+datamapx dry-run /tmp/generated_migration.yml --limit 5
+datamapx run /tmp/generated_migration.yml
+```
+
+Generate a starter configuration from a CSV header:
+
+```bash
+datamapx generate-config \
+  --input examples/01_basic_mapping/input/users.csv \
+  --output examples/01_basic_mapping/output/generated_users_out.csv \
+  --config /tmp/generated_migration.yml \
+  --input-name users \
+  --output-name users_out
+```
+
 ## CLI Commands
 
+- `generate-config` creates a basic YAML scaffold from CSV headers.
 - `validate-config` validates YAML structure, references, and Phase 1 constraints.
 - `inspect` prints a human-readable summary of the configuration.
 - `profile-input` shows a simple profile for the normalized input dataframe.

@@ -38,6 +38,65 @@ On failure, print configuration errors with section and field context.
 - `1`: invalid YAML, invalid config, unsupported setting, or unresolved reference
 - `2`: invalid CLI usage
 
+## datamapx generate-config --input ./input/users.csv --output ./output/users_out.csv --config ./migration.yml
+
+### Purpose
+
+Generate a basic Phase 1 migration YAML from the headers of a single input CSV.
+
+The generated config is intentionally minimal: it creates canonical input schema field names, preserves the original input headers in `source_columns`, and generates `source` mappings only.
+
+### Usage
+
+```bash
+datamapx generate-config \
+  --input ./input/users.csv \
+  --output ./output/users_out.csv \
+  --config ./migration.yml
+```
+
+### Options
+
+- `--input PATH` (required): input CSV path.
+- `--output PATH` (required): main output CSV path to store in the generated YAML.
+- `--config PATH` (required): destination path for the generated YAML.
+- `--input-name TEXT`: YAML input key name. Default: `input`.
+- `--output-name TEXT`: YAML output key name. Default: `output`.
+- `--project-name TEXT`: project name written to YAML. Default: `generated_migration`.
+- `--encoding TEXT`: input/output encoding written to YAML. Default: `utf-8-sig`.
+- `--delimiter TEXT`: CSV delimiter written to YAML. Default: `,`.
+- `--overwrite`: replace an existing config file.
+- `--preserve-output-columns / --safe-output-columns`: keep original headers in `outputs.columns` or switch to safe generated names. Default: preserve output columns when possible.
+
+### Expected output
+
+On success:
+
+```text
+Config generated: ./migration.yml
+
+Next steps:
+1. datamapx validate-config ./migration.yml
+2. datamapx dry-run ./migration.yml --limit 5
+3. datamapx run ./migration.yml
+```
+
+### Limitations
+
+- Only `source` mappings are generated.
+- All schema fields are generated as `type: string`.
+- All schema fields are generated with `required: false`.
+- All schema fields use `normalize: [trim]`.
+- `lookup`, `concat`, `map`, `when`, `expression`, `derived`, `filters`, and `validations` are not generated.
+- `header: false` CSV files are not supported.
+- If raw output headers are duplicated or cannot be used safely, the generator may fall back to safe generated output column names to keep the config valid.
+
+### Exit code policy
+
+- `0`: config generated successfully
+- `1`: CSV read failure, output overwrite conflict, or generated config write failure
+- `2`: invalid CLI usage
+
 ## datamapx inspect migration.yml
 
 ### Purpose

@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from datamapx.config import DatamapxConfig, load_config
+from datamapx.config_generator import generate_basic_config
 from datamapx.exceptions import ConfigError
 from datamapx.io.csv_reader import profile_input_csv
 from datamapx.io.csv_writer import write_output_csv
@@ -24,6 +25,59 @@ from datamapx.transform.errors import MappingError
 from datamapx.validation import ValidationError
 
 app = typer.Typer(help="YAML-driven CSV migration and transformation tool.")
+
+GENERATE_CONFIG_INPUT_OPTION = typer.Option(..., "--input")
+GENERATE_CONFIG_OUTPUT_OPTION = typer.Option(..., "--output")
+GENERATE_CONFIG_CONFIG_OPTION = typer.Option(..., "--config")
+GENERATE_CONFIG_INPUT_NAME_OPTION = typer.Option("input", "--input-name")
+GENERATE_CONFIG_OUTPUT_NAME_OPTION = typer.Option("output", "--output-name")
+GENERATE_CONFIG_PROJECT_NAME_OPTION = typer.Option("generated_migration", "--project-name")
+GENERATE_CONFIG_ENCODING_OPTION = typer.Option("utf-8-sig", "--encoding")
+GENERATE_CONFIG_DELIMITER_OPTION = typer.Option(",", "--delimiter")
+GENERATE_CONFIG_OVERWRITE_OPTION = typer.Option(False, "--overwrite")
+GENERATE_CONFIG_OUTPUT_COLUMNS_OPTION = typer.Option(
+    True, "--preserve-output-columns/--safe-output-columns"
+)
+
+
+@app.command("generate-config")
+def generate_config(
+    input_path: Path = GENERATE_CONFIG_INPUT_OPTION,
+    output_path: Path = GENERATE_CONFIG_OUTPUT_OPTION,
+    config_path: Path = GENERATE_CONFIG_CONFIG_OPTION,
+    input_name: str = GENERATE_CONFIG_INPUT_NAME_OPTION,
+    output_name: str = GENERATE_CONFIG_OUTPUT_NAME_OPTION,
+    project_name: str = GENERATE_CONFIG_PROJECT_NAME_OPTION,
+    encoding: str = GENERATE_CONFIG_ENCODING_OPTION,
+    delimiter: str = GENERATE_CONFIG_DELIMITER_OPTION,
+    overwrite: bool = GENERATE_CONFIG_OVERWRITE_OPTION,
+    preserve_output_columns: bool = GENERATE_CONFIG_OUTPUT_COLUMNS_OPTION,
+) -> None:
+    """Generate a basic migration YAML from an input CSV header."""
+
+    try:
+        result = generate_basic_config(
+            input_path,
+            output_path,
+            config_path,
+            input_name=input_name,
+            output_name=output_name,
+            project_name=project_name,
+            encoding=encoding,
+            delimiter=delimiter,
+            overwrite=overwrite,
+            preserve_output_columns=preserve_output_columns,
+        )
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(f"Config generated: {result.config_path}")
+    typer.echo("")
+    typer.echo("Next steps:")
+    typer.echo(f"1. datamapx validate-config {result.config_path}")
+    typer.echo(f"2. datamapx dry-run {result.config_path} --limit 5")
+    typer.echo(f"3. datamapx run {result.config_path}")
 
 
 @app.command("validate-config")

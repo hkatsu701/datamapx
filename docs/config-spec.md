@@ -760,6 +760,27 @@ Phase 1 defaults:
 - `dry-run --write-reports` can write `errors.csv`, `skipped.csv`, and `summary.json` without writing the main output CSV.
 - `run` always writes the main output CSV and report files.
 
+## 20. Generate-config basic
+
+`generate-config` creates a minimal Phase 1 YAML skeleton from the input CSV headers.
+
+Generation rules:
+
+- `source_columns` always stores the original CSV header name.
+- Internal schema field names are generated as safe snake_case names when possible.
+- Headers with spaces, hyphens, and uppercase letters are normalized to snake_case.
+- Headers starting with a digit receive a `col_` prefix.
+- Headers that cannot be made safe, such as Japanese headers, use generated names like `col_001`, `col_002`.
+- Duplicate safe names receive suffixes such as `_2`, `_3`.
+- `type` is always `string`.
+- `required` is always `false`.
+- `normalize` is always `[trim]`.
+- `references`, `derived`, `filters`, `validations`, and `checks` are omitted.
+- `mappings` contains only `source` mappings.
+- `outputs.columns` preserves the original headers by default when they are suitable for a valid config.
+- When original headers cannot be used safely, the generator may fall back to safe generated output column names.
+- `header: false` input files are not supported by the generator.
+
 ## Open Questions
 
 - Final Phase 1 scope for `date` type parsing.

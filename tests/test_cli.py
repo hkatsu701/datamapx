@@ -17,6 +17,95 @@ def test_validate_config_success() -> None:
     assert "Config is valid" in result.output
 
 
+def test_generate_config_success(tmp_path: Path) -> None:
+    config_path = tmp_path / "generated_migration.yml"
+    output_path = tmp_path / "output" / "users_out.csv"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "generate-config",
+            "--input",
+            str(FIXTURES / "generate_config" / "input_basic.csv"),
+            "--output",
+            str(output_path),
+            "--config",
+            str(config_path),
+            "--input-name",
+            "users",
+            "--output-name",
+            "users_out",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Config generated:" in result.output
+    assert "Next steps:" in result.output
+    assert config_path.exists()
+
+
+def test_generate_config_output_validates(tmp_path: Path) -> None:
+    config_path = tmp_path / "generated_migration.yml"
+    output_path = tmp_path / "output" / "users_out.csv"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "generate-config",
+            "--input",
+            str(FIXTURES / "generate_config" / "input_basic.csv"),
+            "--output",
+            str(output_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    validate_result = CliRunner().invoke(app, ["validate-config", str(config_path)])
+    assert validate_result.exit_code == 0
+
+
+def test_generate_config_overwrite_controls_existing_file(tmp_path: Path) -> None:
+    config_path = tmp_path / "generated_migration.yml"
+    output_path = tmp_path / "output" / "users_out.csv"
+    config_path.write_text("existing", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "generate-config",
+            "--input",
+            str(FIXTURES / "generate_config" / "input_basic.csv"),
+            "--output",
+            str(output_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "config file already exists" in result.output
+
+    overwrite_result = CliRunner().invoke(
+        app,
+        [
+            "generate-config",
+            "--input",
+            str(FIXTURES / "generate_config" / "input_basic.csv"),
+            "--output",
+            str(output_path),
+            "--config",
+            str(config_path),
+            "--overwrite",
+        ],
+    )
+
+    assert overwrite_result.exit_code == 0
+    assert "Config generated:" in overwrite_result.output
+
+
 def test_validate_config_failure() -> None:
     result = CliRunner().invoke(app, ["validate-config", str(FIXTURES / "invalid_config.yml")])
 

@@ -1,5 +1,18 @@
 # Roadmap
 
+## v0.2.0
+
+- Basic `generate-config`
+- Header-based YAML scaffolding
+- Source mappings only
+
+Future candidates:
+
+- `--infer-types`
+- `--template`
+- Wizard
+- AI-assisted config generation
+
 ## Phase 1
 
 - CSV-to-CSV MVP
