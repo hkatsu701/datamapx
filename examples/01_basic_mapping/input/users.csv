@@ -1,0 +1,4 @@
+user_id,last_name,first_name,status_code,price,quantity
+u001,Yamada,Taro,A,100,2
+u002,Sato,Hanako,I,250,1
+u003,Tanaka,Jiro,X,80,3

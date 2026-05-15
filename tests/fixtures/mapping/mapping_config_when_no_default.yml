@@ -1,0 +1,32 @@
+version: 1
+project:
+  name: when_no_default
+inputs:
+  users:
+    path: ./input_users_when.csv
+    schema:
+      user_id:
+        type: string
+      active:
+        type: boolean
+      amount:
+        type: decimal
+      status:
+        type: string
+      deleted_at:
+        type: date
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id, label]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    label:
+      when:
+        - if: users.status == "missing"
+          then: hit
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

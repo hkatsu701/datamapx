@@ -1,0 +1,767 @@
+# Configuration Specification
+
+This document is the source of truth for Phase 1 YAML behavior.
+
+## 1. Overview
+
+datamapx uses a YAML file to define CSV input, reference CSVs, filters, derived fields, output CSV, mappings, validations, checks, error handling, and runtime behavior.
+
+Phase 1 supports:
+
+- Single input CSV
+- Multiple reference CSVs
+- Single output CSV
+- CSV-to-CSV transformation
+- YAML-driven behavior
+
+Phase 1 does not support multiple input joins or multiple output files.
+
+## 2. Full YAML example
+
+```yaml
+version: 1
+
+project:
+  name: user_migration
+  description: Convert user CSV to target CRM format
+
+inputs:
+  users:
+    path: ./input/users.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      user_id:
+        source_columns: ["user_id", "顧客ID", "顧客コード"]
+        type: string
+        required: true
+        normalize: [trim]
+      last_name:
+        type: string
+        normalize: [trim]
+      first_name:
+        type: string
+        normalize: [trim]
+      department_code:
+        type: string
+        normalize: [trim]
+      active:
+        type: boolean
+      price:
+        type: decimal
+        normalize: [trim, remove_commas, remove_currency_symbol]
+      quantity:
+        type: integer
+      amount:
+        type: decimal
+        normalize: [trim, remove_commas]
+
+references:
+  departments:
+    path: ./ref/departments.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: department_code
+    on_duplicate: error
+
+filters:
+  exclude:
+    - if: users.user_id == ""
+      reason: "user_id is empty"
+
+derived:
+  full_name:
+    concat:
+      values:
+        - users.last_name
+        - " "
+        - users.first_name
+
+  total_amount:
+    expression: users.price * users.quantity
+
+outputs:
+  users_out:
+    path: ./output/users_migrated.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\n"
+    if_exists: error
+    columns:
+      - id
+      - name
+      - source_system
+      - status
+      - department_name
+      - total_amount
+
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+
+    name:
+      source: derived.full_name
+
+    source_system:
+      value: CRM
+
+    status:
+      when:
+        - if: users.active == true
+          then: "有効"
+        - if: users.active == false
+          then: "無効"
+      default: "不明"
+
+    department_name:
+      lookup:
+        reference: departments
+        key: users.department_code
+        value: department_name
+        on_missing: error
+
+    total_amount:
+      expression: users.price * users.quantity
+
+validations:
+  input:
+    - field: users.user_id
+      rule: required
+
+  output:
+    - field: id
+      rule: required
+    - field: status
+      rule: enum
+      values: ["有効", "無効", "不明"]
+    - field: total_amount
+      rule: min
+      value: 0
+
+checks:
+  - name: row_count_check
+    rule: input_rows == output_rows + error_rows + skipped_rows
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+```
+
+## 3. version
+
+`version` identifies the configuration schema version.
+
+Phase 1 supports only:
+
+```yaml
+version: 1
+```
+
+## 4. project
+
+`project` provides human-readable metadata.
+
+```yaml
+project:
+  name: user_migration
+  description: Convert user CSV to target CRM format
+```
+
+## 5. inputs
+
+Phase 1 supports exactly one input entry.
+
+```yaml
+inputs:
+  users:
+    path: ./input/users.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      user_id:
+        source_columns: ["user_id", "顧客ID"]
+        type: string
+        required: true
+        normalize: [trim]
+```
+
+Supported field types:
+
+- `string`
+- `integer`
+- `decimal`
+- `boolean`
+- `date`
+
+Supported normalize functions:
+
+- `trim`: remove leading and trailing whitespace
+- `remove_commas`: remove comma separators
+- `remove_currency_symbol`: remove common currency symbols before numeric conversion
+
+Phase 1 does not support `zenkaku_to_hankaku`.
+
+Phase 1 CSV reader behavior:
+
+- `header: true` is supported.
+- `header: false` is not implemented and fails with a clear CSV read error.
+- Schema field names are canonical field names in the normalized dataframe.
+- If `source_columns` is set, datamapx uses the first listed source column that exists in the CSV.
+- If `source_columns` is not set, datamapx looks for a CSV column with the same name as the schema field.
+- Missing `required: true` columns fail.
+- Missing optional columns are created with missing values.
+- CSV columns not defined in `schema` are ignored in Phase 1.
+- An internal `__row_number` column is added. Data rows are numbered from 1; the header row is not counted.
+
+Normalize functions run before type conversion.
+
+Phase 1 type conversion behavior:
+
+- `string`: non-missing values are converted to strings; missing values remain missing.
+- `integer`: values are converted with pandas numeric conversion and stored as nullable integer.
+- `decimal`: values are converted with pandas numeric conversion.
+- `boolean`: values are converted using `true_values` / `false_values` when configured, otherwise built-in defaults.
+- `date`: values are parsed with `pandas.to_datetime`; advanced format and timezone handling is deferred.
+
+Default boolean values:
+
+- true: `["true", "1", "yes", "y", "Y", "TRUE", "True"]`
+- false: `["false", "0", "no", "n", "N", "FALSE", "False"]`
+
+## 6. references
+
+`references` defines lookup CSV files.
+
+```yaml
+references:
+  departments:
+    path: ./ref/departments.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: department_code
+    on_duplicate: error
+```
+
+Phase 1 supports multiple reference CSVs.
+
+`on_duplicate` supports only:
+
+- `error`
+
+Duplicate reference keys must not be silently accepted.
+
+Reference CSV reader behavior:
+
+- `header: true` is supported.
+- `header: false` is not implemented and fails with a clear CSV read error.
+- If a reference defines `schema`, schema application follows the same source column and type conversion rules as inputs.
+- If a reference does not define `schema`, CSV column names are used as-is.
+- `key` may be a string or list of strings.
+- Missing key columns fail.
+- Missing key values fail.
+- Duplicate key values fail because Phase 1 supports only `on_duplicate: error`.
+- For composite keys, the combination of all configured key columns is checked for duplicates.
+
+## 7. filters
+
+`filters` defines row inclusion or exclusion rules.
+
+```yaml
+filters:
+  include:
+    - if: users.active == true
+      reason: "active users only"
+  exclude:
+    - if: users.amount == 0
+      reason: "zero amount is excluded"
+```
+
+Execution status: supported in dry-run.
+
+Filter execution order:
+
+1. `include`
+2. `exclude`
+
+`include` rules are optional. When `filters.include` is configured, only rows matching at least one include condition are kept. Rows matching no include condition are skipped with the standard reason `No include condition matched`.
+
+`exclude` rules are optional. When `filters.exclude` is configured, rows matching an exclude condition are skipped. If `reason` is configured, that reason is retained. If `reason` is omitted, `Excluded by filter` is used. If multiple exclude rules match, the first matching rule supplies the reason.
+
+Filter conditions use the same limited condition syntax as `when`. Both `users.*` and `derived.*` references are supported. Derived fields are computed before filters so they can be used in filter conditions.
+
+Skipped rows are retained internally during dry-run and shown in the dry-run skipped preview. `skipped.csv` file output is produced only when dry-run is run with `--write-reports`; `run` always writes `skipped.csv`.
+
+## 8. derived
+
+`derived` defines intermediate fields that can be used by mappings but are not written directly unless mapped.
+
+```yaml
+derived:
+  full_name:
+    concat:
+      values:
+        - users.last_name
+        - " "
+        - users.first_name
+```
+
+Derived fields may use the same mapping rule types as output mappings.
+
+Execution status: supported.
+
+Phase 1 derived fields:
+
+- are computed before output mappings
+- produce one Series with the same row count as the input
+- are referenced as `derived.<field_name>`
+- may use `source`, `value`, `concat`, `map`, `lookup`, `when`, and `expression`
+- may reference other derived fields
+- are dependency-sorted before execution
+- fail with a mapping error when a circular dependency is detected
+
+Example with derived dependencies:
+
+```yaml
+derived:
+  total_amount:
+    expression: users.price * users.quantity
+
+  amount_with_tax:
+    expression: derived.total_amount * 1.1
+```
+
+## 9. outputs
+
+Phase 1 supports exactly one output entry.
+
+```yaml
+outputs:
+  users_out:
+    path: ./output/users_migrated.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\n"
+    if_exists: error
+    columns:
+      - id
+      - name
+```
+
+`if_exists` supports:
+
+- `error`
+- `overwrite`
+
+During `run`, `if_exists` controls the main output CSV. `error` stops when the output file already exists, and `overwrite` replaces it. Report files are handled separately from the main output CSV.
+
+## 10. mappings
+
+`mappings` defines output field values for each output.
+
+```yaml
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+```
+
+Every output column must have a mapping. A mapping for an unknown output column is a configuration error.
+
+Field references in mappings are validated by `validate-config`.
+
+Phase 1 supports only these field reference forms:
+
+- `<input_name>.<field_name>`
+- `derived.<field_name>`
+
+For example:
+
+- `users.user_id`
+- `users.department_code`
+- `derived.total_amount`
+
+Input field references must use field names defined under `inputs.<input_name>.schema`.
+`source_columns` values are CSV aliases and are not valid field references.
+
+Phase 1 does not support direct reference paths such as:
+
+- `references.departments.department_name`
+- `outputs.users_out.id`
+- nested JSON paths
+- array access
+
+## 11. validations
+
+`validations` defines input and output validation rules.
+
+```yaml
+validations:
+  input:
+    - field: users.user_id
+      rule: required
+  output:
+    - field: status
+      rule: enum
+      values: ["有効", "無効", "不明"]
+```
+
+Phase 1 validation rules:
+
+- `required`
+- `enum`
+- `min`
+- `max`
+- `regex`
+- `length`
+
+`validations.input[].field` must reference the single input namespace:
+
+```yaml
+validations:
+  input:
+    - field: users.user_id
+      rule: required
+```
+
+`validations.input[].field` must not reference `derived`.
+
+`validations.output[].field` must use an output column name directly:
+
+```yaml
+validations:
+  output:
+    - field: id
+      rule: required
+```
+
+`validations.output[].field` must not use `users.id` or `derived.id`.
+
+## 12. checks
+
+`checks` defines run-level assertions.
+
+```yaml
+checks:
+  - name: row_count_check
+    rule: input_rows == output_rows + error_rows + skipped_rows
+```
+
+Phase 1 stores configured checks in `summary.json`, but it does not evaluate them as assertions yet. Check rule execution is deferred to a later phase.
+
+During `validate-config`, Phase 1 does not evaluate check expressions. It validates only field references found in `checks[].rule`.
+
+The following summary variables are allowed in `checks[].rule` and are not treated as field references:
+
+- `input_rows`
+- `output_rows`
+- `error_rows`
+- `skipped_rows`
+
+If a check contains a field reference such as `users.amount`, the reference must exist in the input schema. Unknown namespaces or unknown fields are configuration errors.
+
+## 13. error_handling
+
+`error_handling` defines how row-level and runtime errors are handled.
+
+```yaml
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv
+  include_original_row: true
+```
+
+## 14. runtime
+
+`runtime` defines execution metadata and logging behavior.
+
+```yaml
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./output/summary.json
+```
+
+`run_id: auto` means datamapx generates a run identifier.
+`summary_output` is optional. When omitted, `summary.json` defaults to the same directory as `error_handling.error_output`.
+When dry-run is executed with `--write-reports --reports-dir`, that directory overrides the configured report paths. When `run` is executed, report files are always written and use the same path resolution rules.
+
+## 15. Mapping rule types
+
+### source
+
+Copies a value from input or derived fields.
+
+```yaml
+id:
+  source: users.user_id
+```
+
+Execution status: supported for input fields and `derived.*` references.
+
+### value
+
+Outputs a fixed value.
+
+```yaml
+source_system:
+  value: CRM
+```
+
+Execution status: supported.
+
+### concat
+
+Concatenates literal strings and field references.
+
+```yaml
+name:
+  concat:
+    values:
+      - users.last_name
+      - " "
+      - users.first_name
+```
+
+Execution status: supported for input field references and string literals. Missing values are treated as empty strings.
+
+### map
+
+Maps source values to configured values.
+
+```yaml
+status:
+  map:
+    source: users.status_code
+    values:
+      A: active
+      I: inactive
+    default: unknown
+```
+
+Execution status: supported. If `default` is omitted and an unmapped non-missing value appears, mapping fails.
+
+Use `map` for small value conversions that can be represented directly in YAML. Use `lookup` when values should be retrieved from an external reference CSV.
+
+### when
+
+Evaluates conditions in order and returns the first matching result.
+
+```yaml
+status:
+  when:
+    - if: users.active == true
+      then: "有効"
+    - if: users.active == false
+      then: "無効"
+  default: "不明"
+```
+
+Execution status: supported for the limited Phase 1 condition syntax documented in
+[Condition expression](#16-condition-expression).
+
+Rules:
+
+- `when` must be a list.
+- Each item must contain `if` and `then`.
+- Items are evaluated from top to bottom.
+- The first matching `then` value is used.
+- If no condition matches, `default` is used.
+- If no condition matches and `default` is omitted, mapping fails.
+
+Phase 1 `then` and `default` values support literal strings, numbers, booleans, and null.
+Field references in `then` or `default`, such as `then: users.status`, are not implemented yet.
+
+### lookup
+
+Looks up a value from a reference CSV.
+
+```yaml
+department_name:
+  lookup:
+    reference: departments
+    key: users.department_code
+    value: department_name
+    on_missing: error
+```
+
+Execution status: supported.
+
+`lookup.key` may be a string or list of strings:
+
+```yaml
+department_name:
+  lookup:
+    reference: departments
+    key:
+      - users.region_code
+      - users.department_code
+    value: department_name
+    on_missing: default
+    default: Unknown
+```
+
+For single-key lookup, `references.<name>.key` must be a string. For composite-key lookup, `references.<name>.key` must be a list with the same length as `lookup.key`.
+
+Supported `on_missing` values:
+
+- `error`: fail with a mapping error
+- `default`: use `lookup.default`; fails if `default` is not configured
+- `empty`: use an empty string
+- `"null"`: use a missing value
+
+### expression
+
+Evaluates a safe arithmetic expression for each input row.
+
+```yaml
+total_amount:
+  expression: users.price * users.quantity
+```
+
+Execution status: supported for Phase 1 arithmetic expressions.
+
+Supported operators:
+
+- `+`
+- `-`
+- `*`
+- `/`
+- `//`
+- `%`
+- `**`
+- parentheses
+
+Allowed functions:
+
+- `round`
+- `abs`
+- `min`
+- `max`
+
+Field reference rules:
+
+- `users.field` may reference a field in the single configured input.
+- `derived.field` may reference a computed derived field.
+- Unknown input fields fail with a mapping error.
+- Unknown derived fields fail with a mapping error.
+- Unknown namespaces fail with a mapping error.
+- `references.*` and `outputs.*` references are not implemented for expression execution.
+- If any referenced field value is missing in a row, expression mapping fails.
+
+Expression execution does not use Python `eval`. Field references such as `users.price` are rewritten to safe internal variable names before evaluation, and only row-local values are provided to the evaluator.
+
+## 16. Condition expression
+
+Condition expressions are used by `filters`, `when`, and `checks`.
+
+For `when` mapping execution, Phase 1 supports only these forms:
+
+- `users.field == value`
+- `derived.field == value`
+- `users.field != value`
+- `users.field > value`
+- `users.field >= value`
+- `users.field < value`
+- `users.field <= value`
+- `users.field == true`
+- `users.field == false`
+- `users.field == null`
+- `users.field != null`
+- `users.field in ["active", "pending"]`
+- `users.field not in ["deleted", "cancelled"]`
+
+Supported value literals:
+
+- `true` / `false`
+- `null`
+- quoted strings such as `"active"` or `'active'`
+- numbers such as `100` or `100.5`
+- lists such as `["active", "pending"]`
+
+Unsupported condition examples:
+
+- `users.amount + users.tax > 1000`
+- `round(users.amount) > 100`
+- `users.a == users.b`
+- `users.name.startswith("A")`
+- `users.status == "active" or users.status == "pending"`
+
+During `validate-config`, Phase 1 does not evaluate condition expressions. It extracts and validates basic field references such as `users.active` and `derived.total_amount`.
+
+During `when` execution, both `users.*` and `derived.*` references are supported.
+
+## 17. Expression safety
+
+Python `eval` must not be used directly.
+
+Phase 1 uses a dedicated safe arithmetic evaluator with a strict allowlist.
+
+The current Phase 1 configuration validation step does not execute expressions. It only validates field references in `expression`, `when.if`, `filters.include[].if`, `filters.exclude[].if`, and `checks[].rule`.
+
+`when` mapping execution uses a dedicated limited parser. It does not use Python `eval` and does not use the planned general-purpose expression evaluator.
+
+`expression` mapping execution supports only arithmetic operators and explicitly allowed functions. It does not allow imports, attributes, arbitrary function calls, comprehensions, lambdas, assignment, indexing, or access to Python builtins.
+
+Expressions must not:
+
+- Import modules
+- Access attributes outside configured field references
+- Call arbitrary functions
+- Read or write files
+- Execute shell commands
+
+## 18. Defaults
+
+Phase 1 defaults:
+
+- `encoding`: `utf-8-sig` when omitted
+- `delimiter`: `,` when omitted
+- `header`: `true` when omitted
+- `if_exists`: `error` when omitted
+- `on_duplicate`: `error`
+- `runtime.run_id`: `auto`
+- `runtime.log_level`: `INFO`
+- `runtime.summary_output`: omitted, and `summary.json` defaults to the directory of `error_handling.error_output`
+
+## 19. Phase 1 limitations
+
+- `zenkaku_to_hankaku` is not supported.
+- `on_duplicate` supports only `error`.
+- `if_exists` supports only `error` and `overwrite`.
+- Multiple input joins are not supported.
+- Multiple outputs are not supported.
+- Excel, JSON, DB, Web UI, plugins, and streaming are not supported.
+- Advanced date input/output format conversion is not included.
+- Dry-run builds an output preview for `source`, `value`, `concat`, `map`, `when`, `lookup`, `expression`, and `derived` mappings.
+- Dry-run does not write the output file.
+- Filters, validations, and report generation are supported in dry-run and run.
+- `dry-run --write-reports` can write `errors.csv`, `skipped.csv`, and `summary.json` without writing the main output CSV.
+- `run` always writes the main output CSV and report files.
+
+## Open Questions
+
+- Final Phase 1 scope for `date` type parsing.
+- Exact `profile-input` simple output fields.
+- Column naming rules when `header: false`.

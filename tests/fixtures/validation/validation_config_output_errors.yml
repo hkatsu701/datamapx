@@ -1,0 +1,67 @@
+version: 1
+project:
+  name: validation_output_errors
+inputs:
+  users:
+    path: ./input_users_validation_bad.csv
+    schema:
+      user_id:
+        type: string
+      status:
+        type: string
+      amount:
+        type: decimal
+      code:
+        type: string
+      text:
+        type: string
+      short_text:
+        type: string
+      long_text:
+        type: string
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id, status, amount, code, text, short_text, long_text]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    status:
+      source: users.status
+    amount:
+      source: users.amount
+    code:
+      source: users.code
+    text:
+      source: users.text
+    short_text:
+      source: users.short_text
+    long_text:
+      source: users.long_text
+validations:
+  output:
+    - field: id
+      rule: required
+    - field: status
+      rule: enum
+      values: [active, inactive, pending]
+    - field: amount
+      rule: min
+      value: 1
+    - field: amount
+      rule: max
+      value: 15
+    - field: code
+      rule: regex
+      pattern: "^[A-Z]{3}$"
+    - field: short_text
+      rule: length
+      min: 2
+      max: 4
+    - field: long_text
+      rule: length
+      max: 5
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

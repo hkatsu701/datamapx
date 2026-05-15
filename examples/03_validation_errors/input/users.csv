@@ -1,0 +1,5 @@
+user_id,status,amount,code,text,short_text,long_text
+u001,active,10,ABC,hello,ab,abcde
+u002,other,0,XYZ,world,a,abcdef
+u003,pending,-5,AB1,test,abcd,abc
+u004,,8,DEF,other,abcd,abcde

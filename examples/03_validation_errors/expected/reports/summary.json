@@ -1,0 +1,20 @@
+{
+  "run_id": "20260515_090035",
+  "project_name": "validation_errors",
+  "status": "completed",
+  "config_path": "migration.yml",
+  "started_at": "2026-05-15T09:00:35",
+  "finished_at": "2026-05-15T09:00:35",
+  "counts": {
+    "input_rows": 4,
+    "skipped_rows": 0,
+    "error_rows": 6,
+    "input_validation_errors": 0,
+    "output_validation_errors": 6,
+    "output_rows": 2
+  },
+  "notes": {
+    "dry_run": false,
+    "output_file_written": true
+  }
+}

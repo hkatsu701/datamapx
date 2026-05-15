@@ -1,0 +1,5 @@
+user_id,active,amount,price,quantity,status
+u001,true,100,50,2,active
+u002,false,0,0,5,inactive
+u003,true,25,25,1,pending
+u004,true,0,0,1,active

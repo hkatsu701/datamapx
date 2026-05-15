@@ -1,0 +1,2 @@
+user_id,name,age,amount,active,joined,department_code
+u001,Alice,42,100,true,not-a-date,D001

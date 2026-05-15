@@ -1,0 +1,27 @@
+version: 1
+
+project:
+  name: invalid_migration
+
+inputs:
+  users:
+    path: ./input/users.csv
+    schema:
+      user_id:
+        type: string
+
+outputs:
+  users_out:
+    path: ./output/users_migrated.csv
+    columns:
+      - id
+      - missing_mapping
+
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

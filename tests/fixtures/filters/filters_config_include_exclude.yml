@@ -1,0 +1,36 @@
+version: 1
+project:
+  name: filters_include_exclude
+inputs:
+  users:
+    path: ./input_users_filters.csv
+    schema:
+      user_id:
+        type: string
+      active:
+        type: boolean
+      amount:
+        type: decimal
+      price:
+        type: decimal
+      quantity:
+        type: integer
+      status:
+        type: string
+filters:
+  include:
+    - if: users.active == true
+  exclude:
+    - if: users.amount == 0
+      reason: zero amount is excluded
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

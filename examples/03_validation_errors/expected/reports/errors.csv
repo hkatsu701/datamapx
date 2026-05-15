@@ -1,0 +1,7 @@
+run_id,row_number,stage,field,rule,message,row_json
+20260515_090035,2,output_validation,status,enum,enum validation failed: 'other' is not allowed,"{""id"": ""u002"", ""status"": ""other"", ""amount"": 0, ""code"": ""XYZ"", ""text"": ""world"", ""short_text"": ""a"", ""long_text"": ""abcdef""}"
+20260515_090035,2,output_validation,amount,min,min validation failed: 0 < 1,"{""id"": ""u002"", ""status"": ""other"", ""amount"": 0, ""code"": ""XYZ"", ""text"": ""world"", ""short_text"": ""a"", ""long_text"": ""abcdef""}"
+20260515_090035,2,output_validation,short_text,length,length validation failed: 1 < 2,"{""id"": ""u002"", ""status"": ""other"", ""amount"": 0, ""code"": ""XYZ"", ""text"": ""world"", ""short_text"": ""a"", ""long_text"": ""abcdef""}"
+20260515_090035,2,output_validation,long_text,length,length validation failed: 6 > 5,"{""id"": ""u002"", ""status"": ""other"", ""amount"": 0, ""code"": ""XYZ"", ""text"": ""world"", ""short_text"": ""a"", ""long_text"": ""abcdef""}"
+20260515_090035,3,output_validation,amount,min,min validation failed: -5 < 1,"{""id"": ""u003"", ""status"": ""pending"", ""amount"": -5, ""code"": ""AB1"", ""text"": ""test"", ""short_text"": ""abcd"", ""long_text"": ""abc""}"
+20260515_090035,3,output_validation,code,regex,regex validation failed: 'AB1' does not match ^[A-Z]{3}$,"{""id"": ""u003"", ""status"": ""pending"", ""amount"": -5, ""code"": ""AB1"", ""text"": ""test"", ""short_text"": ""abcd"", ""long_text"": ""abc""}"

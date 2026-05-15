@@ -1,0 +1,43 @@
+version: 1
+project:
+  name: validation_filter_and_errors
+inputs:
+  users:
+    path: ./input_users_validation_bad.csv
+    schema:
+      user_id:
+        type: string
+        required: true
+      status:
+        type: string
+      amount:
+        type: decimal
+      code:
+        type: string
+      text:
+        type: string
+      short_text:
+        type: string
+      long_text:
+        type: string
+filters:
+  exclude:
+    - if: users.amount == 20
+      reason: high amount filtered
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id, amount]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    amount:
+      source: users.amount
+validations:
+  input:
+    - field: users.user_id
+      rule: required
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

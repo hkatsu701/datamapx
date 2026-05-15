@@ -1,0 +1,35 @@
+version: 1
+project:
+  name: lookup_mapping
+inputs:
+  users:
+    path: ./input_users_lookup.csv
+    schema:
+      user_id:
+        type: string
+      region_code:
+        type: string
+      department_code:
+        type: string
+references:
+  departments:
+    path: ./ref_departments_lookup.csv
+    key: department_code
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id, department_name]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    department_name:
+      lookup:
+        reference: departments
+        key: users.department_code
+        value: department_name
+        on_missing: default
+        default: Unknown
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

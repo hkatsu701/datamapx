@@ -1,0 +1,22 @@
+version: 1
+project:
+  name: mapping_expression
+inputs:
+  users:
+    path: ./input_users.csv
+    schema:
+      user_id:
+        type: string
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id, calculated]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    calculated:
+      expression: users.user_id
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

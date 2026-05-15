@@ -1,0 +1,26 @@
+version: 1
+project:
+  name: expression_missing_value
+inputs:
+  users:
+    path: ./input_users_expression_missing.csv
+    schema:
+      user_id:
+        type: string
+      price:
+        type: decimal
+      tax:
+        type: decimal
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id, result]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    result:
+      expression: users.price + users.tax
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

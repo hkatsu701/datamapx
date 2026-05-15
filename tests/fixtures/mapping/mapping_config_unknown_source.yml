@@ -1,0 +1,26 @@
+version: 1
+project:
+  name: mapping_unknown_source
+inputs:
+  users:
+    path: ./input_users.csv
+    schema:
+      user_id:
+        type: string
+      status_code:
+        type: string
+      unknown_source:
+        type: string
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id, missing]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    missing:
+      source: users.unknown_source
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

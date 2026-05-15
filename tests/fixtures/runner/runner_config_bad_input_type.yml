@@ -1,0 +1,46 @@
+version: 1
+
+project:
+  name: runner_bad_input_type
+
+inputs:
+  users:
+    path: ./input_bad_amount.csv
+    schema:
+      user_id:
+        type: string
+        required: true
+      amount:
+        type: decimal
+      department_code:
+        type: string
+
+references:
+  departments:
+    path: ./ref_departments.csv
+    key: department_code
+    on_duplicate: error
+
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns:
+      - id
+      - amount
+      - department_name
+
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    amount:
+      source: users.amount
+    department_name:
+      lookup:
+        reference: departments
+        key: users.department_code
+        value: department_name
+
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

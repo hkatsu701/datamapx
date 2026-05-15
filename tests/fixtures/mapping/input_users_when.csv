@@ -1,0 +1,4 @@
+user_id,active,amount,status,deleted_at
+u001,true,150,active,
+u002,false,100,pending,2024-01-01
+u003,,50,deleted,

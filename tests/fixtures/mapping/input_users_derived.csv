@@ -1,0 +1,3 @@
+user_id,last_name,first_name,price,quantity,status_code,department_code,active
+u001,Yamada,Taro,100,2,A,D001,true
+u002,Sato,Hanako,50,1,I,D002,false

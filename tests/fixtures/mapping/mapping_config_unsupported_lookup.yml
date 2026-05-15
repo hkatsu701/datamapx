@@ -1,0 +1,31 @@
+version: 1
+project:
+  name: mapping_lookup
+inputs:
+  users:
+    path: ./input_users.csv
+    schema:
+      user_id:
+        type: string
+      status_code:
+        type: string
+references:
+  statuses:
+    path: ./statuses.csv
+    key: status_code
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id, status]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    status:
+      lookup:
+        reference: statuses
+        key: users.status_code
+        value: status_name
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

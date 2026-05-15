@@ -1,0 +1,107 @@
+version: 1
+project:
+  name: run_with_errors
+
+inputs:
+  users:
+    path: ./input_users_run_with_errors.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      user_id:
+        type: string
+        required: true
+        normalize: [trim]
+      name:
+        type: string
+        required: true
+        normalize: [trim]
+      status:
+        type: string
+        required: true
+        normalize: [trim]
+      amount:
+        type: decimal
+        required: true
+        normalize: [trim]
+      department_code:
+        type: string
+        required: true
+        normalize: [trim]
+
+references:
+  departments:
+    path: ./ref_departments_run.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: department_code
+    on_duplicate: error
+
+filters:
+  exclude:
+    - if: users.amount == 0
+      reason: zero amount is excluded
+
+outputs:
+  users_out:
+    path: ./output/users_out.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\n"
+    if_exists: error
+    columns:
+      - id
+      - name
+      - system_code
+      - status
+      - department_name
+      - total_amount
+
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    name:
+      source: users.name
+    system_code:
+      value: CRM
+    status:
+      source: users.status
+    department_name:
+      lookup:
+        reference: departments
+        key: users.department_code
+        value: department_name
+        on_missing: default
+        default: Unknown
+    total_amount:
+      expression: users.amount * 2
+
+validations:
+  input:
+    - field: users.user_id
+      rule: required
+  output:
+    - field: id
+      rule: required
+    - field: total_amount
+      rule: min
+      value: 0
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./reports/summary.json

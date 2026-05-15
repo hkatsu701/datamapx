@@ -1,0 +1,116 @@
+version: 1
+
+project:
+  name: validation_errors
+  description: Validation example with row-level errors
+
+inputs:
+  users:
+    path: ./input/users.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      user_id:
+        type: string
+        required: true
+        normalize: [trim]
+      status:
+        type: string
+        required: true
+        normalize: [trim]
+      amount:
+        type: decimal
+        required: true
+        normalize: [trim]
+      code:
+        type: string
+        required: true
+        normalize: [trim]
+      text:
+        type: string
+        required: true
+        normalize: [trim]
+      short_text:
+        type: string
+        required: true
+        normalize: [trim]
+      long_text:
+        type: string
+        required: true
+        normalize: [trim]
+
+outputs:
+  users_out:
+    path: ./output/users_out.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\n"
+    if_exists: overwrite
+    columns:
+      - id
+      - status
+      - amount
+      - code
+      - text
+      - short_text
+      - long_text
+
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    status:
+      source: users.status
+    amount:
+      source: users.amount
+    code:
+      source: users.code
+    text:
+      source: users.text
+    short_text:
+      source: users.short_text
+    long_text:
+      source: users.long_text
+
+validations:
+  input:
+    - field: users.user_id
+      rule: required
+  output:
+    - field: id
+      rule: required
+    - field: status
+      rule: enum
+      values: [active, inactive, pending]
+    - field: amount
+      rule: min
+      value: 1
+    - field: amount
+      rule: max
+      value: 100
+    - field: code
+      rule: regex
+      pattern: "^[A-Z]{3}$"
+    - field: short_text
+      rule: length
+      min: 2
+    - field: long_text
+      rule: length
+      max: 5
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./reports/summary.json

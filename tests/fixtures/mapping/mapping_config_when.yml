@@ -1,0 +1,92 @@
+version: 1
+project:
+  name: when_mapping
+inputs:
+  users:
+    path: ./input_users_when.csv
+    schema:
+      user_id:
+        type: string
+      active:
+        type: boolean
+      amount:
+        type: decimal
+      status:
+        type: string
+      deleted_at:
+        type: date
+references: {}
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns:
+      - id
+      - active_label
+      - default_label
+      - not_active_label
+      - gt_label
+      - gte_label
+      - lt_label
+      - lte_label
+      - in_label
+      - not_in_label
+      - null_label
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    active_label:
+      when:
+        - if: users.active == true
+          then: enabled
+        - if: users.active == false
+          then: disabled
+      default: unknown
+    default_label:
+      when:
+        - if: users.status == "missing"
+          then: hit
+      default: fallback
+    not_active_label:
+      when:
+        - if: users.active != true
+          then: not_true
+      default: true_value
+    gt_label:
+      when:
+        - if: users.amount > 100
+          then: gt
+      default: other
+    gte_label:
+      when:
+        - if: users.amount >= 100
+          then: gte
+      default: other
+    lt_label:
+      when:
+        - if: users.amount < 100
+          then: lt
+      default: other
+    lte_label:
+      when:
+        - if: users.amount <= 100
+          then: lte
+      default: other
+    in_label:
+      when:
+        - if: users.status in ["active", "pending"]
+          then: included
+      default: excluded
+    not_in_label:
+      when:
+        - if: users.status not in ["deleted", "cancelled"]
+          then: allowed
+      default: blocked
+    null_label:
+      when:
+        - if: users.deleted_at == null
+          then: is_null
+      default: not_null
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

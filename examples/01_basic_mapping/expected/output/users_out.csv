@@ -1,0 +1,4 @@
+id,full_name,status,total_amount,system_code
+u001,Yamada Taro,active,200,CRM
+u002,Sato Hanako,inactive,250,CRM
+u003,Tanaka Jiro,unknown,240,CRM

@@ -1,0 +1,89 @@
+version: 1
+
+project:
+  name: basic_mapping
+  description: Minimal source/value/concat/map/expression example
+
+inputs:
+  users:
+    path: ./input/users.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      user_id:
+        type: string
+        required: true
+        normalize: [trim]
+      last_name:
+        type: string
+        required: true
+        normalize: [trim]
+      first_name:
+        type: string
+        required: true
+        normalize: [trim]
+      status_code:
+        type: string
+        required: true
+        normalize: [trim]
+      price:
+        type: decimal
+        required: true
+        normalize: [trim, remove_commas, remove_currency_symbol]
+      quantity:
+        type: integer
+        required: true
+        normalize: [trim, remove_commas]
+
+outputs:
+  users_out:
+    path: ./output/users_out.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\n"
+    if_exists: overwrite
+    columns:
+      - id
+      - full_name
+      - status
+      - total_amount
+      - system_code
+
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    full_name:
+      concat:
+        values:
+          - users.last_name
+          - " "
+          - users.first_name
+    status:
+      map:
+        source: users.status_code
+        values:
+          A: active
+          I: inactive
+        default: unknown
+    total_amount:
+      expression: users.price * users.quantity
+    system_code:
+      value: CRM
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./reports/summary.json

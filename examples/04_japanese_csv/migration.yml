@@ -1,0 +1,96 @@
+version: 1
+
+project:
+  name: japanese_csv
+  description: Japanese CSV example with source_columns
+
+inputs:
+  users:
+    path: ./input/users.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      user_id:
+        source_columns: [顧客ID]
+        type: string
+        required: true
+        normalize: [trim]
+      last_name:
+        source_columns: [姓]
+        type: string
+        required: true
+        normalize: [trim]
+      first_name:
+        source_columns: [名]
+        type: string
+        required: true
+        normalize: [trim]
+      department_code:
+        source_columns: [部署コード]
+        type: string
+        required: true
+        normalize: [trim]
+      amount:
+        source_columns: [金額]
+        type: decimal
+        required: true
+        normalize: [trim, remove_commas, remove_currency_symbol]
+
+references:
+  departments:
+    path: ./ref/departments.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: department_code
+    on_duplicate: error
+
+outputs:
+  users_out:
+    path: ./output/users_out.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\n"
+    if_exists: overwrite
+    columns:
+      - CustomerCode
+      - CustomerName
+      - DepartmentName
+      - Amount
+
+mappings:
+  users_out:
+    CustomerCode:
+      source: users.user_id
+    CustomerName:
+      concat:
+        values:
+          - users.last_name
+          - " "
+          - users.first_name
+    DepartmentName:
+      lookup:
+        reference: departments
+        key: users.department_code
+        value: department_name
+        on_missing: default
+        default: Unknown
+    Amount:
+      source: users.amount
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./reports/summary.json

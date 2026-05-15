@@ -1,0 +1,71 @@
+version: 1
+project:
+  name: expression_mapping
+inputs:
+  users:
+    path: ./input_users_expression.csv
+    schema:
+      user_id:
+        type: string
+      price:
+        type: decimal
+      quantity:
+        type: integer
+      tax:
+        type: decimal
+      discount:
+        type: decimal
+      amount:
+        type: decimal
+      a:
+        type: decimal
+      b:
+        type: decimal
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns:
+      - id
+      - multiply
+      - add
+      - subtract
+      - divide
+      - floor_divide
+      - modulo
+      - power
+      - parenthesized
+      - rounded
+      - absolute
+      - minimum
+      - maximum
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    multiply:
+      expression: users.price * users.quantity
+    add:
+      expression: users.price + users.tax
+    subtract:
+      expression: users.price - users.discount
+    divide:
+      expression: users.price / users.quantity
+    floor_divide:
+      expression: users.price // users.quantity
+    modulo:
+      expression: users.price % users.quantity
+    power:
+      expression: users.price ** 2
+    parenthesized:
+      expression: (users.price + users.tax) * users.quantity
+    rounded:
+      expression: round(users.price / users.quantity)
+    absolute:
+      expression: abs(users.amount)
+    minimum:
+      expression: min(users.a, users.b)
+    maximum:
+      expression: max(users.a, users.b)
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

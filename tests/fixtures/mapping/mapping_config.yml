@@ -1,0 +1,60 @@
+version: 1
+
+project:
+  name: mapping_test
+
+inputs:
+  users:
+    path: ./input_users.csv
+    schema:
+      user_id:
+        type: string
+        required: true
+      last_name:
+        type: string
+      first_name:
+        type: string
+      status_code:
+        type: string
+      optional_name:
+        type: string
+
+outputs:
+  users_out:
+    path: ./output/users.csv
+    if_exists: overwrite
+    columns:
+      - id
+      - source_system
+      - full_name
+      - optional_label
+      - status
+
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    source_system:
+      value: CRM
+    full_name:
+      concat:
+        values:
+          - users.last_name
+          - " "
+          - users.first_name
+    optional_label:
+      concat:
+        values:
+          - "name:"
+          - users.optional_name
+    status:
+      map:
+        source: users.status_code
+        values:
+          A: active
+          I: inactive
+        default: unknown
+
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

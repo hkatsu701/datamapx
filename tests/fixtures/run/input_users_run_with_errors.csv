@@ -1,0 +1,5 @@
+user_id,name,status,amount,department_code
+u001,Alice,active,100,D001
+u002,Bob,inactive,0,D002
+u003,Carol,pending,-5,D001
+,Dave,active,30,D003

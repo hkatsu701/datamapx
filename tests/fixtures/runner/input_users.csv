@@ -1,0 +1,4 @@
+user_id,name,status_code,amount,department_code
+u001,Alice,A,100,D001
+u002,Bob,I,200,D002
+u003,Carol,X,300,D003

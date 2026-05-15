@@ -1,0 +1,39 @@
+version: 1
+project:
+  name: filters_derived
+inputs:
+  users:
+    path: ./input_users_filters.csv
+    schema:
+      user_id:
+        type: string
+      active:
+        type: boolean
+      amount:
+        type: decimal
+      price:
+        type: decimal
+      quantity:
+        type: integer
+      status:
+        type: string
+derived:
+  total_amount:
+    expression: users.price * users.quantity
+filters:
+  exclude:
+    - if: derived.total_amount == 0
+      reason: zero total amount
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns: [id, total_amount]
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    total_amount:
+      source: derived.total_amount
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv
