@@ -1,5 +1,7 @@
 # 01 Basic Mapping
 
+Japanese README: [README.ja.md](README.ja.md)
+
 ## 1. This example teaches
 
 - The smallest CSV-to-CSV transformation path.

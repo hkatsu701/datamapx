@@ -1,5 +1,7 @@
 # 04 Japanese CSV
 
+Japanese README: [README.ja.md](README.ja.md)
+
 ## 1. This example teaches
 
 - How Japanese CSV headers map to canonical schema field names.

@@ -1,10 +1,12 @@
 # datamapx
 
+For Japanese documentation, see [README.ja.md](README.ja.md).
+
 datamapx is a Python CLI for CSV-to-CSV migration, transformation, and validation driven by YAML.
 
 It is designed for projects where the migration rules should live in configuration, not in ad hoc Python scripts.
 
-Current release: v0.2.0.
+Current release: v0.2.1.
 
 ## What It Can Do
 

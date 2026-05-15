@@ -1,5 +1,7 @@
 # 02 Lookup
 
+Japanese README: [README.ja.md](README.ja.md)
+
 ## 1. This example teaches
 
 - How to resolve values from a reference CSV.

@@ -1,5 +1,7 @@
 # 03 Validation Errors
 
+Japanese README: [README.ja.md](README.ja.md)
+
 ## 1. This example teaches
 
 - How input and output validation rules work.
