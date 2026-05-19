@@ -160,16 +160,17 @@ No explicit options are required in Phase 1.
 On success:
 
 ```text
-Merge config generated
+merge.yml を作成しました
 
-Config path: ./merge.yml
-Project: generated_merge
-Inputs: 2
-Output columns: id, primary_name
+保存先: ./merge.yml
+プロジェクト名: generated_merge
+入力CSV数: 2
+出力列: id, primary_name
 
-Next steps:
-1. datamapx validate-config ./merge.yml
-2. datamapx merge ./merge.yml
+次にやること:
+1. datamapx merge ./merge.yml
+2. datamapx validate-config <migration.yml>
+3. datamapx dry-run <migration.yml> --limit 5
 ```
 
 ### Limitations

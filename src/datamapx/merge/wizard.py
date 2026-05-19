@@ -19,6 +19,16 @@ SAFE_HEADER_RE = re.compile(r"^[A-Za-z0-9 _-]+$")
 
 MERGE_RULE_TYPES = ["source", "first", "last", "sum", "min", "max", "count"]
 
+MERGE_RULE_HELP = {
+    "source": "1つの入力列をそのまま使う",
+    "first": "候補の先頭にある値を使う",
+    "last": "候補の最後にある値を使う",
+    "sum": "数値を合計する",
+    "min": "最小値を使う",
+    "max": "最大値を使う",
+    "count": "件数を数える",
+}
+
 
 @dataclass(frozen=True)
 class MergeWizardResult:
@@ -33,25 +43,35 @@ class MergeWizardResult:
 def run_merge_wizard() -> MergeWizardResult:
     """Interactively build and write a merge config YAML file."""
 
-    project_name = _prompt_text("Project name", "generated_merge")
-    config_path = Path(_prompt_text("Merge config path", "./merge.yml"))
-    output_path = _prompt_text("Staging CSV output path", "./output/merged.csv")
+    typer.echo(
+        "merge-wizard は、複数CSVをまとめるための merge.yml を対話式で作成します。"
+    )
+    typer.echo("入力欄には、CSVファイルのパスや列名をそのまま入力してください。")
+    typer.echo("キー列は、行を同一レコードとして扱うための列です。")
+    typer.echo("")
+
+    project_name = _prompt_text("プロジェクト名", "generated_merge")
+    config_path = Path(_prompt_text("merge.yml の保存先", "./merge.yml"))
+    output_path = _prompt_text("結合後CSV(staging) の出力先", "./output/merged.csv")
 
     if config_path.exists():
         if not typer.confirm(f"{config_path} exists. Overwrite?", default=False):
-            raise ConfigError(f"{config_path}: merge config file already exists")
+            raise ConfigError(f"{config_path}: merge.yml が既に存在します")
 
-    input_count = _prompt_int("How many input CSV files?", 2)
+    input_count = _prompt_int("入力CSVファイルはいくつありますか？", 2)
     if input_count < 2:
-        raise ConfigError("merge wizard requires at least two input CSV files")
+        raise ConfigError("merge-wizard では入力CSVが2つ以上必要です")
 
     input_specs: list[dict[str, Any]] = []
     input_fields: dict[str, dict[str, str]] = {}
     input_summaries: list[str] = []
 
     for index in range(1, input_count + 1):
-        input_name = _prompt_text(f"Input {index} name", f"input_{index}")
-        input_csv_path = _prompt_text(f"Input {index} CSV path", f"./input/{input_name}.csv")
+        input_name = _prompt_text(f"入力{index}の論理名", f"input_{index}")
+        input_csv_path = _prompt_text(
+            f"入力{index}のCSVファイルパス",
+            f"./input/{input_name}.csv",
+        )
         headers = _read_csv_headers(Path(input_csv_path))
         safe_fields = _build_safe_field_names(headers)
         field_map = dict(zip(headers, safe_fields, strict=True))
@@ -62,10 +82,7 @@ def run_merge_wizard() -> MergeWizardResult:
         }
         input_summaries.append(_format_field_map(input_name, headers, safe_fields))
 
-        key_text = _prompt_text(
-            f"{input_name} key column(s) (comma-separated)",
-            safe_fields[0],
-        )
+        key_text = _prompt_text(f"{input_name} のキー列 (カンマ区切り)", safe_fields[0])
         key_fields = _normalize_key_fields(key_text, input_name, input_fields)
         input_specs.append(
             {
@@ -79,28 +96,40 @@ def run_merge_wizard() -> MergeWizardResult:
         )
 
     base_input = _prompt_choice(
-        "Base input name",
+        "基準にする入力名",
         [spec["name"] for spec in input_specs],
         input_specs[0]["name"],
     )
-    join_type = _prompt_choice("Join type", ["left", "inner"], "left")
+    join_type = _prompt_choice(
+        "結合方法",
+        ["left", "inner"],
+        "left",
+        help_text="left = 基準CSVを残す / inner = 両方にある行だけ残す",
+    )
 
     base_spec = next(spec for spec in input_specs if spec["name"] == base_input)
     default_output_columns = ",".join(base_spec["safe_fields"])
-    output_columns = _prompt_list("Output columns (comma-separated)", default_output_columns)
+    output_columns = _prompt_list(
+        "出力したい列名 (カンマ区切り)",
+        default_output_columns,
+    )
     if not output_columns:
-        raise ConfigError("merge wizard requires at least one output column")
+        raise ConfigError("merge-wizard では出力列が1つ以上必要です")
 
     merge_columns: dict[str, dict[str, Any]] = {}
     for output_column in output_columns:
         rule_type = _prompt_choice(
-            f"Rule for {output_column}",
+            f"{output_column} の作り方",
             MERGE_RULE_TYPES,
             "source",
+            help_text=(
+                "source=そのまま使う / first=先頭 / last=最後 / "
+                "sum=合計 / min=最小 / max=最大 / count=件数"
+            ),
         )
         if rule_type == "source":
             reference = _prompt_text(
-                f"Reference for {output_column} (input.field)",
+                f"{output_column} に使う元列 (input.field)",
                 f"{base_input}.{base_spec['safe_fields'][0]}",
             )
             merge_columns[output_column] = {
@@ -110,11 +139,11 @@ def run_merge_wizard() -> MergeWizardResult:
 
         default_refs = _default_merge_references(input_specs, base_input)
         refs_text = _prompt_list(
-            f"References for {output_column} (comma-separated input.field)",
+            f"{output_column} に使う元列 (カンマ区切り input.field)",
             ",".join(default_refs),
         )
         if not refs_text:
-            raise ConfigError(f"{output_column}: merge rule requires at least one reference")
+            raise ConfigError(f"{output_column}: 少なくとも1つの参照列が必要です")
         merge_columns[output_column] = {
             rule_type: _normalize_merge_references(refs_text, input_fields)
         }
@@ -123,7 +152,7 @@ def run_merge_wizard() -> MergeWizardResult:
         "version": 1,
         "project": {
             "name": project_name,
-            "description": "Generated merge config from interactive wizard",
+            "description": "merge-wizard で生成した merge.yml",
         },
         "inputs": {
             spec["name"]: {
@@ -192,7 +221,7 @@ def run_merge_wizard() -> MergeWizardResult:
         )
         config_path.write_text(config_text, encoding="utf-8")
     except OSError as exc:
-        raise ConfigError(f"{config_path}: cannot write merge config: {exc}") from exc
+        raise ConfigError(f"{config_path}: merge.yml を書き込めません: {exc}") from exc
 
     for summary in input_summaries:
         typer.echo(summary)
@@ -217,10 +246,18 @@ def _prompt_int(message: str, default: int) -> int:
         raise ConfigError(f"{message}: integer value required") from exc
 
 
-def _prompt_choice(message: str, options: list[str], default: str) -> str:
-    choice = str(typer.prompt(f"{message} ({', '.join(options)})", default=default)).strip()
+def _prompt_choice(
+    message: str,
+    options: list[str],
+    default: str,
+    help_text: str | None = None,
+) -> str:
+    prompt_message = f"{message} ({', '.join(options)})"
+    if help_text:
+        prompt_message = f"{prompt_message}\n  {help_text}"
+    choice = str(typer.prompt(prompt_message, default=default)).strip()
     if choice not in options:
-        raise ConfigError(f"{message}: must be one of {', '.join(options)}")
+        raise ConfigError(f"{message}: {', '.join(options)} のいずれかを入力してください")
     return choice
 
 
@@ -297,7 +334,7 @@ def _build_raw_header_map(headers: list[str], safe_fields: list[str]) -> dict[st
 def _format_field_map(input_name: str, headers: list[str], safe_fields: list[str]) -> str:
     lines = [f"{input_name} fields:"]
     for header, safe_field in zip(headers, safe_fields, strict=True):
-        lines.append(f"- {header} -> {safe_field}")
+        lines.append(f"- 入力列: {header} -> 内部field: {safe_field}")
     return "\n".join(lines)
 
 

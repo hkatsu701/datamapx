@@ -51,8 +51,8 @@ def test_merge_wizard_command_generates_valid_config(
     result = CliRunner().invoke(app, ["merge-wizard"])
 
     assert result.exit_code == 0
-    assert "Merge config generated" in result.output
-    assert "Next steps:" in result.output
+    assert "merge.yml を作成しました" in result.output
+    assert "次にやること:" in result.output
     assert config_path.exists()
 
     config = load_merge_config(config_path)
@@ -99,4 +99,4 @@ def test_merge_wizard_command_rejects_overwrite(
     result = CliRunner().invoke(app, ["merge-wizard"])
 
     assert result.exit_code == 1
-    assert "merge config file already exists" in result.output
+    assert "merge.yml が既に存在します" in result.output

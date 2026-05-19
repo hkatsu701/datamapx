@@ -350,16 +350,17 @@ def format_merge_wizard_result(result: MergeWizardResult) -> str:
     """Return a human-readable merge wizard summary."""
 
     lines = [
-        "Merge config generated",
+        "merge.yml を作成しました",
         "",
-        f"Config path: {result.config_path}",
-        f"Project: {result.project_name}",
-        f"Inputs: {result.input_count}",
-        f"Output columns: {', '.join(result.output_columns)}",
+        f"保存先: {result.config_path}",
+        f"プロジェクト名: {result.project_name}",
+        f"入力CSV数: {result.input_count}",
+        f"出力列: {', '.join(result.output_columns)}",
         "",
-        "Next steps:",
-        f"1. datamapx validate-config {result.config_path}",
-        f"2. datamapx merge {result.config_path}",
+        "次にやること:",
+        f"1. datamapx merge {result.config_path}",
+        "2. datamapx validate-config <migration.yml>",
+        "3. datamapx dry-run <migration.yml> --limit 5",
     ]
     return "\n".join(lines)
 
