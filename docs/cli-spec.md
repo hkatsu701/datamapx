@@ -97,6 +97,96 @@ Next steps:
 - `1`: CSV read failure, output overwrite conflict, or generated config write failure
 - `2`: invalid CLI usage
 
+## datamapx merge merge.yml
+
+### Purpose
+
+Merge multiple CSV inputs into a single staging CSV before running the existing migration pipeline.
+
+The initial merge implementation is YAML-driven and focuses on exact key-based joins and explicit column aggregation rules.
+
+### Usage
+
+```bash
+datamapx merge merge.yml
+```
+
+### Options
+
+- `--reports-dir PATH`: override the directory where `errors.csv`, `skipped.csv`, and `summary.json` are written.
+
+### Expected output
+
+On success:
+
+- a staging CSV is written to the configured `output.path`
+- `errors.csv`, `skipped.csv`, and `summary.json` are written
+- a merge summary is printed to the console
+
+### Limitations
+
+- Exact-match joins only
+- `left` and `inner` joins only
+- No fuzzy matching or AI-assisted name matching
+- No multiple-output merge
+- The merge stage is separate from the existing `run` transformation pipeline
+
+### Exit code policy
+
+- `0`: merge completed successfully
+- `1`: config error, CSV read error, key validation error, merge rule error, output write error, or report write error
+- `2`: invalid CLI usage
+
+## datamapx merge-wizard
+
+### Purpose
+
+Interactively generate a `merge.yml` configuration from multiple CSV headers and merge rules.
+
+The wizard is a configuration authoring aid only. It does not execute the merge itself.
+
+### Usage
+
+```bash
+datamapx merge-wizard
+```
+
+### Options
+
+No explicit options are required in Phase 1.
+
+### Expected output
+
+On success:
+
+```text
+Merge config generated
+
+Config path: ./merge.yml
+Project: generated_merge
+Inputs: 2
+Output columns: id, primary_name
+
+Next steps:
+1. datamapx validate-config ./merge.yml
+2. datamapx merge ./merge.yml
+```
+
+### Limitations
+
+- Generates merge YAML only.
+- Uses exact key-based merge rules only.
+- Does not infer types.
+- Does not infer lookup, validation, filters, or transform rules.
+- Does not perform merge execution.
+- Does not support fuzzy matching or AI-assisted configuration.
+
+### Exit code policy
+
+- `0`: merge YAML generated successfully
+- `1`: CSV read failure, config validation failure, overwrite conflict, or write failure
+- `2`: invalid CLI usage
+
 ## datamapx inspect migration.yml
 
 ### Purpose

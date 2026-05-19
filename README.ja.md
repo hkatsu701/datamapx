@@ -4,17 +4,21 @@
 
 DataMapX は、YAML 設定に基づいて CSV を CSV に変換・検証する Python CLI ツールです。日本語CSVや日本企業のデータ移行でも使いやすいように、入力列名・内部field名・出力列名を分けて扱えます。
 
-Current release: v0.2.1.
+Current release: v0.3.1.
 
 ## 1. DataMapXとは
 
 - 1つの入力CSVと複数の参照CSVを扱えます。
+- 必要なら複数CSVを `merge` で1つの staging CSV にまとめられます。
+- `merge-wizard` で merge.yml のひな形を対話的に作れます。
 - YAML で変換ルールを定義します。
 - 変換、lookup、条件分岐、計算、検証、レポート出力までを CLI で実行できます。
 
 ## 2. 主な機能
 
 - `source` / `value` / `concat` / `map` / `lookup` / `when` / `expression` / `derived`
+- `merge` による複数CSVの staging 化
+- `merge-wizard` による merge.yml の対話生成
 - フィルタによる行除外
 - 入力・出力 validation
 - `errors.csv` / `skipped.csv` / `summary.json`

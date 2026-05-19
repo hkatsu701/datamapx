@@ -15,6 +15,19 @@ from datamapx.transform.types import convert_series_type
 ROW_NUMBER_COLUMN = "__row_number"
 
 
+def read_csv_frame(
+    path: str,
+    encoding: str,
+    delimiter: str,
+    header: bool,
+    base_path: Path | None = None,
+    nrows: int | None = None,
+) -> pd.DataFrame:
+    """Read a CSV into a dataframe with consistent error handling."""
+
+    return _read_raw_csv(path, encoding, delimiter, header, base_path, nrows)
+
+
 def read_input_csv(
     input_name: str,
     input_config: InputConfig,

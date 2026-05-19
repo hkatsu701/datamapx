@@ -6,16 +6,18 @@ datamapx is a Python CLI for CSV-to-CSV migration, transformation, and validatio
 
 It is designed for projects where the migration rules should live in configuration, not in ad hoc Python scripts.
 
-Current release: v0.2.1.
+Current release: v0.3.1.
 
 ## What It Can Do
 
 - Read one input CSV and multiple reference CSVs.
+- Merge multiple CSVs into one staging CSV before conversion.
+- Create a merge YAML scaffold interactively with `merge-wizard`.
 - Normalize and type-convert input fields from schema definitions.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
 - Apply filters and validations before writing the final output.
 - Write `errors.csv`, `skipped.csv`, and `summary.json`.
-- Run `generate-config`, `validate-config`, `inspect`, `profile-input`, `dry-run`, and `run`.
+- Run `generate-config`, `merge`, `merge-wizard`, `validate-config`, `inspect`, `profile-input`, `dry-run`, and `run`.
 
 ## What It Does Not Do in Phase 1
 
@@ -87,6 +89,8 @@ datamapx generate-config \
 ## CLI Commands
 
 - `generate-config` creates a basic YAML scaffold from CSV headers.
+- `merge` combines multiple CSV inputs into a staging CSV.
+- `merge-wizard` interactively generates a merge YAML scaffold.
 - `validate-config` validates YAML structure, references, and Phase 1 constraints.
 - `inspect` prints a human-readable summary of the configuration.
 - `profile-input` shows a simple profile for the normalized input dataframe.

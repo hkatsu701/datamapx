@@ -1,17 +1,27 @@
 # Roadmap
 
-## v0.2.0
+## v0.3.1
 
-- Basic `generate-config`
-- Header-based YAML scaffolding
-- Source mappings only
+- `merge-wizard` command for interactive merge YAML generation
+- Merge YAML scaffolding from CSV headers and merge rules
 
 Future candidates:
 
 - `--infer-types`
 - `--template`
-- Wizard
 - AI-assisted config generation
+
+## v0.3.0
+
+- `merge` command for staging multiple CSV inputs
+- Exact key-based joins
+- Explicit aggregation rules for staging CSV creation
+
+## v0.2.0
+
+- Basic `generate-config`
+- Header-based YAML scaffolding
+- Source mappings only
 
 ## Phase 1
 

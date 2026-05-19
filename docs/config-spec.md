@@ -16,6 +16,8 @@ Phase 1 supports:
 
 Phase 1 does not support multiple input joins or multiple output files.
 
+The separate `merge` command uses its own YAML configuration to combine multiple CSV files into a staging CSV before the main `run` pipeline is executed.
+
 ## 2. Full YAML example
 
 ```yaml

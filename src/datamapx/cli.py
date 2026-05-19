@@ -14,6 +14,15 @@ from datamapx.exceptions import ConfigError
 from datamapx.io.csv_reader import profile_input_csv
 from datamapx.io.csv_writer import write_output_csv
 from datamapx.io.errors import CsvReadError, CsvWriteError
+from datamapx.merge import (
+    MergeResult,
+    MergeWizardResult,
+    load_merge_config,
+    run_merge_pipeline,
+    run_merge_wizard,
+)
+from datamapx.merge.errors import MergeError
+from datamapx.merge.reports import write_merge_reports
 from datamapx.report import (
     ReportPaths,
     ReportWriteError,
@@ -197,6 +206,46 @@ def profile_input(config_path: Path) -> None:
     typer.echo(format_input_profile(profile))
 
 
+@app.command("merge")
+def merge(
+    config_path: Path,
+    reports_dir: Annotated[Path, typer.Option("--reports-dir")] = None,
+) -> None:
+    """Merge multiple CSV inputs into a single staging CSV."""
+
+    try:
+        config = load_merge_config(config_path)
+        result = run_merge_pipeline(config, config_path)
+        if result.error_count == 0:
+            output_path = write_output_csv(result.output_df, config.output, config_path.parent)
+            result = replace(
+                result,
+                output_file_written=True,
+                output_path=str(output_path),
+            )
+        report_paths = write_merge_reports(result, config, config_path, reports_dir=reports_dir)
+    except (ConfigError, CsvReadError, CsvWriteError, MergeError, ReportWriteError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(format_merge_result(result, report_paths))
+    if result.error_count > 0:
+        raise typer.Exit(1)
+
+
+@app.command("merge-wizard")
+def merge_wizard() -> None:
+    """Interactively generate a merge YAML configuration."""
+
+    try:
+        result = run_merge_wizard()
+    except (ConfigError, ValidationError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(format_merge_wizard_result(result))
+
+
 def format_inspection(config: DatamapxConfig) -> str:
     """Return a human-readable configuration summary."""
 
@@ -266,6 +315,52 @@ def format_input_profile(profile: dict[str, object]) -> str:
     for field in profile["columns"]:
         lines.append(f"- {field}: {dtypes.get(field, 'unknown')}")
 
+    return "\n".join(lines)
+
+
+def format_merge_result(result: MergeResult, report_paths: ReportPaths) -> str:
+    """Return a human-readable merge summary."""
+
+    lines = [
+        "Merge completed" if result.status == "completed" else "Merge failed",
+        "",
+        f"Run ID: {result.run_id}",
+        f"Project: {result.project_name}",
+        "",
+        "Output:",
+        f"- path: {result.output_path}",
+        f"- rows written: {result.output_rows}",
+        "",
+        "Reports:",
+        f"- errors: {report_paths.errors_csv}",
+        f"- skipped: {report_paths.skipped_csv}",
+        f"- summary: {report_paths.summary_json}",
+        "",
+        "Counts:",
+        f"- input rows: {result.input_rows}",
+        f"- output rows: {result.output_rows}",
+        f"- skipped rows: {result.skipped_count}",
+        f"- error rows: {result.error_count}",
+        f"Status: {result.status}",
+    ]
+    return "\n".join(lines)
+
+
+def format_merge_wizard_result(result: MergeWizardResult) -> str:
+    """Return a human-readable merge wizard summary."""
+
+    lines = [
+        "Merge config generated",
+        "",
+        f"Config path: {result.config_path}",
+        f"Project: {result.project_name}",
+        f"Inputs: {result.input_count}",
+        f"Output columns: {', '.join(result.output_columns)}",
+        "",
+        "Next steps:",
+        f"1. datamapx validate-config {result.config_path}",
+        f"2. datamapx merge {result.config_path}",
+    ]
     return "\n".join(lines)
 
 
