@@ -12,7 +12,7 @@ Current release: v0.3.1.
 
 - Read one input CSV and multiple reference CSVs.
 - Merge multiple CSVs into one staging CSV before conversion.
-- Create a merge YAML scaffold interactively with `merge-wizard`.
+- Create a merge YAML scaffold interactively with `merge-wizard` using numbered selections for inputs, output columns, renames, and rules, with optional purpose-based templates, Japanese retry prompts for invalid input, a natural-language final review, and a limited back step from the final review.
 - Normalize and type-convert input fields from schema definitions.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
 - Apply filters and validations before writing the final output.
@@ -90,7 +90,7 @@ datamapx generate-config \
 
 - `generate-config` creates a basic YAML scaffold from CSV headers.
 - `merge` combines multiple CSV inputs into a staging CSV.
-- `merge-wizard` interactively generates a merge YAML scaffold.
+- `merge-wizard` interactively generates a merge YAML scaffold with numbered selections, fixed steps, rename confirmation, optional purpose-based templates, retry prompts for invalid input, a natural-language final review, and a limited back step from the final review.
 - `validate-config` validates YAML structure, references, and Phase 1 constraints.
 - `inspect` prints a human-readable summary of the configuration.
 - `profile-input` shows a simple profile for the normalized input dataframe.
@@ -142,6 +142,7 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - [02_lookup](examples/02_lookup/README.md)
 - [03_validation_errors](examples/03_validation_errors/README.md)
 - [04_japanese_csv](examples/04_japanese_csv/README.md)
+- [05_merge_wizard](examples/05_merge_wizard/README.md)
 
 ## Output Files
 

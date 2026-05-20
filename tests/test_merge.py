@@ -4,12 +4,15 @@ import json
 import shutil
 from pathlib import Path
 
+import pandas as pd
+import pytest
 from typer.testing import CliRunner
 
 from datamapx.cli import app
-from datamapx.merge import load_merge_config, run_merge_pipeline
+from datamapx.merge import load_merge_config, run_merge_pipeline, run_merge_wizard
 
 FIXTURES = Path(__file__).parent / "fixtures" / "merge"
+EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 
 
 def test_load_merge_config_success() -> None:
@@ -119,7 +122,231 @@ def test_merge_summary_json_contains_counts(tmp_path: Path) -> None:
     assert summary["counts"]["output_rows"] == 3
 
 
+def test_example_05_merge_wizard_merge_config_loads() -> None:
+    config = load_merge_config(EXAMPLES / "05_merge_wizard" / "merge.yml")
+
+    assert config.project.name == "merge_wizard_example"
+    assert config.merge.base == "users"
+    assert config.merge.join_type == "left"
+    assert list(config.merge.columns) == [
+        "id",
+        "display_name",
+        "total_amount",
+        "department_name",
+    ]
+    assert config.output.columns == [
+        "id",
+        "display_name",
+        "total_amount",
+        "department_name",
+    ]
+
+
+def test_example_05_merge_wizard_pipeline_matches_expected_output(
+    tmp_path: Path,
+) -> None:
+    example_dir = _copy_example_tree(tmp_path, "05_merge_wizard")
+    config_path = example_dir / "merge.yml"
+    expected_path = example_dir / "expected" / "output" / "merged.csv"
+
+    config = load_merge_config(config_path)
+    result = run_merge_pipeline(config, config_path)
+
+    expected_df = pd.read_csv(expected_path)
+    pd.testing.assert_frame_equal(
+        result.output_df.reset_index(drop=True),
+        expected_df,
+        check_dtype=False,
+    )
+    assert result.status == "completed"
+    assert result.output_rows == 3
+
+
+def test_merge_wizard_generates_valid_merge_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = tmp_path / "merge.yml"
+    output_path = tmp_path / "staging" / "merged.csv"
+    responses = iter(
+        [
+            "1",
+            "merge_wizard_sample",
+            str(config_path),
+            str(output_path),
+            "2",
+            "users",
+            str(FIXTURES / "input_users.csv"),
+            "1",
+            "accounts",
+            str(FIXTURES / "input_accounts.csv"),
+            "1",
+            "1",
+            "1",
+            "1,2,3",
+            "total_amount",
+            "4",
+            "3,7",
+            "1",
+        ]
+    )
+
+    monkeypatch.setattr("typer.prompt", lambda *_args, **_kwargs: next(responses))
+    confirm_responses = iter([True, False, False, False, False, True])
+    monkeypatch.setattr("typer.confirm", lambda *_args, **_kwargs: next(confirm_responses))
+
+    result = run_merge_wizard()
+    captured = capsys.readouterr().out
+
+    assert result.config_path == config_path
+    assert result.project_name == "merge_wizard_sample"
+    assert result.input_count == 2
+    assert result.output_columns == ["id", "name", "amount", "total_amount"]
+    assert config_path.exists()
+
+    config = load_merge_config(config_path)
+    assert config.project.name == "merge_wizard_sample"
+    assert config.merge.base == "users"
+    assert config.merge.join_type == "left"
+    assert list(config.merge.columns) == ["id", "name", "amount", "total_amount"]
+    assert config.output.path == str(output_path)
+    assert "この設定で行うこと" in captured
+    assert "users を基準にして" in captured
+    assert "合計します" in captured
+    assert config.merge.columns["name"].source == "users.name"
+    assert config.merge.columns["total_amount"].sum == [
+        "users.amount",
+        "accounts.amount",
+    ]
+
+
+def test_merge_wizard_cli_generates_merge_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "merge.yml"
+    output_path = tmp_path / "staging" / "merged.csv"
+    responses = iter(
+        [
+            "1",
+            "merge_wizard_sample",
+            str(config_path),
+            str(output_path),
+            "2",
+            "users",
+            str(FIXTURES / "input_users.csv"),
+            "1",
+            "accounts",
+            str(FIXTURES / "input_accounts.csv"),
+            "1",
+            "1",
+            "1",
+            "1,2",
+            "1",
+        ]
+    )
+
+    monkeypatch.setattr("typer.prompt", lambda *_args, **_kwargs: next(responses))
+    confirm_responses = iter([False, False, False, True, True])
+    monkeypatch.setattr("typer.confirm", lambda *_args, **_kwargs: next(confirm_responses))
+
+    result = CliRunner().invoke(app, ["merge-wizard"])
+
+    assert result.exit_code == 0
+    assert "1/6. 最初にやりたいことを番号で選択" in result.output
+    assert "入力1" in result.output
+    assert "sample:" in result.output
+    assert "出力したい列を番号で選択" in result.output
+    assert "出力列名の確認" in result.output
+    assert "推奨ルールを適用します。" in result.output
+    assert "Review" in result.output
+    assert "merge.yml を作成しました" in result.output
+    assert config_path.exists()
+
+    config = load_merge_config(config_path)
+    assert config.output.columns == ["id", "name"]
+    assert config.merge.columns["id"].source == "users.id"
+    assert config.merge.columns["name"].source == "users.name"
+
+
+def test_merge_wizard_review_can_redo_column_rules(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = tmp_path / "merge.yml"
+    output_path = tmp_path / "staging" / "merged.csv"
+    responses = iter(
+        [
+            "2",
+            "merge_wizard_sample",
+            str(config_path),
+            str(output_path),
+            "2",
+            "users",
+            str(FIXTURES / "input_users.csv"),
+            "1",
+            "accounts",
+            str(FIXTURES / "input_accounts.csv"),
+            "1",
+            "1",
+            "1",
+            "1,6",
+            "2",
+            "1",
+        ]
+    )
+
+    merge_columns_sequence = iter(
+        [
+            {
+                "id": {"source": "users.id"},
+                "department_name": {"source": "accounts.department_name"},
+            },
+            {
+                "id": {"source": "users.id"},
+                "department_name": {
+                    "first": ["users.name", "accounts.department_name"],
+                },
+            },
+        ]
+    )
+
+    monkeypatch.setattr("typer.prompt", lambda *_args, **_kwargs: next(responses))
+    monkeypatch.setattr(
+        "datamapx.merge.wizard._prompt_merge_column_rules",
+        lambda *args, **kwargs: next(merge_columns_sequence),
+    )
+    confirm_responses = iter([False, False, False])
+    monkeypatch.setattr("typer.confirm", lambda *_args, **_kwargs: next(confirm_responses))
+
+    result = run_merge_wizard()
+    captured = capsys.readouterr().out
+
+    assert result.config_path == config_path
+    assert config_path.exists()
+    assert captured.count("Review") >= 2
+    assert "この設定で行うこと" in captured
+    assert "そのまま使います" in captured
+    assert "先頭の値を使います" in captured
+
+    config = load_merge_config(config_path)
+    assert config.output.columns == ["id", "department_name"]
+    assert config.merge.columns["id"].source == "users.id"
+    assert config.merge.columns["department_name"].first == [
+        "users.name",
+        "accounts.department_name",
+    ]
+
+
 def _copy_fixture_tree(tmp_path: Path, name: str) -> Path:
     target_dir = tmp_path / "merge"
     shutil.copytree(FIXTURES, target_dir)
+    return target_dir / name
+
+
+def _copy_example_tree(tmp_path: Path, name: str) -> Path:
+    target_dir = tmp_path / "examples"
+    shutil.copytree(EXAMPLES, target_dir)
     return target_dir / name

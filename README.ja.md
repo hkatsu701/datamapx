@@ -10,7 +10,7 @@ Current release: v0.3.1.
 
 - 1つの入力CSVと複数の参照CSVを扱えます。
 - 必要なら複数CSVを `merge` で1つの staging CSV にまとめられます。
-- `merge-wizard` で merge.yml のひな形を対話的に作れます。
+- `merge-wizard` で merge.yml のひな形を対話的に作れます。入力列・出力列・出力列名の確認・ルールを番号で選び、必要なら推奨ルールをまとめて使えます。入力を間違えても日本語の案内でやり直せます。最後の確認画面では自然文で内容を確認でき、そこから列ルールだけ戻ってやり直せます。手順も固定されています。
 - YAML で変換ルールを定義します。
 - 変換、lookup、条件分岐、計算、検証、レポート出力までを CLI で実行できます。
 
@@ -18,7 +18,7 @@ Current release: v0.3.1.
 
 - `source` / `value` / `concat` / `map` / `lookup` / `when` / `expression` / `derived`
 - `merge` による複数CSVの staging 化
-- `merge-wizard` による merge.yml の対話生成
+- `merge-wizard` による merge.yml の対話生成（番号選択・固定手順・推奨ルール・入力ミス時の再入力案内・自然文レビュー・最後の確認画面からの限定的な戻り）
 - フィルタによる行除外
 - 入力・出力 validation
 - `errors.csv` / `skipped.csv` / `summary.json`
@@ -160,6 +160,7 @@ mappings:
 - [02_lookup](examples/02_lookup/README.md) / [日本語](examples/02_lookup/README.ja.md)
 - [03_validation_errors](examples/03_validation_errors/README.md) / [日本語](examples/03_validation_errors/README.ja.md)
 - [04_japanese_csv](examples/04_japanese_csv/README.md) / [日本語](examples/04_japanese_csv/README.ja.md)
+- [05_merge_wizard](examples/05_merge_wizard/README.md) / [日本語](examples/05_merge_wizard/README.ja.md)
 
 ## 14. 日本語CSVの扱い
 

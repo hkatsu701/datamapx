@@ -144,6 +144,13 @@ On success:
 Interactively generate a `merge.yml` configuration from multiple CSV headers and merge rules.
 
 The wizard is a configuration authoring aid only. It does not execute the merge itself.
+Input selection, output column selection, output column renaming, join type, rule type, and merge references are chosen by number to reduce typing errors.
+Purpose-based templates can apply recommended rules to numbered output columns before manual rule entry.
+The screen flow is: project/path setup -> input registration -> merge policy -> output columns -> output column renaming -> template selection -> column rules -> review -> save / redo column rules / cancel.
+Invalid numeric input is retried up to three times with Japanese guidance.
+From the review screen, you can save the YAML, redo only the column rules, or cancel.
+The review screen summarizes the merge in natural language so non-YAML users can confirm the result before saving.
+See [examples/05_merge_wizard/README.md](../examples/05_merge_wizard/README.md) for a runnable merge-wizard example.
 
 ### Usage
 
@@ -177,6 +184,12 @@ merge.yml を作成しました
 
 - Generates merge YAML only.
 - Uses exact key-based merge rules only.
+- Uses numbered selections for inputs, output columns, join type, rule types, and merge references.
+- Shows the selected source column, CSV header, and sample values before each output column rename.
+- Allows selected output column names to be renamed one by one before rule assignment.
+- Can apply purpose-based recommended rules to numbered output columns.
+- Allows optional manual output column names only for columns that cannot be chosen directly from the numbered candidates.
+- Retries invalid numeric and text input up to three times with Japanese retry messages.
 - Does not infer types.
 - Does not infer lookup, validation, filters, or transform rules.
 - Does not perform merge execution.

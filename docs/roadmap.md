@@ -4,6 +4,22 @@
 
 - `merge-wizard` command for interactive merge YAML generation
 - Merge YAML scaffolding from CSV headers and merge rules
+- Merge-wizard output columns selected by number
+- Merge-wizard output column rename assistance
+- Merge-wizard purpose-based templates
+- Merge-wizard clearer retry messages for invalid input
+- Merge-wizard limited back button for the last step
+- Merge-wizard natural-language review output
+
+## merge-wizard usability roadmap
+
+Goal: make `merge-wizard` usable by people who know what they want to merge but do not write YAML.
+
+Each step should be small, covered by focused tests, and documented in `README.md`, `README.ja.md`, and `docs/cli-spec.md` when behavior changes.
+
+Completed:
+
+- `examples/05_merge_wizard/`
 
 Future candidates:
 
