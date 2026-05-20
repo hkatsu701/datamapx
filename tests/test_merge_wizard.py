@@ -10,7 +10,6 @@ from datamapx.merge import load_merge_config
 from datamapx.merge.wizard import (
     ChoiceOption,
     ColumnPreview,
-    _build_safe_field_names,
     _format_input_preview,
     _format_numbered_options,
     _prioritize_columns,
@@ -19,6 +18,7 @@ from datamapx.merge.wizard import (
     _prompt_number_choices,
     _prompt_text,
 )
+from datamapx.naming import build_safe_field_names
 
 FIXTURES = Path(__file__).parent / "fixtures" / "merge"
 
@@ -227,7 +227,7 @@ def test_prompt_text_reports_japanese_retry_message(
 
 
 def test_build_safe_field_names_replaces_dots_with_underscores() -> None:
-    assert _build_safe_field_names(["update.records.csv", "update records.csv"]) == [
+    assert build_safe_field_names(["update.records.csv", "update records.csv"]) == [
         "update_records_csv",
         "update_records_csv_2",
     ]

@@ -10,6 +10,7 @@ Current release: v0.3.1.
 
 - 1つの入力CSVと複数の参照CSVを扱えます。
 - 必要なら複数CSVを `merge` で1つの staging CSV にまとめられます。
+- `migration-wizard` で migration.yml のひな形を対話的に作れます。入力先・出力先・出力名の方針に加えて、出力列を番号で選び、必要なら個別に rename できます。詳細設定では input schema、reference schema、reference CSV、derived、lookup、validations、filters、checks、output 設定、error_handling、runtime なども対話式で追加できます。保存前には自然文のレビュー画面が出て、出力列と rule をやり直すこともできます。
 - `merge-wizard` で merge.yml のひな形を対話的に作れます。入力列・出力列・出力列名の確認・ルールを番号で選び、必要なら推奨ルールをまとめて使えます。入力を間違えても日本語の案内でやり直せます。最後の確認画面では自然文で内容を確認でき、そこから列ルールだけ戻ってやり直せます。入力プレビューと番号は同じ並びで表示され、長い項目名は折り返して見やすくしています。
 - YAML で変換ルールを定義します。
 - 変換、lookup、条件分岐、計算、検証、レポート出力までを CLI で実行できます。
@@ -18,6 +19,7 @@ Current release: v0.3.1.
 
 - `source` / `value` / `concat` / `map` / `lookup` / `when` / `expression` / `derived`
 - `merge` による複数CSVの staging 化
+- `migration-wizard` による migration.yml の対話生成（番号選択・個別 rename・出力名方針選択・詳細設定・保存前レビューつき）
 - `merge-wizard` による merge.yml の対話生成（番号選択・固定手順・推奨ルール・入力ミス時の再入力案内・自然文レビュー・最後の確認画面からの限定的な戻り・入力順と番号順の一致・長い候補の折り返し表示）
 - フィルタによる行除外
 - 入力・出力 validation
@@ -29,6 +31,8 @@ Current release: v0.3.1.
 
 - CSV ヘッダーから最低限動作する `migration.yml` を作る
 - 日本語ヘッダーを `source_columns` に保持する
+- `migration-wizard` で lookup、derived、条件分岐、計算式、validation、filters、checks を含む `migration.yml` を対話的に作る
+- `merge-wizard` で複数CSVを staging CSV にまとめる `merge.yml` を対話的に作る
 - `dry-run` で変換結果を確認する
 - `run` で main output CSV とレポートを出力する
 
@@ -36,10 +40,8 @@ Current release: v0.3.1.
 
 - 型推定
 - `required` 推定
-- lookup 自動生成
-- validation 自動生成
-- filters 自動生成
-- template / wizard / AI 支援
+- 自然言語だけからの完全自動 YAML 生成
+- lookup / validation / filters / checks の完全自動推定
 - Excel / JSON / DB 対応
 - 複数 Input / 複数 Output
 - `check` rule の本格実行
@@ -89,7 +91,7 @@ datamapx run /tmp/generated_migration.yml
 
 - 型推定はしません
 - `required` 推定はしません
-- lookup や validation は自動生成しません
+- lookup、validation、filters、checks は自動生成しません
 - 生成後に必要に応じて `migration.yml` を編集します
 - まずは `validate-config` と `dry-run` で確認します
 
@@ -161,6 +163,7 @@ mappings:
 - [03_validation_errors](examples/03_validation_errors/README.md) / [日本語](examples/03_validation_errors/README.ja.md)
 - [04_japanese_csv](examples/04_japanese_csv/README.md) / [日本語](examples/04_japanese_csv/README.ja.md)
 - [05_merge_wizard](examples/05_merge_wizard/README.md) / [日本語](examples/05_merge_wizard/README.ja.md)
+- [06_migration_wizard](examples/06_migration_wizard/README.md) / [日本語](examples/06_migration_wizard/README.ja.md)
 
 ## 14. 日本語CSVの扱い
 

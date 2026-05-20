@@ -1,0 +1,166 @@
+version: 1
+
+project:
+  name: migration_wizard_example
+  description: Full wizard example with lookup, derived, filters, validations, and checks
+
+inputs:
+  users:
+    path: ./input/users.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      user_id:
+        source_columns: [User ID]
+        type: string
+        required: true
+        normalize: [trim]
+      full_name:
+        source_columns: [Full Name]
+        type: string
+        required: true
+        normalize: [trim]
+      department_code:
+        source_columns: [Department Code]
+        type: string
+        required: true
+        normalize: [trim]
+      amount:
+        source_columns: [Amount]
+        type: decimal
+        required: true
+        normalize: [trim, remove_commas]
+      status_code:
+        source_columns: [Status Code]
+        type: string
+        required: true
+        normalize: [trim]
+      active_flag:
+        source_columns: [Active Flag]
+        type: boolean
+        required: true
+        normalize: [trim]
+        true_values: ["Y", "Yes", "1"]
+        false_values: ["N", "No", "0"]
+
+references:
+  departments:
+    path: ./ref/departments.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: dept_code
+    on_duplicate: error
+    schema:
+      dept_code:
+        source_columns: [Dept Code]
+        type: string
+        required: true
+        normalize: [trim]
+      dept_name:
+        source_columns: [Dept Name]
+        type: string
+        required: true
+        normalize: [trim]
+      bonus_rate:
+        source_columns: [Bonus Rate]
+        type: decimal
+        required: false
+        normalize: [trim]
+
+derived:
+  tax_amount:
+    expression: users.amount * 0.1
+
+outputs:
+  users_out:
+    path: ./output/users_out.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\n"
+    if_exists: overwrite
+    columns:
+      - user_id
+      - display_name
+      - department_name
+      - bonus_rate
+      - gross_amount
+      - status_label
+
+mappings:
+  users_out:
+    user_id:
+      source: users.user_id
+    display_name:
+      concat:
+        values:
+          - users.full_name
+          - " ("
+          - users.department_code
+          - ")"
+    department_name:
+      lookup:
+        reference: departments
+        key: users.department_code
+        value: dept_name
+        on_missing: default
+        default: Unknown
+    bonus_rate:
+      lookup:
+        reference: departments
+        key: users.department_code
+        value: bonus_rate
+        on_missing: default
+        default: 0
+    gross_amount:
+      expression: users.amount + derived.tax_amount
+    status_label:
+      when:
+        - if: users.active_flag == true
+          then: Active
+        - if: users.status_code == "HOLD"
+          then: Hold
+      default: Inactive
+
+validations:
+  input:
+    - field: users.full_name
+      rule: required
+    - field: users.amount
+      rule: min
+      value: 1
+  output:
+    - field: status_label
+      rule: enum
+      values: [Active, Hold, Inactive]
+
+filters:
+  include:
+    - if: users.amount > 0
+      reason: keep positive amounts
+  exclude:
+    - if: users.status_code == "VOID"
+      reason: drop void rows
+
+checks:
+  - name: output_rows_at_least_two
+    rule: output_rows >= 2
+  - name: validation_errors_present_for_zero_amount
+    rule: error_rows >= 1
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./reports/summary.json

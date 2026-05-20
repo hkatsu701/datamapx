@@ -87,7 +87,7 @@ Next steps:
 - All schema fields are generated as `type: string`.
 - All schema fields are generated with `required: false`.
 - All schema fields use `normalize: [trim]`.
-- `lookup`, `concat`, `map`, `when`, `expression`, `derived`, `filters`, and `validations` are not generated.
+- `lookup`, `concat`, `map`, `when`, `expression`, `derived`, `filters`, `validations`, and `checks` are not generated.
 - `header: false` CSV files are not supported.
 - If raw output headers are duplicated or cannot be used safely, the generator may fall back to safe generated output column names to keep the config valid.
 
@@ -95,6 +95,76 @@ Next steps:
 
 - `0`: config generated successfully
 - `1`: CSV read failure, output overwrite conflict, or generated config write failure
+- `2`: invalid CLI usage
+
+## datamapx migration-wizard
+
+### Purpose
+
+Interactively generate a `migration.yml` configuration from a single input CSV and output path.
+
+The wizard is a configuration authoring aid only. It does not run validation or write any output CSV.
+It prompts for project metadata, paths, input/output names, whether output columns should preserve the original CSV headers or use safe generated names, which output columns to include by number, and optional input schema overrides.
+Selected output columns can be renamed one by one before the YAML is written.
+In advanced mode it can also add input schema overrides, reference schema overrides, reference CSVs, derived fields, validations, filters, checks, output settings, error handling, runtime settings, and per-column rules for `source`, `value`, `concat`, `map`, `when`, `lookup`, and `expression`.
+Before saving, the wizard shows a natural-language review of the generated migration and lets you save, redo only the output column / rule section, or cancel.
+See [examples/06_migration_wizard/README.md](../examples/06_migration_wizard/README.md) for a runnable migration-wizard example.
+
+### Usage
+
+```bash
+datamapx migration-wizard
+```
+
+### Expected output
+
+On success:
+
+```text
+migration.yml を作成しました
+
+保存先: ./migration.yml
+プロジェクト名: generated_migration
+入力CSV: ./input/users.csv
+出力CSV: ./output/users_out.csv
+入力名: input
+出力名: output
+出力列名の方針: 元のCSV列名
+設定モード: 基本設定のみ
+reference 数: 0
+reference schema 変更数: 0
+derived 数: 0
+validation 数: 0
+filter 数: 0
+check 数: 0
+schema 変更数: 0
+output.if_exists: error
+output.newline: \n
+error_handling.max_errors: 1000
+runtime.log_level: INFO
+出力列: 顧客ID, total_amount
+
+次にやること:
+1. datamapx validate-config ./migration.yml
+2. datamapx dry-run ./migration.yml --limit 5
+3. datamapx run ./migration.yml
+```
+
+### Limitations
+
+- Generates a migration YAML scaffold only.
+- Basic mode uses `source` mappings only.
+- Advanced mode can generate `input schema` overrides, `reference schema` overrides, `lookup`, `derived`, `validations`, `filters`, `checks`, `output` settings, `error_handling`, and `runtime` sections plus non-source mapping rules.
+- Does not execute the migration.
+- Uses the same safe field-name helper as `generate-config`, so headers that cannot be made safe fall back to generated names like `field_001`.
+- Displays input columns with numbering and sample values, then lets you choose output columns by number.
+- Lets you rename each selected output column before saving.
+- Shows a final review screen and supports redo for the output column / mapping section only.
+
+### Exit code policy
+
+- `0`: migration YAML generated successfully
+- `1`: CSV read failure, config validation failure, overwrite conflict, or write failure
 - `2`: invalid CLI usage
 
 ## datamapx merge merge.yml

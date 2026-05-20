@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 from datamapx.cli import app
 
 FIXTURES = Path(__file__).parent / "fixtures"
+EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 
 
 def test_validate_config_success() -> None:
@@ -220,6 +221,32 @@ def test_dry_run_write_reports_writes_files(tmp_path: Path) -> None:
     assert (reports_dir / "errors.csv").exists()
     assert (reports_dir / "skipped.csv").exists()
     assert (reports_dir / "summary.json").exists()
+
+
+def test_migration_wizard_example_validates() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["validate-config", str(EXAMPLES / "06_migration_wizard" / "migration.yml")],
+    )
+
+    assert result.exit_code == 0
+    assert "Config is valid" in result.output
+
+
+def test_migration_wizard_example_dry_run() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "dry-run",
+            str(EXAMPLES / "06_migration_wizard" / "migration.yml"),
+            "--limit",
+            "5",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Dry run completed" in result.output
+    assert "Output preview:" in result.output
 
 
 def test_dry_run_without_write_reports_does_not_write_files(tmp_path: Path) -> None:

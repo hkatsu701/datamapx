@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import re
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +14,7 @@ from pydantic import ValidationError
 
 from datamapx.exceptions import ConfigError
 from datamapx.merge.config import MergeConfig
+from datamapx.naming import build_safe_field_names
 
 MAX_PROMPT_ATTEMPTS = 3
 DEFAULT_SAMPLE_LIMIT = 3
@@ -507,7 +507,7 @@ def _read_csv_preview(path: Path, sample_limit: int = DEFAULT_SAMPLE_LIMIT) -> l
                 raise ConfigError(f"{path}: input CSV is empty")
             if not headers:
                 raise ConfigError(f"{path}: input CSV header row is empty")
-            safe_fields = _build_safe_field_names([str(header) for header in headers])
+            safe_fields = build_safe_field_names([str(header) for header in headers])
             previews = [
                 ColumnPreview(header=str(header), safe_field=safe_field, samples=[])
                 for header, safe_field in zip(headers, safe_fields, strict=True)
@@ -526,44 +526,6 @@ def _read_csv_preview(path: Path, sample_limit: int = DEFAULT_SAMPLE_LIMIT) -> l
             return previews
     except OSError as exc:
         raise ConfigError(f"{path}: cannot read input CSV: {exc}") from exc
-
-
-def _build_safe_field_names(headers: list[str]) -> list[str]:
-    safe_names: list[str] = []
-    used: set[str] = set()
-    generated_index = 1
-    for header in headers:
-        safe_name = _safe_field_name_from_header(header)
-        if safe_name is None:
-            safe_name = f"col_{generated_index:03d}"
-            generated_index += 1
-        safe_name = _deduplicate_name(safe_name, used)
-        used.add(safe_name)
-        safe_names.append(safe_name)
-    return safe_names
-
-
-def _safe_field_name_from_header(header: str) -> str | None:
-    candidate = header.strip()
-    if not candidate:
-        return None
-    candidate = candidate.lower()
-    candidate = re.sub(r"[^\w]+", "_", candidate, flags=re.UNICODE)
-    candidate = re.sub(r"_+", "_", candidate).strip("_")
-    if not candidate:
-        return None
-    if candidate[0].isdigit():
-        candidate = f"col_{candidate}"
-    return candidate
-
-
-def _deduplicate_name(name: str, used: set[str]) -> str:
-    if name not in used:
-        return name
-    suffix = 2
-    while f"{name}_{suffix}" in used:
-        suffix += 1
-    return f"{name}_{suffix}"
 
 
 def _prioritize_columns(columns: list[ColumnPreview]) -> list[ColumnPreview]:
@@ -859,6 +821,15 @@ def _wrap_numbered_line(index: int, text: str) -> list[str]:
         break_long_words=False,
         break_on_hyphens=False,
     ) or [prefix.rstrip()]
+
+
+def _deduplicate_name(name: str, used: set[str]) -> str:
+    if name not in used:
+        return name
+    suffix = 2
+    while f"{name}_{suffix}" in used:
+        suffix += 1
+    return f"{name}_{suffix}"
 
 
 def _default_merge_references(input_specs: list[MergeInputSpec], base_input: str) -> list[str]:

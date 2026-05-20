@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from datamapx.config import load_config
-from datamapx.config_generator import generate_basic_config
+from datamapx.config_generator import GeneratedOutputMapping, generate_basic_config
 from datamapx.exceptions import ConfigError
 
 FIXTURES = Path(__file__).parent / "fixtures" / "generate_config"
@@ -65,18 +65,41 @@ def test_generate_japanese_headers_use_safe_schema_names(tmp_path: Path) -> None
         output_name="users_out",
     )
 
-    assert result.schema_fields == ["col_001", "col_002", "col_003", "col_004"]
+    assert result.schema_fields == ["id", "field_001", "field_002", "field_003"]
     assert result.output_columns == ["顧客ID", "姓", "名", "金額"]
 
     config = load_config(config_path)
     assert list(config.inputs["users"].fields_schema) == [
-        "col_001",
-        "col_002",
-        "col_003",
-        "col_004",
+        "id",
+        "field_001",
+        "field_002",
+        "field_003",
     ]
-    assert config.inputs["users"].fields_schema["col_001"].source_columns == ["顧客ID"]
+    assert config.inputs["users"].fields_schema["id"].source_columns == ["顧客ID"]
     assert config.outputs["users_out"].columns == ["顧客ID", "姓", "名", "金額"]
+
+
+def test_generate_basic_config_accepts_selected_output_mappings(tmp_path: Path) -> None:
+    config_path = tmp_path / "migration.yml"
+
+    result = generate_basic_config(
+        FIXTURES / "input_basic.csv",
+        tmp_path / "output" / "users_out.csv",
+        config_path,
+        input_name="users",
+        output_name="users_out",
+        output_mappings=[
+            GeneratedOutputMapping(output_column="customer_code", schema_field="user_id"),
+            GeneratedOutputMapping(output_column="amount", schema_field="amount"),
+        ],
+    )
+
+    assert result.output_columns == ["customer_code", "amount"]
+
+    config = load_config(config_path)
+    assert config.outputs["users_out"].columns == ["customer_code", "amount"]
+    assert config.mappings["users_out"]["customer_code"].source == "users.user_id"
+    assert config.mappings["users_out"]["amount"].source == "users.amount"
 
 
 def test_generate_duplicate_headers_get_suffixes_when_safe_output_columns(tmp_path: Path) -> None:
@@ -108,8 +131,8 @@ def test_generate_numeric_and_blank_headers_get_safe_names(tmp_path: Path) -> No
         preserve_output_columns=False,
     )
 
-    assert result.schema_fields[0] == "col_2026_amount"
-    assert result.schema_fields[1] == "col_001"
+    assert result.schema_fields[0] == "field_2026_amount"
+    assert result.schema_fields[1] == "field_001"
     assert result.schema_fields[2] == "user_id"
 
 

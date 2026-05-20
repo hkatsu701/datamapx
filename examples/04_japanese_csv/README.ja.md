@@ -50,7 +50,7 @@ datamapx run examples/04_japanese_csv/migration.yml
 ## 4. migration.yml の注目ポイント
 
 - 日本語ヘッダーを `source_columns` に保持する
-- 内部 field 名は `col_001` のような安全名になることがある
+- 内部 field 名は `field_001` のような安全名になることがある
 - `trim` / `remove_commas` / `remove_currency_symbol`
 - `lookup`
 - `utf-8-sig`

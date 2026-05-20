@@ -27,6 +27,19 @@ Future candidates:
 - `--template`
 - AI-assisted config generation
 
+## migration-wizard completion roadmap
+
+Goal: keep `migration-wizard` usable for people who want a complete `migration.yml` but do not write YAML by hand.
+
+Completed:
+
+- `examples/06_migration_wizard/`
+
+Future candidates:
+
+- Guided natural-language explanations for advanced rule choices
+- More template-driven presets for common migration patterns
+
 ## v0.3.0
 
 - `merge` command for staging multiple CSV inputs

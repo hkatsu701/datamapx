@@ -1,0 +1,4 @@
+User ID,Full Name,Department Code,Amount,Status Code,Active Flag
+u001,Alice Tanaka,SALES,1000,ACTIVE,Y
+u002,Bob Smith,SUPPORT,2500,HOLD,N
+u003,Carol Jones,UNKNOWN,0,VOID,N

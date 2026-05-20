@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,8 +10,7 @@ from typing import Any
 import yaml
 
 from datamapx.exceptions import ConfigError
-
-SAFE_HEADER_RE = re.compile(r"^[A-Za-z0-9 _-]+$")
+from datamapx.naming import build_safe_field_names
 
 
 @dataclass(frozen=True)
@@ -23,6 +21,14 @@ class GeneratedConfigResult:
     input_headers: list[str]
     schema_fields: list[str]
     output_columns: list[str]
+
+
+@dataclass(frozen=True)
+class GeneratedOutputMapping:
+    """Output column mapping selected by a wizard."""
+
+    output_column: str
+    schema_field: str
 
 
 def generate_basic_config(
@@ -37,6 +43,7 @@ def generate_basic_config(
     delimiter: str = ",",
     overwrite: bool = False,
     preserve_output_columns: bool = True,
+    output_mappings: list[GeneratedOutputMapping] | None = None,
 ) -> GeneratedConfigResult:
     """Generate a minimal migration YAML from the input CSV headers."""
 
@@ -51,11 +58,30 @@ def generate_basic_config(
 
     headers = _read_csv_headers(input_path, encoding=encoding, delimiter=delimiter)
     schema_fields = _build_safe_field_names(headers)
-    output_columns = _build_output_columns(
-        headers,
-        schema_fields,
-        preserve_output_columns=preserve_output_columns,
-    )
+    if output_mappings is None:
+        output_columns = _build_output_columns(
+            headers,
+            schema_fields,
+            preserve_output_columns=preserve_output_columns,
+        )
+        mapping_pairs = list(zip(output_columns, schema_fields, strict=True))
+    else:
+        if not output_mappings:
+            raise ConfigError(f"{config_path}: output_mappings must not be empty")
+        output_columns = [mapping.output_column for mapping in output_mappings]
+        schema_field_set = set(schema_fields)
+        for mapping in output_mappings:
+            if mapping.schema_field not in schema_field_set:
+                raise ConfigError(
+                    f"{config_path}: unknown schema field in output_mappings: "
+                    f"{mapping.schema_field}"
+                )
+        if len(set(output_columns)) != len(output_columns):
+            raise ConfigError(f"{config_path}: output column names must be unique")
+        mapping_pairs = [
+            (mapping.output_column, mapping.schema_field)
+            for mapping in output_mappings
+        ]
     config_data = _build_config_data(
         input_path=str(input_path),
         output_path=str(output_path),
@@ -67,6 +93,7 @@ def generate_basic_config(
         headers=headers,
         schema_fields=schema_fields,
         output_columns=output_columns,
+        mapping_pairs=mapping_pairs,
     )
 
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -104,44 +131,7 @@ def _read_csv_headers(path: Path, *, encoding: str, delimiter: str) -> list[str]
 
 
 def _build_safe_field_names(headers: list[str]) -> list[str]:
-    safe_names: list[str] = []
-    used: set[str] = set()
-    generated_index = 1
-    for header in headers:
-        safe_name = _safe_field_name_from_header(header)
-        if safe_name is None:
-            safe_name = f"col_{generated_index:03d}"
-            generated_index += 1
-        safe_name = _deduplicate_name(safe_name, used)
-        used.add(safe_name)
-        safe_names.append(safe_name)
-    return safe_names
-
-
-def _safe_field_name_from_header(header: str) -> str | None:
-    candidate = header.strip()
-    if not candidate:
-        return None
-    if not SAFE_HEADER_RE.fullmatch(candidate):
-        return None
-    candidate = candidate.lower()
-    candidate = re.sub(r"[\s\-]+", "_", candidate)
-    candidate = re.sub(r"[^0-9a-z_]+", "", candidate)
-    candidate = re.sub(r"_+", "_", candidate).strip("_")
-    if not candidate:
-        return None
-    if candidate[0].isdigit():
-        candidate = f"col_{candidate}"
-    return candidate
-
-
-def _deduplicate_name(name: str, used: set[str]) -> str:
-    if name not in used:
-        return name
-    suffix = 2
-    while f"{name}_{suffix}" in used:
-        suffix += 1
-    return f"{name}_{suffix}"
+    return build_safe_field_names(headers)
 
 
 def _build_output_columns(
@@ -172,6 +162,7 @@ def _build_config_data(
     headers: list[str],
     schema_fields: list[str],
     output_columns: list[str],
+    mapping_pairs: list[tuple[str, str]],
 ) -> dict[str, Any]:
     schema = {
         schema_field: {
@@ -186,7 +177,7 @@ def _build_config_data(
     mappings = {
         output_name: {
             output_column: {"source": f"{input_name}.{schema_field}"}
-            for output_column, schema_field in zip(output_columns, schema_fields, strict=True)
+            for output_column, schema_field in mapping_pairs
         }
     }
 

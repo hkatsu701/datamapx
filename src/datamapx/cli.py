@@ -23,6 +23,7 @@ from datamapx.merge import (
 )
 from datamapx.merge.errors import MergeError
 from datamapx.merge.reports import write_merge_reports
+from datamapx.migration_wizard import MigrationWizardResult, run_migration_wizard
 from datamapx.report import (
     ReportPaths,
     ReportWriteError,
@@ -246,6 +247,19 @@ def merge_wizard() -> None:
     typer.echo(format_merge_wizard_result(result))
 
 
+@app.command("migration-wizard")
+def migration_wizard() -> None:
+    """Interactively generate a migration YAML configuration."""
+
+    try:
+        result = run_migration_wizard()
+    except (ConfigError, ValidationError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(format_migration_wizard_result(result))
+
+
 def format_inspection(config: DatamapxConfig) -> str:
     """Return a human-readable configuration summary."""
 
@@ -363,6 +377,47 @@ def format_merge_wizard_result(result: MergeWizardResult) -> str:
         "3. datamapx dry-run <migration.yml> --limit 5",
     ]
     return "\n".join(lines)
+
+
+def format_migration_wizard_result(result: MigrationWizardResult) -> str:
+    """Return a human-readable migration wizard summary."""
+
+    output_mode = "元のCSV列名" if result.preserve_output_columns else "安全な列名"
+    mode_text = "詳細設定あり" if result.advanced_mode else "基本設定のみ"
+    lines = [
+        "migration.yml を作成しました",
+        "",
+        f"保存先: {result.config_path}",
+        f"プロジェクト名: {result.project_name}",
+        f"入力CSV: {result.input_path}",
+        f"出力CSV: {result.output_path}",
+        f"入力名: {result.input_name}",
+        f"出力名: {result.output_name}",
+        f"出力列名の方針: {output_mode}",
+        f"設定モード: {mode_text}",
+        f"reference 数: {result.reference_count}",
+        f"reference schema 変更数: {result.reference_schema_override_count}",
+        f"derived 数: {result.derived_count}",
+        f"validation 数: {result.validation_count}",
+        f"filter 数: {result.filter_count}",
+        f"check 数: {result.check_count}",
+        f"schema 変更数: {result.schema_override_count}",
+        f"output.if_exists: {result.output_if_exists}",
+        f"output.newline: {_format_newline(result.output_newline)}",
+        f"error_handling.max_errors: {result.error_handling_max_errors}",
+        f"runtime.log_level: {result.runtime_log_level}",
+        f"出力列: {', '.join(result.generated.output_columns)}",
+        "",
+        "次にやること:",
+        f"1. datamapx validate-config {result.config_path}",
+        f"2. datamapx dry-run {result.config_path} --limit 5",
+        f"3. datamapx run {result.config_path}",
+    ]
+    return "\n".join(lines)
+
+
+def _format_newline(value: str) -> str:
+    return value.replace("\r", "\\r").replace("\n", "\\n")
 
 
 def format_dry_run_result(result: DryRunResult) -> str:
