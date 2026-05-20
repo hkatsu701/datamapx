@@ -150,6 +150,7 @@ The screen flow is: project/path setup -> input registration -> merge policy -> 
 Invalid numeric input is retried up to three times with Japanese guidance.
 From the review screen, you can save the YAML, redo only the column rules, or cancel.
 The review screen summarizes the merge in natural language so non-YAML users can confirm the result before saving.
+Input previews and numbered choices are displayed in the same order, and long labels wrap across multiple lines for readability.
 See [examples/05_merge_wizard/README.md](../examples/05_merge_wizard/README.md) for a runnable merge-wizard example.
 
 ### Usage
@@ -185,6 +186,8 @@ merge.yml を作成しました
 - Generates merge YAML only.
 - Uses exact key-based merge rules only.
 - Uses numbered selections for inputs, output columns, join type, rule types, and merge references.
+- Displays input previews and numbered choices in the same order.
+- Wraps long labels across multiple lines.
 - Shows the selected source column, CSV header, and sample values before each output column rename.
 - Allows selected output column names to be renamed one by one before rule assignment.
 - Can apply purpose-based recommended rules to numbered output columns.

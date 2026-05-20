@@ -7,6 +7,7 @@ Japanese README: [README.ja.md](README.ja.md)
 - How to build a merge configuration with `merge-wizard`.
 - Numbered selection for inputs, output columns, renames, and merge rules.
 - A simple left join that combines two CSV files into one staging CSV.
+- Input previews and numbered choices are shown in the same order, and long labels wrap for readability.
 
 ## 2. File layout
 
@@ -53,4 +54,3 @@ Writes the staging CSV to `output/merged.csv` and writes merge reports under `re
 - Three output rows.
 - `output/merged.csv` matches `expected/output/merged.csv`.
 - Merge reports are written next to the output CSV.
-

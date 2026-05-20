@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import re
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,9 +16,9 @@ from pydantic import ValidationError
 from datamapx.exceptions import ConfigError
 from datamapx.merge.config import MergeConfig
 
-SAFE_HEADER_RE = re.compile(r"^[A-Za-z0-9 _-]+$")
 MAX_PROMPT_ATTEMPTS = 3
 DEFAULT_SAMPLE_LIMIT = 3
+CHOICE_WRAP_WIDTH = 72
 
 MERGE_RULE_TYPES = ["source", "first", "last", "sum", "min", "max", "count"]
 MERGE_RULE_HELP = {
@@ -152,7 +153,7 @@ def run_merge_wizard() -> MergeWizardResult:
             f"./input/{input_name}.csv",
         )
         columns = _read_csv_preview(Path(input_csv_path))
-        typer.echo(_format_input_preview(input_name, columns))
+        typer.echo(_format_input_preview(input_name, _prioritize_columns(columns)))
         key_fields = _prompt_number_choices(
             f"  {input_name} のキー列を番号で選択 (カンマ区切り)",
             [
@@ -393,8 +394,8 @@ def _prompt_number_choice(
         typer.echo(message)
         if help_text:
             typer.echo(f"  {help_text}")
-        for index, option in enumerate(options, start=1):
-            typer.echo(f"  {index}. {option.label}")
+        for line in _format_numbered_options(options):
+            typer.echo(line)
         value = str(typer.prompt("番号を入力してください", default=default_text)).strip()
         parsed, error_message = _parse_number_selection(value, len(options), message)
         if parsed is None:
@@ -430,8 +431,8 @@ def _prompt_number_choices(
         typer.echo(message)
         if help_text:
             typer.echo(f"  {help_text}")
-        for index, option in enumerate(options, start=1):
-            typer.echo(f"  {index}. {option.label}")
+        for line in _format_numbered_options(options):
+            typer.echo(line)
         value = str(typer.prompt("番号を入力してください", default=prompt_default)).strip()
         parsed, error_message = _parse_number_selection(value, len(options), message)
         if parsed is not None:
@@ -546,11 +547,8 @@ def _safe_field_name_from_header(header: str) -> str | None:
     candidate = header.strip()
     if not candidate:
         return None
-    if not SAFE_HEADER_RE.fullmatch(candidate):
-        return None
     candidate = candidate.lower()
-    candidate = re.sub(r"[\s\-]+", "_", candidate)
-    candidate = re.sub(r"[^0-9a-z_]+", "", candidate)
+    candidate = re.sub(r"[^\w]+", "_", candidate, flags=re.UNICODE)
     candidate = re.sub(r"_+", "_", candidate).strip("_")
     if not candidate:
         return None
@@ -835,10 +833,32 @@ def _derive_output_column_name(reference: str, used_names: set[str]) -> str:
 def _format_input_preview(input_name: str, columns: list[ColumnPreview]) -> str:
     lines = [f"{input_name} fields:"]
     for index, column in enumerate(columns, start=1):
-        lines.append(
-            f"- {index}. {column.safe_field} (CSV: {column.header}, sample: {column.sample_text})"
+        lines.extend(
+            _wrap_numbered_line(
+                index,
+                f"{column.safe_field} (CSV: {column.header}, sample: {column.sample_text})",
+            )
         )
     return "\n".join(lines)
+
+
+def _format_numbered_options(options: list[ChoiceOption]) -> list[str]:
+    lines: list[str] = []
+    for index, option in enumerate(options, start=1):
+        lines.extend(_wrap_numbered_line(index, option.label))
+    return lines
+
+
+def _wrap_numbered_line(index: int, text: str) -> list[str]:
+    prefix = f"  {index}. "
+    return textwrap.wrap(
+        text,
+        width=CHOICE_WRAP_WIDTH,
+        initial_indent=prefix,
+        subsequent_indent=" " * len(prefix),
+        break_long_words=False,
+        break_on_hyphens=False,
+    ) or [prefix.rstrip()]
 
 
 def _default_merge_references(input_specs: list[MergeInputSpec], base_input: str) -> list[str]:

@@ -9,6 +9,11 @@ from datamapx.cli import app
 from datamapx.merge import load_merge_config
 from datamapx.merge.wizard import (
     ChoiceOption,
+    ColumnPreview,
+    _build_safe_field_names,
+    _format_input_preview,
+    _format_numbered_options,
+    _prioritize_columns,
     _prompt_int,
     _prompt_number_choice,
     _prompt_number_choices,
@@ -219,3 +224,42 @@ def test_prompt_text_reports_japanese_retry_message(
     captured = capsys.readouterr().out
     assert result == "wizard_merge"
     assert "空では登録できません。値を入力してください" in captured
+
+
+def test_build_safe_field_names_replaces_dots_with_underscores() -> None:
+    assert _build_safe_field_names(["update.records.csv", "update records.csv"]) == [
+        "update_records_csv",
+        "update_records_csv_2",
+    ]
+
+
+def test_format_input_preview_uses_prioritized_order() -> None:
+    ordered = _prioritize_columns(
+        [
+            ColumnPreview(header="amount", safe_field="amount", samples=["100"]),
+            ColumnPreview(header="id", safe_field="id", samples=["A001"]),
+            ColumnPreview(header="name", safe_field="name", samples=["Alice"]),
+        ],
+    )
+    preview = _format_input_preview("sample", ordered)
+
+    assert ordered[0].safe_field == "id"
+    assert ordered[1].safe_field == "name"
+    assert ordered[2].safe_field == "amount"
+    assert preview.index("  1. id") < preview.index("  2. name")
+    assert preview.index("  2. name") < preview.index("  3. amount")
+
+
+def test_format_numbered_options_wraps_long_labels() -> None:
+    lines = _format_numbered_options(
+        [
+            ChoiceOption(
+                label="this is a very long option label that should wrap across multiple lines",
+                value="value",
+            )
+        ]
+    )
+
+    assert len(lines) >= 2
+    assert lines[0].startswith("  1. ")
+    assert lines[1].startswith(" " * 4)

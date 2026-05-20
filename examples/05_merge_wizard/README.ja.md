@@ -7,6 +7,7 @@
 - `merge-wizard` で merge.yml を作る流れ
 - 入力CSV、出力列、列名変更、ルールを番号で選ぶ考え方
 - 2つのCSVを left join して staging CSV にまとめる方法
+- 入力プレビューと番号選択は同じ並びで表示され、長い候補名は折り返して見やすくしています。
 
 ## 2. ファイル構成
 
@@ -53,4 +54,3 @@ staging CSV を `output/merged.csv` に出力し、reports も作成します。
 - 3 行の出力が作られる
 - `output/merged.csv` が `expected/output/merged.csv` と一致する
 - reports も出力される
-
