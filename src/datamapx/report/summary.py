@@ -90,6 +90,21 @@ def build_summary_payload(
             "input_rows": result.input_rows_before_validation,
             "skipped_rows": result.skipped_count,
             "error_rows": result.total_error_count,
+            "validation_errors": _count_error_rows(
+                result.error_rows,
+                stages={"input_validation", "output_validation"},
+            ),
+            "mapping_errors": _count_error_rows(result.error_rows, stages={"mapping"}),
+            "lookup_missing_errors": _count_error_rows(
+                result.error_rows,
+                stages={"mapping"},
+                rules={"lookup_missing"},
+            ),
+            "transform_errors": _count_error_rows(
+                result.error_rows,
+                stages={"mapping"},
+                rules={"transform_error"},
+            ),
             "input_validation_errors": result.input_validation_error_count,
             "output_validation_errors": result.output_validation_error_count,
             "check_failures": result.check_failure_count,
@@ -115,6 +130,8 @@ def build_summary_payload(
             "dry_run": result.dry_run,
             "output_file_written": result.output_file_written,
             "checks_passed": not result.has_check_failures,
+            "completed_with_row_errors": result.total_error_count > 0 and not result.fatal_error,
+            "final_outcome": _final_outcome(result),
             "fatal_error": getattr(result, "fatal_error", False),
             "stop_reason": getattr(result, "stop_reason", None),
             "stop_message": getattr(result, "stop_message", None),
@@ -128,3 +145,29 @@ def _resolve_path(path: str, base_path: Path) -> Path:
     if resolved.is_absolute():
         return resolved
     return base_path / resolved
+
+
+def _count_error_rows(
+    error_rows: list[Any],
+    *,
+    stages: set[str] | None = None,
+    rules: set[str] | None = None,
+) -> int:
+    count = 0
+    for row in error_rows:
+        if stages is not None and row.stage not in stages:
+            continue
+        if rules is not None and row.rule not in rules:
+            continue
+        count += 1
+    return count
+
+
+def _final_outcome(result: DryRunResult) -> str:
+    if getattr(result, "fatal_error", False):
+        return "failed"
+    if result.has_check_failures:
+        return "completed_with_check_failures"
+    if result.total_error_count > 0:
+        return "completed_with_row_errors"
+    return "success"

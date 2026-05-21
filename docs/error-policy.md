@@ -183,20 +183,25 @@ Required fields:
 - `started_at`
 - `finished_at`
 - `config_path`
-- `input_rows`
-- `output_rows`
-- `error_rows`
-- `skipped_rows`
-- `reference_rows`
-- `checks`
 - `status`
 
 The run summary also includes nested `input`, `references`, `output`, `counts`, `reports`, and `notes` sections. `output.path` records the resolved main output CSV path.
 
-`status` should be one of:
+`counts` includes the aggregate row totals plus category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors. `notes` includes operational flags such as `dry_run`, `output_file_written`, `checks_passed`, `fatal_error`, `stop_reason`, `stop_message`, `max_errors_exceeded`, `completed_with_row_errors`, and `final_outcome`.
+
+`status` records the runner command state. Current values include:
+
+- `dry_run_completed`
+- `dry_run_completed_with_check_failures`
+- `completed`
+- `completed_with_check_failures`
+- `failed`
+
+`notes.final_outcome` should be one of:
 
 - `success`
-- `completed_with_errors`
+- `completed_with_row_errors`
+- `completed_with_check_failures`
 - `failed`
 
 JSON report writers use `ensure_ascii=False` so Japanese text is preserved in CSV JSON columns and `summary.json`.
@@ -206,6 +211,7 @@ JSON report writers use `ensure_ascii=False` so Japanese text is preserved in CS
 - Validation error rows are data quality failures, not fatal execution failures. `run` exits `0` when it completes and writes all configured files successfully.
 - Mapping runtime errors respect `error_handling.on_lookup_missing` and `error_handling.on_transform_error`. `run` exits `0` when those policies are `output_error` and the pipeline completes successfully.
 - CSV write failures for the main output CSV or report files are fatal and exit `1`.
+- `summary.json` can report `notes.final_outcome == completed_with_row_errors` when row-level errors were retained but execution completed successfully.
 
 ## Open Questions
 

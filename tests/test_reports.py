@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -81,6 +82,10 @@ def test_summary_json_is_written(tmp_path: Path) -> None:
     assert summary["run_id"] == result.run_id
     assert summary["counts"]["error_rows"] == result.total_error_count
     assert summary["counts"]["check_failures"] == 0
+    assert summary["counts"]["validation_errors"] == result.total_error_count
+    assert summary["counts"]["mapping_errors"] == 0
+    assert summary["counts"]["lookup_missing_errors"] == 0
+    assert summary["counts"]["transform_errors"] == 0
     assert summary["checks"] == []
 
 
@@ -95,6 +100,8 @@ def test_summary_json_includes_dry_run_flags(tmp_path: Path) -> None:
     assert summary["notes"]["output_file_written"] is False
     assert summary["notes"]["checks_passed"] is True
     assert summary["notes"]["fatal_error"] is False
+    assert summary["notes"]["completed_with_row_errors"] is False
+    assert summary["notes"]["final_outcome"] == "success"
     assert summary["error_handling"]["max_errors"] == config.error_handling.max_errors
 
 
@@ -119,6 +126,93 @@ def test_summary_json_includes_check_results(tmp_path: Path) -> None:
     assert summary["checks"][0]["name"] == "row_count_check"
     assert summary["checks"][0]["passed"] is True
     assert summary["notes"]["checks_passed"] is True
+    assert summary["notes"]["final_outcome"] == "success"
+
+
+def test_summary_json_counts_error_categories(tmp_path: Path) -> None:
+    result = _make_result(
+        error_rows=[
+            ValidationErrorRow(
+                row_number=1,
+                stage="input_validation",
+                field="users.name",
+                rule="required",
+                message="required validation failed",
+                normalized_row={"name": "山田太郎"},
+            ),
+            ValidationErrorRow(
+                row_number=2,
+                stage="mapping",
+                field="department_name",
+                rule="lookup_missing",
+                message="lookup missing",
+                normalized_row={"department_code": "D999"},
+            ),
+            ValidationErrorRow(
+                row_number=3,
+                stage="mapping",
+                field="total_amount",
+                rule="transform_error",
+                message="transform error",
+                normalized_row={"amount": "abc"},
+            ),
+            ValidationErrorRow(
+                row_number=4,
+                stage="output_validation",
+                field="id",
+                rule="required",
+                message="required validation failed",
+                output_row={"id": ""},
+            ),
+        ]
+    )
+
+    summary = _summary_from_result(tmp_path, result)
+
+    assert summary["counts"]["error_rows"] == 4
+    assert summary["counts"]["validation_errors"] == 2
+    assert summary["counts"]["mapping_errors"] == 2
+    assert summary["counts"]["lookup_missing_errors"] == 1
+    assert summary["counts"]["transform_errors"] == 1
+    assert summary["notes"]["completed_with_row_errors"] is True
+    assert summary["notes"]["final_outcome"] == "completed_with_row_errors"
+
+
+def test_summary_json_marks_check_failures_as_final_outcome(tmp_path: Path) -> None:
+    result = _make_result(
+        error_rows=[],
+        check_results=[
+            CheckResult(
+                name="row_count_check",
+                rule="input_rows == output_rows",
+                passed=False,
+                evaluated_value=False,
+                message="expected row counts to match",
+            )
+        ],
+    )
+
+    summary = _summary_from_result(tmp_path, result)
+
+    assert summary["notes"]["checks_passed"] is False
+    assert summary["notes"]["final_outcome"] == "completed_with_check_failures"
+    assert summary["notes"]["completed_with_row_errors"] is False
+
+
+def test_summary_json_marks_fatal_failure_as_final_outcome(tmp_path: Path) -> None:
+    result = replace(
+        _make_result(error_rows=[]),
+        fatal_error=True,
+        stop_reason="validation_error",
+        stop_message="Execution stopped (validation_error)",
+        status="failed",
+    )
+
+    summary = _summary_from_result(tmp_path, result)
+
+    assert summary["notes"]["fatal_error"] is True
+    assert summary["notes"]["final_outcome"] == "failed"
+    assert summary["notes"]["completed_with_row_errors"] is False
 
 
 def test_row_json_preserves_japanese(tmp_path: Path) -> None:
@@ -173,7 +267,15 @@ def _config_with_tmp_reports(config, tmp_path: Path):
     )
 
 
-def _make_result(error_rows: list[ValidationErrorRow]) -> DryRunResult:
+def _make_result(
+    error_rows: list[ValidationErrorRow],
+    *,
+    check_results: list[CheckResult] | None = None,
+    fatal_error: bool = False,
+    stop_reason: str | None = None,
+    stop_message: str | None = None,
+    status: str = "dry_run_completed",
+) -> DryRunResult:
     load_result = LoadPhaseResult(
         project_name="demo",
         input_name="users",
@@ -210,7 +312,9 @@ def _make_result(error_rows: list[ValidationErrorRow]) -> DryRunResult:
             )
         ],
         error_rows=error_rows,
-        check_results=[
+        check_results=check_results
+        if check_results is not None
+        else [
             CheckResult(
                 name="row_count_check",
                 rule="input_rows == output_rows + error_rows + skipped_rows",
@@ -222,9 +326,15 @@ def _make_result(error_rows: list[ValidationErrorRow]) -> DryRunResult:
             error_output="./errors.csv",
             skipped_output="./skipped.csv",
         ),
-        stop_reason=None,
-        stop_message=None,
+        stop_reason=stop_reason,
+        stop_message=stop_message,
         max_errors_exceeded=False,
-        fatal_error=False,
-        status="dry_run_completed",
+        fatal_error=fatal_error,
+        status=status,
     )
+
+
+def _summary_from_result(tmp_path: Path, result: DryRunResult) -> dict[str, object]:
+    config = load_config(FIXTURES / "validation" / "validation_config.yml")
+    report_paths = write_dry_run_reports(result, config, FIXTURES / "validation", tmp_path)
+    return json.loads(report_paths.summary_json.read_text(encoding="utf-8"))

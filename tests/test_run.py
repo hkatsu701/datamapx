@@ -46,6 +46,9 @@ def test_run_writes_main_output_and_reports(tmp_path: Path) -> None:
     assert summary["notes"]["dry_run"] is False
     assert summary["notes"]["output_file_written"] is True
     assert summary["counts"]["output_rows"] == 3
+    assert summary["counts"]["validation_errors"] == 0
+    assert summary["counts"]["mapping_errors"] == 0
+    assert summary["notes"]["final_outcome"] == "success"
 
 
 def test_run_omits_invalid_and_skipped_rows_from_output(tmp_path: Path) -> None:
@@ -62,6 +65,7 @@ def test_run_omits_invalid_and_skipped_rows_from_output(tmp_path: Path) -> None:
     summary = json.loads((tmp_path / "reports" / "summary.json").read_text(encoding="utf-8"))
     assert summary["counts"]["skipped_rows"] == 1
     assert summary["counts"]["error_rows"] >= 1
+    assert summary["notes"]["final_outcome"] == "completed_with_row_errors"
 
 
 def test_run_check_failure_exits_nonzero(tmp_path: Path) -> None:
@@ -76,6 +80,7 @@ def test_run_check_failure_exits_nonzero(tmp_path: Path) -> None:
     summary = json.loads((tmp_path / "reports" / "summary.json").read_text(encoding="utf-8"))
     assert summary["counts"]["check_failures"] == 1
     assert summary["notes"]["checks_passed"] is False
+    assert summary["notes"]["final_outcome"] == "completed_with_check_failures"
     assert summary["checks"][0]["passed"] is False
     assert (tmp_path / "output" / "users_out.csv").exists()
 
@@ -93,6 +98,7 @@ def test_run_validation_stop_exits_nonzero_and_skips_output(tmp_path: Path) -> N
     summary = json.loads((tmp_path / "reports" / "summary.json").read_text(encoding="utf-8"))
     assert summary["notes"]["fatal_error"] is True
     assert summary["notes"]["stop_reason"] == "validation_error"
+    assert summary["notes"]["final_outcome"] == "failed"
 
 
 def test_run_lookup_missing_stop_exits_nonzero_and_keeps_preview_counts(tmp_path: Path) -> None:
@@ -120,6 +126,7 @@ def test_run_lookup_missing_stop_exits_nonzero_and_keeps_preview_counts(tmp_path
     assert summary["counts"]["output_rows"] == 2
     assert summary["notes"]["fatal_error"] is True
     assert summary["notes"]["stop_reason"] == "lookup_missing"
+    assert summary["notes"]["final_outcome"] == "failed"
 
 
 def test_run_max_errors_stop_exits_nonzero(tmp_path: Path) -> None:
@@ -135,6 +142,7 @@ def test_run_max_errors_stop_exits_nonzero(tmp_path: Path) -> None:
     assert summary["notes"]["fatal_error"] is True
     assert summary["notes"]["stop_reason"] == "max_errors_exceeded"
     assert summary["notes"]["max_errors_exceeded"] is True
+    assert summary["notes"]["final_outcome"] == "failed"
 
 
 def test_run_reports_dir_writes_reports_to_override_directory(tmp_path: Path) -> None:
