@@ -99,7 +99,6 @@ class MigrationWizardResult:
     output_path: Path
     input_name: str
     output_name: str
-    preserve_output_columns: bool
     advanced_mode: bool
     reference_count: int
     reference_schema_override_count: int
@@ -119,7 +118,10 @@ def run_migration_wizard() -> MigrationWizardResult:
     """Interactively generate a basic migration YAML file."""
 
     typer.echo("migration-wizard は、単一CSVから migration.yml を対話式で作成します。")
-    typer.echo("CSV と出力先を指定し、出力列を番号で選び、必要なら rename できます。")
+    typer.echo(
+        "CSV と出力先を指定し、input 列数とは独立に出力列数と列名を決めたあと "
+        "rule を割り当てます。"
+    )
     typer.echo("")
 
     project_name = _prompt_text("プロジェクト名", "generated_migration")
@@ -128,15 +130,7 @@ def run_migration_wizard() -> MigrationWizardResult:
     config_path = Path(_prompt_text("migration.yml の保存先", "./migration.yml"))
     input_name = _prompt_text("入力名", "input")
     output_name = _prompt_text("出力名", "output")
-    preserve_output_columns = _prompt_number_choice(
-        "出力列名の方針を番号で選択",
-        [
-            ChoiceOption(label="元のCSV列名をそのまま使う", value=True),
-            ChoiceOption(label="安全な列名に変える", value=False),
-        ],
-        default_index=1,
-        help_text="非エンジニア向けなら、まずは元の列名のままでも進められます。",
-    )
+    output_specs = _prompt_output_columns()
     advanced_mode = _prompt_number_choice(
         "詳細設定を行いますか？",
         [
@@ -154,11 +148,12 @@ def run_migration_wizard() -> MigrationWizardResult:
 
     try:
         column_previews = _read_csv_preview(input_path)
+        generated = None
         while True:
-            selected_columns = _prompt_output_columns(column_previews)
-            selected_output_mappings = _prompt_output_column_mappings(
-                selected_columns,
-                preserve_output_columns=preserve_output_columns,
+            scaffold_output_mappings = _build_wizard_output_mappings(
+                output_specs,
+                input_name=input_name,
+                input_columns=column_previews,
             )
 
             if advanced_mode:
@@ -176,7 +171,7 @@ def run_migration_wizard() -> MigrationWizardResult:
                         output_newline,
                         error_handling_max_errors,
                         runtime_log_level,
-                    ) = _generate_advanced_config(
+                    ) = _generate_wizard_config(
                         input_path=input_path,
                         output_path=output_path,
                         config_path=config_path,
@@ -184,104 +179,41 @@ def run_migration_wizard() -> MigrationWizardResult:
                         output_name=output_name,
                         project_name=project_name,
                         overwrite=overwrite,
-                        preserve_output_columns=preserve_output_columns,
-                        selected_output_mappings=selected_output_mappings,
+                        advanced_mode=advanced_mode,
+                        output_specs=output_specs,
+                        scaffold_output_mappings=scaffold_output_mappings,
                         input_columns=column_previews,
                     )
                 except MigrationWizardRestart:
                     typer.echo("出力列と rule をやり直します。")
                     continue
             else:
-                temp_config_path = config_path.with_suffix(
-                    config_path.suffix + ".wizard.tmp"
-                )
-                if temp_config_path.exists():
-                    temp_config_path.unlink()
-                generated = generate_basic_config(
-                    input_path,
-                    output_path,
-                    temp_config_path,
+                (
+                    generated,
+                    reference_count,
+                    reference_schema_override_count,
+                    derived_count,
+                    validation_count,
+                    filter_count,
+                    check_count,
+                    schema_override_count,
+                    output_if_exists,
+                    output_newline,
+                    error_handling_max_errors,
+                    runtime_log_level,
+                ) = _generate_wizard_config(
+                    input_path=input_path,
+                    output_path=output_path,
+                    config_path=config_path,
                     input_name=input_name,
                     output_name=output_name,
                     project_name=project_name,
                     overwrite=overwrite,
-                    preserve_output_columns=preserve_output_columns,
-                    output_mappings=selected_output_mappings,
+                    advanced_mode=advanced_mode,
+                    output_specs=output_specs,
+                    scaffold_output_mappings=scaffold_output_mappings,
+                    input_columns=column_previews,
                 )
-                try:
-                    config_data = yaml.safe_load(
-                        temp_config_path.read_text(encoding="utf-8")
-                    )
-                    if not isinstance(config_data, dict):
-                        raise ConfigError(f"{config_path}: generated config is invalid")
-                    DatamapxConfig.model_validate(config_data)
-                    review_text = _format_migration_review(
-                        project_name=project_name,
-                        input_name=input_name,
-                        output_name=output_name,
-                        selected_output_mappings=selected_output_mappings,
-                        reference_specs=[],
-                        derived_specs=[],
-                        validations={"input": [], "output": []},
-                        filters={"include": [], "exclude": []},
-                        checks=[],
-                        schema_overrides=[],
-                        output_settings=config_data["outputs"][output_name],
-                        error_handling_settings=config_data["error_handling"],
-                        runtime_settings=config_data["runtime"],
-                    )
-                    typer.echo("")
-                    typer.echo("Review")
-                    typer.echo(review_text)
-                    review_action = _prompt_number_choice(
-                        "保存前の操作を番号で選択",
-                        [
-                            ChoiceOption(
-                                label="この内容で migration.yml を作成する",
-                                value="save",
-                            ),
-                            ChoiceOption(
-                                label="出力列と rule をやり直す",
-                                value="redo",
-                            ),
-                            ChoiceOption(label="中止する", value="cancel"),
-                        ],
-                        default_index=1,
-                        help_text="1=保存 / 2=出力列と rule をやり直す / 3=中止",
-                    )
-                    if review_action == "redo":
-                        raise MigrationWizardRestart
-                    if review_action == "cancel":
-                        raise ConfigError("migration-wizard を中止しました")
-                    config_text = yaml.safe_dump(
-                        config_data,
-                        sort_keys=False,
-                        allow_unicode=True,
-                        default_flow_style=False,
-                        indent=2,
-                        width=1000,
-                    )
-                    config_path.write_text(config_text, encoding="utf-8")
-                    generated = GeneratedConfigResult(
-                        config_path=config_path,
-                        input_headers=generated.input_headers,
-                        schema_fields=generated.schema_fields,
-                        output_columns=generated.output_columns,
-                    )
-                    reference_count = 0
-                    reference_schema_override_count = 0
-                    derived_count = 0
-                    validation_count = 0
-                    filter_count = 0
-                    check_count = 0
-                    schema_override_count = 0
-                    output_if_exists = config_data["outputs"][output_name]["if_exists"]
-                    output_newline = config_data["outputs"][output_name]["newline"]
-                    error_handling_max_errors = config_data["error_handling"]["max_errors"]
-                    runtime_log_level = config_data["runtime"]["log_level"]
-                finally:
-                    if temp_config_path.exists():
-                        temp_config_path.unlink()
             break
     except ConfigError:
         raise
@@ -293,7 +225,6 @@ def run_migration_wizard() -> MigrationWizardResult:
         output_path=output_path,
         input_name=input_name,
         output_name=output_name,
-        preserve_output_columns=preserve_output_columns,
         advanced_mode=advanced_mode,
         reference_count=reference_count,
         reference_schema_override_count=reference_schema_override_count,
@@ -389,36 +320,34 @@ def _read_csv_preview(path: Path, *, sample_limit: int = CSV_SAMPLE_LIMIT) -> li
     return previews
 
 
-def _prompt_output_columns(previews: list[ColumnPreview]) -> list[ColumnPreview]:
-    if not previews:
-        raise ConfigError("入力CSVに列がありません")
+@dataclass(frozen=True)
+class OutputColumnSpec:
+    """An output column declared directly by the user."""
 
-    typer.echo("出力に含める列を番号で選んでください。")
-    typer.echo("  複数選択は 1,3,5 のように入力します。Enter で全列を選択します。")
-    for preview in previews:
-        line = f"{preview.index}. {preview.header} ({preview.safe_field})"
-        if preview.sample_text != "(なし)":
-            line = f"{line} [sample: {preview.sample_text}]"
-        typer.echo(fill(line, width=96, subsequent_indent="    "))
+    name: str
 
-    selected_indices = _prompt_number_selection(
-        "出力列の番号",
-        default_indices=[preview.index for preview in previews],
-        total=len(previews),
-    )
-    selected = [previews[index - 1] for index in selected_indices]
+
+def _prompt_output_columns() -> list[OutputColumnSpec]:
+    output_count = _prompt_int("出力列をいくつ作成しますか？", 1)
+    if output_count < 1:
+        raise ConfigError("出力列は 1 つ以上必要です")
+    output_specs: list[OutputColumnSpec] = []
+    used_names: set[str] = set()
+
     typer.echo("")
-    typer.echo("選択された出力列:")
-    for preview in selected:
-        typer.echo(
-            fill(
-                f"- {preview.index}. {preview.header} ({preview.safe_field})",
-                width=96,
-                subsequent_indent="  ",
-            )
-        )
+    typer.echo("出力列名を入力してください。")
+    for index in range(1, output_count + 1):
+        default_name = deduplicate_name(f"output_{index}", used_names)
+        name = _prompt_text(f"  出力列 {index} の名前", default_name)
+        name = deduplicate_name(name, used_names)
+        used_names.add(name)
+        output_specs.append(OutputColumnSpec(name=name))
     typer.echo("")
-    return selected
+    typer.echo("作成する出力列:")
+    for spec in output_specs:
+        typer.echo(f"- {spec.name}")
+    typer.echo("")
+    return output_specs
 
 
 def _prompt_number_selection(
@@ -484,71 +413,27 @@ def _parse_number_selection(value: str, *, total: int) -> list[int]:
     return sorted(unique_selected)
 
 
-def _prompt_output_column_mappings(
-    selected_columns: list[ColumnPreview],
+def _build_wizard_output_mappings(
+    output_specs: list[OutputColumnSpec],
     *,
-    preserve_output_columns: bool,
+    input_name: str,
+    input_columns: list[ColumnPreview],
 ) -> list[GeneratedOutputMapping]:
-    output_names = _build_initial_output_names(
-        selected_columns,
-        preserve_output_columns=preserve_output_columns,
-    )
-    used_names: set[str] = set()
+    if not input_columns:
+        raise ConfigError("入力CSVに列がありません")
+    placeholder_field = input_columns[0].safe_field
     mappings: list[GeneratedOutputMapping] = []
-
-    typer.echo("選択した出力列ごとに、必要なら列名を変更できます。")
-    for preview, output_name in zip(selected_columns, output_names, strict=True):
-        output_name = deduplicate_name(output_name, used_names)
-        output_summary = (
-            f"出力列: {preview.index}. {preview.header} "
-            f"({preview.safe_field}) -> {output_name}"
-        )
-        typer.echo(
-            fill(
-                output_summary,
-                width=96,
-                subsequent_indent="  ",
-            )
-        )
-        should_rename = _prompt_number_choice(
-            "この出力列の名前を変更しますか？",
-            [
-                ChoiceOption(label="変更しない", value=False),
-                ChoiceOption(label="変更する", value=True),
-            ],
-            default_index=1,
-        )
-        if should_rename:
-            output_name = _prompt_text("新しい出力列名", output_name)
-            output_name = deduplicate_name(output_name, used_names)
-        used_names.add(output_name)
+    for spec in output_specs:
         mappings.append(
             GeneratedOutputMapping(
-                output_column=output_name,
-                schema_field=preview.safe_field,
+                output_column=spec.name,
+                schema_field=placeholder_field,
             )
         )
     return mappings
 
 
-def _build_initial_output_names(
-    selected_columns: list[ColumnPreview],
-    *,
-    preserve_output_columns: bool,
-) -> list[str]:
-    headers = [preview.header for preview in selected_columns]
-    safe_fields = [preview.safe_field for preview in selected_columns]
-    if preserve_output_columns and _can_preserve_output_columns(headers):
-        return headers
-    return safe_fields
-
-
-def _can_preserve_output_columns(headers: list[str]) -> bool:
-    stripped = [header.strip() for header in headers]
-    return all(stripped) and len(set(headers)) == len(headers)
-
-
-def _generate_advanced_config(
+def _generate_wizard_config(
     *,
     input_path: Path,
     output_path: Path,
@@ -557,8 +442,9 @@ def _generate_advanced_config(
     output_name: str,
     project_name: str,
     overwrite: bool,
-    preserve_output_columns: bool,
-    selected_output_mappings: list[GeneratedOutputMapping],
+    advanced_mode: bool,
+    output_specs: list[OutputColumnSpec],
+    scaffold_output_mappings: list[GeneratedOutputMapping],
     input_columns: list[ColumnPreview],
 ) -> tuple[GeneratedConfigResult, int, int, int, int, int, int, str, str, int, str]:
     temp_config_path = config_path.with_suffix(config_path.suffix + ".wizard.tmp")
@@ -573,50 +459,61 @@ def _generate_advanced_config(
         output_name=output_name,
         project_name=project_name,
         overwrite=True,
-        preserve_output_columns=preserve_output_columns,
-        output_mappings=selected_output_mappings,
+        preserve_output_columns=False,
+        output_mappings=scaffold_output_mappings,
     )
-
-    reference_specs = _prompt_reference_specs()
-    derived_specs = _prompt_derived_specs(
-        input_name=input_name,
-        input_columns=input_columns,
-        reference_specs=reference_specs,
-    )
-    output_rules = _prompt_output_rules(
-        selected_output_mappings=selected_output_mappings,
-        input_name=input_name,
-        input_columns=input_columns,
-        reference_specs=reference_specs,
-        derived_specs=derived_specs,
-    )
-    validations = _prompt_validations(
-        input_name=input_name,
-        input_columns=input_columns,
-        output_columns=[mapping.output_column for mapping in selected_output_mappings],
-    )
-    filters = _prompt_filters(
-        input_name=input_name,
-        input_columns=input_columns,
-        derived_specs=derived_specs,
-    )
-    checks = _prompt_checks(
-        input_name=input_name,
-        input_columns=input_columns,
-        derived_specs=derived_specs,
-    )
-    schema_overrides = _prompt_input_schema_overrides(
-        input_name=input_name,
-        input_columns=input_columns,
-    )
-    output_settings = _prompt_output_settings(output_name=output_name)
-    error_handling_settings = _prompt_error_handling_settings()
-    runtime_settings = _prompt_runtime_settings()
 
     try:
         config_data = yaml.safe_load(temp_config_path.read_text(encoding="utf-8"))
         if not isinstance(config_data, dict):
             raise ConfigError(f"{config_path}: generated config is invalid")
+
+        reference_specs: list[ReferenceSpec] = []
+        derived_specs: list[DerivedSpec] = []
+        validations: dict[str, list[dict[str, Any]]] = {"input": [], "output": []}
+        filters: dict[str, list[dict[str, Any]]] = {"include": [], "exclude": []}
+        checks: list[dict[str, Any]] = []
+        schema_overrides: list[SchemaOverrideSpec] = []
+        output_settings = config_data["outputs"][output_name]
+        error_handling_settings = config_data["error_handling"]
+        runtime_settings = config_data["runtime"]
+        if advanced_mode:
+            reference_specs = _prompt_reference_specs()
+            derived_specs = _prompt_derived_specs(
+                input_name=input_name,
+                input_columns=input_columns,
+                reference_specs=reference_specs,
+            )
+            validations = _prompt_validations(
+                input_name=input_name,
+                input_columns=input_columns,
+                output_columns=[spec.name for spec in output_specs],
+            )
+            filters = _prompt_filters(
+                input_name=input_name,
+                input_columns=input_columns,
+                derived_specs=derived_specs,
+            )
+            checks = _prompt_checks(
+                input_name=input_name,
+                input_columns=input_columns,
+                derived_specs=derived_specs,
+            )
+            schema_overrides = _prompt_input_schema_overrides(
+                input_name=input_name,
+                input_columns=input_columns,
+            )
+            output_settings = _prompt_output_settings(output_name=output_name)
+            error_handling_settings = _prompt_error_handling_settings()
+            runtime_settings = _prompt_runtime_settings()
+
+        output_rules = _prompt_output_rules(
+            output_specs=output_specs,
+            input_name=input_name,
+            input_columns=input_columns,
+            reference_specs=reference_specs,
+            derived_names=[spec.name for spec in derived_specs],
+        )
 
         if reference_specs:
             config_data["references"] = _build_reference_section(reference_specs)
@@ -649,7 +546,8 @@ def _generate_advanced_config(
             project_name=project_name,
             input_name=input_name,
             output_name=output_name,
-            selected_output_mappings=selected_output_mappings,
+            output_columns=[spec.name for spec in output_specs],
+            output_rules=output_rules,
             reference_specs=reference_specs,
             derived_specs=derived_specs,
             validations=validations,
@@ -716,7 +614,8 @@ def _format_migration_review(
     project_name: str,
     input_name: str,
     output_name: str,
-    selected_output_mappings: list[GeneratedOutputMapping],
+    output_columns: list[str],
+    output_rules: dict[str, dict[str, Any]],
     reference_specs: list[ReferenceSpec],
     derived_specs: list[DerivedSpec],
     validations: dict[str, list[dict[str, Any]]],
@@ -732,10 +631,11 @@ def _format_migration_review(
         f"input: {input_name}",
         f"output: {output_name}",
         "",
-        "出力列と mapping:",
+        "出力列と rule:",
     ]
-    for mapping in selected_output_mappings:
-        lines.append(f"- {mapping.output_column} <- {mapping.schema_field}")
+    for output_column in output_columns:
+        rule = output_rules.get(output_column)
+        lines.append(f"- {output_column}: {_summarize_rule(rule)}")
     if reference_specs:
         lines.append("")
         lines.append("reference CSV:")
@@ -773,6 +673,44 @@ def _format_migration_review(
         ]
     )
     return "\n".join(lines)
+
+
+def _summarize_rule(rule: dict[str, Any] | None) -> str:
+    if not rule:
+        return "(未設定)"
+    if "source" in rule:
+        return f"source: {rule['source']}"
+    if "value" in rule:
+        return f"value: {rule['value']}"
+    if "expression" in rule:
+        return f"expression: {rule['expression']}"
+    if "lookup" in rule:
+        lookup = rule["lookup"]
+        if isinstance(lookup, dict):
+            reference = lookup.get("reference", "(unknown)")
+            value = lookup.get("value", "(unknown)")
+            return f"lookup: {reference}.{value}"
+        return "lookup"
+    if "when" in rule:
+        when_rules = rule["when"]
+        if isinstance(when_rules, list):
+            return f"when: {len(when_rules)} 条件"
+        return "when"
+    if "concat" in rule:
+        concat = rule["concat"]
+        if isinstance(concat, dict):
+            values = concat.get("values", [])
+            return f"concat: {len(values)} 要素"
+        return "concat"
+    if "map" in rule:
+        map_rule = rule["map"]
+        if isinstance(map_rule, dict):
+            source = map_rule.get("source", "(unknown)")
+            return f"map: {source}"
+        return "map"
+    if "suggest" in rule:
+        return "suggest"
+    return ", ".join(sorted(rule))
 
 
 def _format_newline(value: str) -> str:
@@ -915,34 +853,64 @@ def _prompt_derived_specs(
 
 def _prompt_output_rules(
     *,
-    selected_output_mappings: list[GeneratedOutputMapping],
+    output_specs: list[OutputColumnSpec],
     input_name: str,
     input_columns: list[ColumnPreview],
     reference_specs: list[ReferenceSpec],
-    derived_specs: list[DerivedSpec],
+    derived_names: list[str],
 ) -> dict[str, dict[str, Any]]:
-    derived_names = [spec.name for spec in derived_specs]
     rules: dict[str, dict[str, Any]] = {}
     typer.echo("")
     typer.echo("出力列ごとに rule を選んでください。")
-    for mapping in selected_output_mappings:
-        typer.echo(
-            fill(
-                f"- {mapping.output_column} (基準: {mapping.schema_field})",
-                width=96,
-                subsequent_indent="  ",
-            )
+    for spec in output_specs:
+        default_source = _default_source_for_output_column(
+            spec.name,
+            input_name=input_name,
+            input_columns=input_columns,
+            derived_names=derived_names,
+        )
+        typer.echo(fill(f"- {spec.name}", width=96, subsequent_indent="  "))
+        rule_options = [
+            ChoiceOption(label="source", value="source"),
+            ChoiceOption(label="value", value="value"),
+            ChoiceOption(label="concat", value="concat"),
+            ChoiceOption(label="map", value="map"),
+            ChoiceOption(label="when", value="when"),
+            ChoiceOption(label="expression", value="expression"),
+        ]
+        if reference_specs:
+            rule_options.insert(5, ChoiceOption(label="lookup", value="lookup"))
+        rule_options.append(
+            ChoiceOption(label="自然言語から提案を受ける", value="suggest"),
         )
         rule = _prompt_mapping_rule(
-            context=f"mappings.output.{mapping.output_column}",
+            context=f"mappings.output.{spec.name}",
             input_name=input_name,
             input_columns=input_columns,
             reference_specs=reference_specs,
             derived_names=derived_names,
-            default_source=f"{input_name}.{mapping.schema_field}",
+            default_source=default_source,
+            rule_options=rule_options,
         )
-        rules[mapping.output_column] = rule
+        rules[spec.name] = rule
     return rules
+
+
+def _default_source_for_output_column(
+    output_column: str,
+    *,
+    input_name: str,
+    input_columns: list[ColumnPreview],
+    derived_names: list[str],
+) -> str | None:
+    if output_column in derived_names:
+        return f"derived.{output_column}"
+    for column in input_columns:
+        if output_column == column.safe_field or output_column == column.header:
+            return f"{input_name}.{column.safe_field}"
+    if input_columns:
+        return f"{input_name}.{input_columns[0].safe_field}"
+    return None
 
 
 def _prompt_mapping_rule(
@@ -953,10 +921,12 @@ def _prompt_mapping_rule(
     reference_specs: list[ReferenceSpec],
     derived_names: list[str],
     default_source: str | None,
+    rule_options: list[ChoiceOption] | None = None,
 ) -> dict[str, Any]:
     rule_type = _prompt_number_choice(
         f"{context}: ルール種別を番号で選択",
-        [
+        rule_options
+        or [
             ChoiceOption(label="source", value="source"),
             ChoiceOption(label="value", value="value"),
             ChoiceOption(label="concat", value="concat"),
@@ -1089,8 +1059,12 @@ def _prompt_suggested_mapping_rule(
                     ChoiceOption(label="concat", value="concat"),
                     ChoiceOption(label="map", value="map"),
                     ChoiceOption(label="when", value="when"),
-                    ChoiceOption(label="lookup", value="lookup"),
                     ChoiceOption(label="expression", value="expression"),
+                    *(
+                        [ChoiceOption(label="lookup", value="lookup")]
+                        if reference_specs
+                        else []
+                    ),
                 ],
                 default_index=1,
                 help_text="提案が合わない場合は通常のルール選択に戻れます。",

@@ -404,7 +404,6 @@ def format_merge_wizard_result(result: MergeWizardResult) -> str:
 def format_migration_wizard_result(result: MigrationWizardResult) -> str:
     """Return a human-readable migration wizard summary."""
 
-    output_mode = "元のCSV列名" if result.preserve_output_columns else "安全な列名"
     mode_text = "詳細設定あり" if result.advanced_mode else "基本設定のみ"
     lines = [
         "migration.yml を作成しました",
@@ -415,7 +414,7 @@ def format_migration_wizard_result(result: MigrationWizardResult) -> str:
         f"出力CSV: {result.output_path}",
         f"入力名: {result.input_name}",
         f"出力名: {result.output_name}",
-        f"出力列名の方針: {output_mode}",
+        f"出力列数: {len(result.generated.output_columns)}",
         f"設定モード: {mode_text}",
         f"reference 数: {result.reference_count}",
         f"reference schema 変更数: {result.reference_schema_override_count}",

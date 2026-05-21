@@ -12,7 +12,7 @@ Current release: v0.3.1.
 
 - Read one input CSV and multiple reference CSVs.
 - Merge multiple CSVs into one staging CSV before conversion.
-- Create a migration YAML scaffold interactively with `migration-wizard` using prompts for paths, numbered output column selection, per-column rename, input schema overrides, and optional advanced authoring for reference schema, references, derived fields, mapping rules, validations, filters, checks, output settings, error handling, runtime settings, and a final natural-language review before saving.
+- Create a migration YAML scaffold interactively with `migration-wizard` using prompts for paths, output column count and names, input schema overrides, and optional advanced authoring for reference schema, references, derived fields, mapping rules, validations, filters, checks, output settings, error handling, runtime settings, and a final natural-language review before saving.
 - Create a merge YAML scaffold interactively with `merge-wizard` using numbered selections for inputs, output columns, renames, and rules, with optional purpose-based templates, Japanese retry prompts for invalid input, a natural-language final review, and a limited back step from the final review. Input previews and numbered choices are shown in the same order, and long labels wrap for readability.
 - Normalize and type-convert input fields from schema definitions.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
@@ -89,7 +89,7 @@ datamapx generate-config \
 ## CLI Commands
 
 - `generate-config` creates a basic YAML scaffold from CSV headers.
-- `migration-wizard` interactively generates a migration YAML scaffold with numbered output column selection, optional rename, input schema overrides, reference schema, advanced support for `lookup`, `derived`, `validations`, `filters`, `checks`, output settings, error handling, runtime settings, and a final review screen with limited redo.
+- `migration-wizard` interactively generates a migration YAML scaffold with explicit output column count and names, input schema overrides, reference schema, advanced support for `lookup`, `derived`, `validations`, `filters`, `checks`, output settings, error handling, runtime settings, and a final review screen with limited redo.
 - `merge` combines multiple CSV inputs into a staging CSV.
 - `merge-wizard` interactively generates a merge YAML scaffold with numbered selections, fixed steps, rename confirmation, optional purpose-based templates, retry prompts for invalid input, a natural-language final review, and a limited back step from the final review. Input previews and numbered choices use the same ordering, and long labels wrap for readability.
 - `validate-config` validates YAML structure, references, and Phase 1 constraints.
