@@ -145,6 +145,7 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - [04_japanese_csv](examples/04_japanese_csv/README.md)
 - [05_merge_wizard](examples/05_merge_wizard/README.md)
 - [06_migration_wizard](examples/06_migration_wizard/README.md)
+- [07_practical_migration](examples/07_practical_migration/README.md)
 
 ## Output Files
 

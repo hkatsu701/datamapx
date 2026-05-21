@@ -40,6 +40,18 @@ Future candidates:
 - Guided natural-language explanations for advanced rule choices
 - More template-driven presets for common migration patterns
 
+## practical migration sample roadmap
+
+Goal: keep adding end-to-end migration examples that behave like real projects and double as regression fixtures.
+
+Completed:
+
+- `examples/07_practical_migration/`
+
+Future candidates:
+
+- Additional billing, customer master, and inventory-style migration examples
+
 ## v0.3.0
 
 - `merge` command for staging multiple CSV inputs

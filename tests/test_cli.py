@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import shutil
 from pathlib import Path
@@ -275,6 +276,90 @@ def test_migration_wizard_example_dry_run() -> None:
     assert "Output preview:" in result.output
 
 
+def test_practical_migration_example_validates() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["validate-config", str(EXAMPLES / "07_practical_migration" / "migration.yml")],
+    )
+
+    assert result.exit_code == 0
+    assert "Config is valid" in result.output
+
+
+def test_practical_migration_example_dry_run(tmp_path: Path) -> None:
+    config_path = _prepare_example_fixture(tmp_path, "07_practical_migration")
+    reports_dir = tmp_path / "reports"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "dry-run",
+            str(config_path / "migration.yml"),
+            "--write-reports",
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Dry run completed" in result.output
+    assert "Output preview:" in result.output
+    assert "Skipped preview:" in result.output
+    assert "Error preview:" in result.output
+    assert "Reports written:" in result.output
+    summary = json.loads((reports_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["counts"]["input_rows"] == 5
+    assert summary["counts"]["output_rows"] == 2
+    assert summary["counts"]["error_rows"] == 2
+    assert summary["counts"]["validation_errors"] == 1
+    assert summary["counts"]["mapping_errors"] == 1
+    assert summary["counts"]["lookup_missing_errors"] == 1
+    assert summary["counts"]["transform_errors"] == 0
+    assert summary["counts"]["skipped_rows"] == 1
+    assert summary["counts"]["check_failures"] == 0
+    assert summary["notes"]["completed_with_row_errors"] is True
+    assert summary["notes"]["final_outcome"] == "completed_with_row_errors"
+
+
+def test_practical_migration_example_run(tmp_path: Path) -> None:
+    config_path = _prepare_example_fixture(tmp_path, "07_practical_migration")
+    reports_dir = tmp_path / "reports"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run",
+            str(config_path / "migration.yml"),
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Run completed" in result.output
+    output_csv = config_path / "output" / "invoices_out.csv"
+    rows = list(csv.DictReader(output_csv.open("r", encoding="utf-8-sig")))
+    assert [row["invoice_no"] for row in rows] == ["INV001", "INV005"]
+    assert rows[0]["customer_id"] == "CU001"
+    assert rows[0]["account_code"] == "AR-100"
+    assert rows[0]["outstanding_amount"] == "800"
+    assert rows[0]["payment_state"] == "partial"
+    assert rows[0]["invoice_category"] == "retail"
+    assert rows[1]["customer_id"] == "CU002"
+    assert rows[1]["account_code"] == "AR-200"
+    assert rows[1]["outstanding_amount"] == "0"
+    assert rows[1]["payment_state"] == "settled"
+    assert rows[1]["invoice_category"] == "wholesale"
+    summary = json.loads((reports_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["counts"]["input_rows"] == 5
+    assert summary["counts"]["output_rows"] == 2
+    assert summary["counts"]["error_rows"] == 2
+    assert summary["counts"]["skipped_rows"] == 1
+    assert summary["counts"]["check_failures"] == 0
+    assert summary["notes"]["final_outcome"] == "completed_with_row_errors"
+    assert summary["notes"]["fatal_error"] is False
+
+
 def test_dry_run_without_write_reports_does_not_write_files(tmp_path: Path) -> None:
     reports_dir = tmp_path / "reports"
     result = CliRunner().invoke(
@@ -524,6 +609,13 @@ def _prepare_run_fixture(tmp_path: Path, fixture_name: str) -> Path:
         else:
             shutil.copy2(path, target)
     return tmp_path / fixture_name
+
+
+def _prepare_example_fixture(tmp_path: Path, example_name: str) -> Path:
+    example_dir = EXAMPLES / example_name
+    target_dir = tmp_path / example_name
+    shutil.copytree(example_dir, target_dir)
+    return target_dir
 
 
 def _set_checks(config_path: Path, checks: list[dict[str, object]]) -> None:

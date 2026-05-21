@@ -1,0 +1,215 @@
+version: 1
+
+project:
+  name: practical_migration_example
+  description: Practical billing migration with lookups, derived fields, filters, validations, and checks
+
+inputs:
+  invoices:
+    path: ./input/invoices.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      invoice_no:
+        source_columns: [Invoice No]
+        type: string
+        required: true
+        normalize: [trim]
+      customer_code:
+        source_columns: [Customer Code]
+        type: string
+        required: true
+        normalize: [trim]
+      customer_name:
+        source_columns: [Customer Name]
+        type: string
+        required: true
+        normalize: [trim]
+      customer_class:
+        source_columns: [Customer Class]
+        type: string
+        required: true
+        normalize: [trim]
+      billing_type:
+        source_columns: [Billing Type]
+        type: string
+        required: true
+        normalize: [trim]
+      invoice_amount:
+        source_columns: [Invoice Amount]
+        type: integer
+        required: true
+        normalize: [trim]
+      paid_amount:
+        source_columns: [Paid Amount]
+        type: integer
+        required: true
+        normalize: [trim]
+      status:
+        source_columns: [Status]
+        type: string
+        required: true
+        normalize: [trim]
+      due_date:
+        source_columns: [Due Date]
+        type: date
+        required: true
+        normalize: [trim]
+
+references:
+  customers:
+    path: ./ref/customers.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: customer_code
+    on_duplicate: error
+    schema:
+      customer_code:
+        source_columns: [Customer Code]
+        type: string
+        required: true
+        normalize: [trim]
+      customer_id:
+        source_columns: [Customer ID]
+        type: string
+        required: true
+        normalize: [trim]
+  account_mappings:
+    path: ./ref/account_mappings.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: [customer_class, billing_type]
+    on_duplicate: error
+    schema:
+      customer_class:
+        source_columns: [Customer Class]
+        type: string
+        required: true
+        normalize: [trim]
+      billing_type:
+        source_columns: [Billing Type]
+        type: string
+        required: true
+        normalize: [trim]
+      account_code:
+        source_columns: [Account Code]
+        type: string
+        required: true
+        normalize: [trim]
+
+derived:
+  outstanding_amount:
+    expression: invoices.invoice_amount - invoices.paid_amount
+  payment_state:
+    when:
+      - if: derived.outstanding_amount == 0
+        then: settled
+      - if: invoices.paid_amount == 0
+        then: unpaid
+    default: partial
+
+outputs:
+  invoices_out:
+    path: ./output/invoices_out.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\n"
+    if_exists: overwrite
+    columns:
+      - invoice_no
+      - customer_id
+      - customer_name
+      - account_code
+      - invoice_amount
+      - paid_amount
+      - outstanding_amount
+      - payment_state
+      - invoice_category
+
+mappings:
+  invoices_out:
+    invoice_no:
+      source: invoices.invoice_no
+    customer_id:
+      lookup:
+        reference: customers
+        key: invoices.customer_code
+        value: customer_id
+        on_missing: error
+    customer_name:
+      source: invoices.customer_name
+    account_code:
+      lookup:
+        reference: account_mappings
+        key: [invoices.customer_class, invoices.billing_type]
+        value: account_code
+        on_missing: error
+    invoice_amount:
+      source: invoices.invoice_amount
+    paid_amount:
+      source: invoices.paid_amount
+    outstanding_amount:
+      source: derived.outstanding_amount
+    payment_state:
+      source: derived.payment_state
+    invoice_category:
+      when:
+        - if: invoices.customer_class == "RETAIL"
+          then: retail
+        - if: invoices.customer_class == "WHOLESALE"
+          then: wholesale
+      default: other
+
+validations:
+  input:
+    - field: invoices.invoice_no
+      rule: required
+    - field: invoices.customer_code
+      rule: required
+    - field: invoices.invoice_amount
+      rule: min
+      value: 1
+  output:
+    - field: customer_id
+      rule: required
+    - field: account_code
+      rule: required
+    - field: outstanding_amount
+      rule: min
+      value: 0
+    - field: payment_state
+      rule: enum
+      values: [settled, unpaid, partial]
+    - field: invoice_category
+      rule: enum
+      values: [retail, wholesale]
+
+filters:
+  exclude:
+    - if: invoices.status == "CANCELLED"
+      reason: cancelled invoices are excluded
+
+checks:
+  - name: output_rows_is_two
+    rule: output_rows == 2
+  - name: row_count_balanced
+    rule: input_rows == output_rows + error_rows + skipped_rows
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./reports/summary.json

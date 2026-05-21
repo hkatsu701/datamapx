@@ -164,6 +164,7 @@ mappings:
 - [04_japanese_csv](examples/04_japanese_csv/README.md) / [日本語](examples/04_japanese_csv/README.ja.md)
 - [05_merge_wizard](examples/05_merge_wizard/README.md) / [日本語](examples/05_merge_wizard/README.ja.md)
 - [06_migration_wizard](examples/06_migration_wizard/README.md) / [日本語](examples/06_migration_wizard/README.ja.md)
+- [07_practical_migration](examples/07_practical_migration/README.md) / [日本語](examples/07_practical_migration/README.ja.md)
 
 ## 14. 日本語CSVの扱い
 
