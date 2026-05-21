@@ -111,6 +111,24 @@ def test_when_if_unknown_field_fails() -> None:
     _assert_invalid(data, "unknown input field 'users.unknown_active'")
 
 
+def test_when_logical_condition_unknown_input_field_fails() -> None:
+    data = _valid_data()
+    data["mappings"]["users_out"]["status"]["when"][0]["if"] = (
+        'users.active or users.unknown_active == true'
+    )
+
+    _assert_invalid(data, "unknown input field 'users.unknown_active'")
+
+
+def test_when_logical_condition_unknown_derived_field_fails() -> None:
+    data = _valid_data()
+    data["mappings"]["users_out"]["status"]["when"][0]["if"] = (
+        "users.active and derived.unknown_total > 0"
+    )
+
+    _assert_invalid(data, "unknown derived field 'derived.unknown_total'")
+
+
 def test_when_then_unknown_input_field_fails() -> None:
     data = _when_field_ref_data()
     data["mappings"]["users_out"]["then_from_input"]["when"][0]["then"] = (

@@ -105,6 +105,30 @@ def test_when_mapping_default_applies_when_no_condition_matches() -> None:
     assert output_df["default_label"].tolist() == ["fallback", "fallback", "fallback"]
 
 
+def test_when_mapping_logical_conditions_work() -> None:
+    input_df = pd.DataFrame(
+        {
+            "active": [True, False, False],
+            "amount": [50, 150, 50],
+            "status": ["other", "pending", "pending"],
+        }
+    )
+    rule = MappingRule.model_construct(
+        when=[
+            {
+                "if": 'users.active or users.status == "pending" and users.amount > 100',
+                "then": "hit",
+            }
+        ],
+        default="fallback",
+        _fields_set={"when", "default"},
+    )
+
+    result = apply_mapping_rule(rule, input_df, "users", "label", {}, {}, {})
+
+    assert result.tolist() == ["hit", "hit", "fallback"]
+
+
 def test_when_mapping_field_references_in_then_and_default_work() -> None:
     output_df = _output_df("mapping_config_when_field_refs.yml")
 

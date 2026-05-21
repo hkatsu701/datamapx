@@ -90,6 +90,18 @@ def test_filter_condition_can_reference_derived() -> None:
     ]
 
 
+def test_filter_logical_conditions_with_derived_work() -> None:
+    config = load_config(FIXTURES / "filters_config_derived.yml")
+    config.filters.exclude = [
+        {"if": 'derived.total_amount > 80 and users.active == true', "reason": "high and active"}
+    ]
+
+    result = run_dry_run(config, FIXTURES)
+
+    assert result.output_preview_df["id"].tolist() == ["u002", "u003", "u004"]
+    assert [row.reason for row in result.skipped_rows] == ["high and active"]
+
+
 def test_filtered_output_dataframe_row_count_is_correct() -> None:
     config = load_config(FIXTURES / "filters_config_exclude.yml")
 

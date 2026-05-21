@@ -697,6 +697,7 @@ For `when` mapping execution, Phase 1 supports only these forms:
 - `users.field == false`
 - `users.field == null`
 - `users.field != null`
+- `users.field`
 - `users.field in ["active", "pending"]`
 - `users.field not in ["deleted", "cancelled"]`
 
@@ -714,7 +715,15 @@ Unsupported condition examples:
 - `round(users.amount) > 100`
 - `users.a == users.b`
 - `users.name.startswith("A")`
+- `(users.status == "active")`
+
+Supported logical combinations:
+
+- `users.active and users.amount > 100`
 - `users.status == "active" or users.status == "pending"`
+- `users.deleted_at is null`
+- `users.deleted_at is not null`
+- `users.active`
 
 During `validate-config`, Phase 1 does not evaluate condition expressions. It extracts and validates basic field references such as `users.active` and `derived.total_amount`.
 
@@ -727,6 +736,10 @@ Python `eval` must not be used directly.
 Phase 1 uses a dedicated safe arithmetic evaluator with a strict allowlist.
 
 The current Phase 1 configuration validation step does not execute expressions. It only validates field references in `expression`, `when.if`, `when.then`, `when.default`, `filters.include[].if`, `filters.exclude[].if`, and `checks[].rule`.
+
+`when` mapping execution uses a limited parser instead of Python `eval`.
+Supported condition forms are direct comparisons, `in`, `not in`, logical `and` / `or`, `is null`, `is not null`, and bare boolean field references against `users.*` or `derived.*`.
+General arithmetic expressions, function calls, field-to-field comparisons, and grouped parenthesized expressions are unsupported during execution.
 
 `when` mapping execution uses a dedicated limited parser. It does not use Python `eval` and does not use the planned general-purpose expression evaluator.
 

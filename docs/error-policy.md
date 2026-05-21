@@ -122,8 +122,8 @@ Phase 1 field reference validation rules:
 - `validate-config` does not evaluate expressions or conditions; it validates only their field references or reserved variable names.
 
 Phase 1 `when` execution uses a limited parser instead of Python `eval`.
-Supported condition forms are direct comparisons, `in`, and `not in` against one input field reference.
-General expressions, function calls, field-to-field comparisons, and logical `and` / `or` combinations are unsupported during execution.
+Supported condition forms are direct comparisons, `in`, `not in`, logical `and` / `or`, `is null`, `is not null`, and bare boolean field references against `users.*` or `derived.*`.
+General arithmetic expressions, function calls, field-to-field comparisons, and grouped parenthesized expressions are unsupported during execution.
 
 Phase 1 `expression` execution uses a safe arithmetic evaluator instead of Python `eval`.
 Only `+`, `-`, `*`, `/`, `//`, `%`, `**`, parentheses, and the functions `round`, `abs`, `min`, and `max` are supported.
