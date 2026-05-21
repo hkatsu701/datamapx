@@ -17,6 +17,13 @@ def _valid_data() -> dict:
         return yaml.safe_load(file)
 
 
+def _when_field_ref_data() -> dict:
+    with (
+        FIXTURES / "mapping" / "mapping_config_when_field_refs.yml"
+    ).open("r", encoding="utf-8") as file:
+        return yaml.safe_load(file)
+
+
 def _assert_invalid(data: dict, expected: str) -> None:
     with pytest.raises(ValueError, match=expected):
         DatamapxConfig.model_validate(data)
@@ -102,6 +109,24 @@ def test_when_if_unknown_field_fails() -> None:
     )
 
     _assert_invalid(data, "unknown input field 'users.unknown_active'")
+
+
+def test_when_then_unknown_input_field_fails() -> None:
+    data = _when_field_ref_data()
+    data["mappings"]["users_out"]["then_from_input"]["when"][0]["then"] = (
+        "users.unknown_status"
+    )
+
+    _assert_invalid(data, "unknown input field 'users.unknown_status'")
+
+
+def test_when_default_unknown_derived_field_fails() -> None:
+    data = _when_field_ref_data()
+    data["mappings"]["users_out"]["default_from_derived"]["default"] = (
+        "derived.unknown_state"
+    )
+
+    _assert_invalid(data, "unknown derived field 'derived.unknown_state'")
 
 
 def test_concat_values_unknown_field_fails() -> None:

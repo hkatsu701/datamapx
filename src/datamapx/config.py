@@ -301,6 +301,25 @@ class DatamapxConfig(StrictModel):
                     derived_fields,
                     errors,
                 )
+                if isinstance(when_rule.then, str) and _looks_like_field_reference(when_rule.then):
+                    self._validate_field_reference(
+                        when_rule.then,
+                        f"{context}.when[{index}].then",
+                        input_name,
+                        input_fields,
+                        derived_fields,
+                        errors,
+                    )
+        if "default" in rule.model_fields_set and isinstance(rule.default, str):
+            if _looks_like_field_reference(rule.default):
+                self._validate_field_reference(
+                    rule.default,
+                    f"{context}.default",
+                    input_name,
+                    input_fields,
+                    derived_fields,
+                    errors,
+                )
         if rule.lookup is not None:
             if rule.lookup.reference not in self.references:
                 errors.append(

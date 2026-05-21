@@ -105,6 +105,16 @@ def test_when_mapping_default_applies_when_no_condition_matches() -> None:
     assert output_df["default_label"].tolist() == ["fallback", "fallback", "fallback"]
 
 
+def test_when_mapping_field_references_in_then_and_default_work() -> None:
+    output_df = _output_df("mapping_config_when_field_refs.yml")
+
+    assert output_df["then_from_input"].tolist() == ["active", "fallback", "fallback"]
+    assert output_df["then_from_derived"].tolist() == ["enabled", "fallback", "fallback"]
+    assert output_df["default_from_input"].tolist() == ["u001", "u002", "u003"]
+    assert output_df["default_from_derived"].tolist() == ["enabled", "disabled", "unknown"]
+    assert output_df["derived_chain"].tolist() == ["enabled", "disabled", "unknown"]
+
+
 def test_when_mapping_without_default_fails_when_no_condition_matches() -> None:
     with pytest.raises(MappingError, match="no when condition matched and default is missing"):
         _output_df("mapping_config_when_no_default.yml")

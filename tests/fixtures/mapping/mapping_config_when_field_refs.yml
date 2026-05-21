@@ -1,0 +1,69 @@
+version: 1
+project:
+  name: when_field_refs
+inputs:
+  users:
+    path: ./input_users_when.csv
+    schema:
+      user_id:
+        type: string
+      active:
+        type: boolean
+      amount:
+        type: decimal
+      status:
+        type: string
+      deleted_at:
+        type: date
+derived:
+  state_summary:
+    when:
+      - if: users.active == true
+        then: derived.active_state
+    default: derived.active_state
+  active_state:
+    when:
+      - if: users.active == true
+        then: enabled
+      - if: users.active == false
+        then: disabled
+    default: unknown
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns:
+      - id
+      - then_from_input
+      - then_from_derived
+      - default_from_input
+      - default_from_derived
+      - derived_chain
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    then_from_input:
+      when:
+        - if: users.active == true
+          then: users.status
+      default: fallback
+    then_from_derived:
+      when:
+        - if: users.active == true
+          then: derived.active_state
+      default: fallback
+    default_from_input:
+      when:
+        - if: users.status == "missing"
+          then: hit
+      default: users.user_id
+    default_from_derived:
+      when:
+        - if: users.status == "missing"
+          then: hit
+      default: derived.active_state
+    derived_chain:
+      source: derived.state_summary
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

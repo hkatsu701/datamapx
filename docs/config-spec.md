@@ -598,7 +598,8 @@ Rules:
 - If no condition matches and `default` is omitted, mapping fails.
 
 Phase 1 `then` and `default` values support literal strings, numbers, booleans, and null.
-Field references in `then` or `default`, such as `then: users.status`, are not implemented yet.
+`then` and `default` also support field references such as `then: users.status` and
+`default: derived.active_state`.
 
 ### lookup
 
@@ -725,7 +726,7 @@ Python `eval` must not be used directly.
 
 Phase 1 uses a dedicated safe arithmetic evaluator with a strict allowlist.
 
-The current Phase 1 configuration validation step does not execute expressions. It only validates field references in `expression`, `when.if`, `filters.include[].if`, `filters.exclude[].if`, and `checks[].rule`.
+The current Phase 1 configuration validation step does not execute expressions. It only validates field references in `expression`, `when.if`, `when.then`, `when.default`, `filters.include[].if`, `filters.exclude[].if`, and `checks[].rule`.
 
 `when` mapping execution uses a dedicated limited parser. It does not use Python `eval` and does not use the planned general-purpose expression evaluator.
 

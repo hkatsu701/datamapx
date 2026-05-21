@@ -304,21 +304,47 @@ def _when_series(
 
     for index, item in enumerate(rule.when):
         condition, then_value = _when_item_parts(item, output_column, index)
-        if _looks_like_reference(str(then_value)):
-            raise MappingError(f"{output_column}: when.then field references are not supported")
         condition_result = evaluate_condition(condition, input_df, input_name, derived_values)
         apply_mask = condition_result & ~matched
-        output.loc[apply_mask] = then_value
+        output.loc[apply_mask] = _when_value_series(
+            then_value,
+            input_df,
+            input_name,
+            output_column,
+            derived_values,
+            f"{output_column}: when[{index}].then",
+        ).loc[apply_mask]
         matched = matched | apply_mask
 
     unmatched = ~matched
     if unmatched.any():
         if not has_default:
             raise MappingError(f"{output_column}: no when condition matched and default is missing")
-        if _looks_like_reference(str(rule.default)):
-            raise MappingError(f"{output_column}: when default field references are not supported")
-        output.loc[unmatched] = rule.default
+        output.loc[unmatched] = _when_value_series(
+            rule.default,
+            input_df,
+            input_name,
+            output_column,
+            derived_values,
+            f"{output_column}: default",
+        ).loc[unmatched]
     return output
+
+
+def _when_value_series(
+    value: Any,
+    input_df: pd.DataFrame,
+    input_name: str,
+    output_column: str,
+    derived_values: dict[str, pd.Series],
+    context: str,
+) -> pd.Series:
+    if isinstance(value, str) and _looks_like_reference(value):
+        series = _reference_series(value, input_df, input_name, output_column, derived_values)
+        if series is None:
+            raise MappingError(f"{context}: field is not defined: {value}")
+        return series
+    return pd.Series([value] * len(input_df), index=input_df.index)
 
 
 def _when_item_parts(item: Any, output_column: str, index: int) -> tuple[str, Any]:
@@ -425,6 +451,10 @@ def _derived_dependencies(rule: MappingRule) -> set[str]:
     if rule.when is not None:
         for when_rule in rule.when:
             dependencies.update(_derived_references_in_text(when_rule.if_))
+            if isinstance(when_rule.then, str):
+                _add_derived_reference(when_rule.then, dependencies)
+    if "default" in rule.model_fields_set and isinstance(rule.default, str):
+        _add_derived_reference(rule.default, dependencies)
     if rule.expression is not None:
         dependencies.update(
             reference.split(".", 1)[1]
