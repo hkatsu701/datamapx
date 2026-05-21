@@ -71,6 +71,7 @@ def build_summary_payload(
         "config_path": str(config_path),
         "started_at": result.started_at,
         "finished_at": result.finished_at,
+        "error_handling": config.error_handling.model_dump(mode="python"),
         "input": {
             "name": load_result.input_name,
             "path": load_result.input_path,
@@ -114,6 +115,10 @@ def build_summary_payload(
             "dry_run": result.dry_run,
             "output_file_written": result.output_file_written,
             "checks_passed": not result.has_check_failures,
+            "fatal_error": getattr(result, "fatal_error", False),
+            "stop_reason": getattr(result, "stop_reason", None),
+            "stop_message": getattr(result, "stop_message", None),
+            "max_errors_exceeded": getattr(result, "max_errors_exceeded", False),
         },
     }
 

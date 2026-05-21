@@ -149,6 +149,9 @@ def dry_run(
     if write_reports and report_paths is not None:
         typer.echo("")
         typer.echo(format_report_written(report_paths))
+    if result.fatal_error:
+        typer.echo(_format_stop_message(result.stop_reason, result.stop_message), err=True)
+        raise typer.Exit(1)
     if result.has_check_failures:
         typer.echo("One or more checks failed.", err=True)
         raise typer.Exit(1)
@@ -164,23 +167,31 @@ def run(
     try:
         config = load_config(config_path)
         result = run_pipeline(config, config_path.parent)
-        output_config = config.outputs[result.output_name]
-        output_path = write_output_csv(
-            result.output_preview_df,
-            output_config,
-            config_path.parent,
-        )
-        result = replace(
-            result,
-            output_file_written=True,
-            output_path=str(output_path),
-        )
-        report_paths = write_run_reports(
-            result,
-            config,
-            config_path,
-            reports_dir=reports_dir,
-        )
+        if result.fatal_error:
+            report_paths = write_run_reports(
+                result,
+                config,
+                config_path,
+                reports_dir=reports_dir,
+            )
+        else:
+            output_config = config.outputs[result.output_name]
+            output_path = write_output_csv(
+                result.output_preview_df,
+                output_config,
+                config_path.parent,
+            )
+            result = replace(
+                result,
+                output_file_written=True,
+                output_path=str(output_path),
+            )
+            report_paths = write_run_reports(
+                result,
+                config,
+                config_path,
+                reports_dir=reports_dir,
+            )
     except (
         ConfigError,
         CsvReadError,
@@ -193,6 +204,9 @@ def run(
         raise typer.Exit(1) from exc
 
     typer.echo(format_run_result(result, report_paths))
+    if result.fatal_error:
+        typer.echo(_format_stop_message(result.stop_reason, result.stop_message), err=True)
+        raise typer.Exit(1)
     if result.has_check_failures:
         typer.echo("One or more checks failed.", err=True)
         raise typer.Exit(1)
@@ -483,6 +497,20 @@ def format_dry_run_result(result: DryRunResult) -> str:
             f"- input validation errors: {result.input_validation_error_count}",
             f"- output validation errors: {result.output_validation_error_count}",
             f"- total error rows: {result.total_error_count}",
+        ]
+    )
+    if result.fatal_error:
+        lines.extend(
+            [
+                "",
+                "Stop:",
+                f"- reason: {result.stop_reason}",
+                f"- message: {result.stop_message or ''}",
+                f"- max_errors_exceeded: {result.max_errors_exceeded}",
+            ]
+        )
+    lines.extend(
+        [
             "",
             "Checks:",
             f"- configured: {len(result.check_results)}",
@@ -553,6 +581,16 @@ def format_run_result(result: RunResult, report_paths: ReportPaths) -> str:
         f"- passed: {result.check_success_count}",
         f"- failed: {result.check_failure_count}",
     ]
+    if result.fatal_error:
+        lines.extend(
+            [
+                "",
+                "Stop:",
+                f"- reason: {result.stop_reason}",
+                f"- message: {result.stop_message or ''}",
+                f"- max_errors_exceeded: {result.max_errors_exceeded}",
+            ]
+        )
     if result.check_results:
         lines.extend(["", "Check preview:", "name,passed,message"])
         for check in result.check_results[:5]:
@@ -571,6 +609,16 @@ def format_report_written(report_paths: ReportPaths) -> str:
             f"- summary: {report_paths.summary_json}",
         ]
     )
+
+
+def _format_stop_message(reason: str | None, message: str | None) -> str:
+    if reason and message:
+        return f"Execution stopped ({reason}): {message}"
+    if reason:
+        return f"Execution stopped ({reason})"
+    if message:
+        return f"Execution stopped: {message}"
+    return "Execution stopped"
 
 
 if __name__ == "__main__":

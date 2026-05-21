@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from datamapx.config import CheckConfig, load_config
+from datamapx.config import CheckConfig, ErrorHandlingConfig, load_config
 from datamapx.report.writers import (
     write_dry_run_reports,
     write_errors_csv,
@@ -94,6 +94,8 @@ def test_summary_json_includes_dry_run_flags(tmp_path: Path) -> None:
     assert summary["notes"]["dry_run"] is True
     assert summary["notes"]["output_file_written"] is False
     assert summary["notes"]["checks_passed"] is True
+    assert summary["notes"]["fatal_error"] is False
+    assert summary["error_handling"]["max_errors"] == config.error_handling.max_errors
 
 
 def test_summary_json_includes_check_results(tmp_path: Path) -> None:
@@ -216,5 +218,13 @@ def _make_result(error_rows: list[ValidationErrorRow]) -> DryRunResult:
                 evaluated_value=True,
             )
         ],
+        error_handling=ErrorHandlingConfig(
+            error_output="./errors.csv",
+            skipped_output="./skipped.csv",
+        ),
+        stop_reason=None,
+        stop_message=None,
+        max_errors_exceeded=False,
+        fatal_error=False,
         status="dry_run_completed",
     )

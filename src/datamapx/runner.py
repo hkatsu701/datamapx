@@ -8,13 +8,19 @@ from pathlib import Path
 
 import pandas as pd
 
-from datamapx.config import DatamapxConfig
+from datamapx.config import DatamapxConfig, ErrorHandlingConfig
 from datamapx.io.csv_reader import read_input_csv, read_reference_csv
 from datamapx.io.csv_writer import resolve_output_path
 from datamapx.transform.checks import CheckResult, evaluate_checks
+from datamapx.transform.errors import MappingError
 from datamapx.transform.filters import SkippedRow, apply_filters
 from datamapx.transform.mapper import build_output_dataframe, compute_derived_fields
-from datamapx.validation import ValidationErrorRow, validate_input_rows, validate_output_rows
+from datamapx.validation import (
+    ValidationErrorRow,
+    ValidationResult,
+    validate_input_rows,
+    validate_output_rows,
+)
 
 
 @dataclass(frozen=True)
@@ -65,6 +71,11 @@ class DryRunResult:
     skipped_rows: list[SkippedRow]
     error_rows: list[ValidationErrorRow]
     check_results: list[CheckResult]
+    error_handling: ErrorHandlingConfig
+    stop_reason: str | None
+    stop_message: str | None
+    max_errors_exceeded: bool
+    fatal_error: bool
     status: str
 
     @property
@@ -118,6 +129,11 @@ class RunResult:
     skipped_rows: list[SkippedRow]
     error_rows: list[ValidationErrorRow]
     check_results: list[CheckResult]
+    error_handling: ErrorHandlingConfig
+    stop_reason: str | None
+    stop_message: str | None
+    max_errors_exceeded: bool
+    fatal_error: bool
     status: str
 
     @property
@@ -216,9 +232,16 @@ def run_dry_run(
         skipped_rows=execution.skipped_rows,
         error_rows=execution.error_rows,
         check_results=execution.check_results,
+        error_handling=execution.error_handling,
+        stop_reason=execution.stop_reason,
+        stop_message=execution.stop_message,
+        max_errors_exceeded=execution.max_errors_exceeded,
+        fatal_error=execution.fatal_error,
         status=(
             "dry_run_completed_with_check_failures"
             if any(not check.passed for check in execution.check_results)
+            else "failed"
+            if execution.fatal_error
             else "dry_run_completed"
         ),
     )
@@ -250,9 +273,16 @@ def run_pipeline(
         skipped_rows=execution.skipped_rows,
         error_rows=execution.error_rows,
         check_results=execution.check_results,
+        error_handling=execution.error_handling,
+        stop_reason=execution.stop_reason,
+        stop_message=execution.stop_message,
+        max_errors_exceeded=execution.max_errors_exceeded,
+        fatal_error=execution.fatal_error,
         status=(
             "completed_with_check_failures"
             if any(not check.passed for check in execution.check_results)
+            else "failed"
+            if execution.fatal_error
             else "completed"
         ),
     )
@@ -288,6 +318,11 @@ class ExecutionResult:
     skipped_rows: list[SkippedRow]
     error_rows: list[ValidationErrorRow]
     check_results: list[CheckResult]
+    error_handling: ErrorHandlingConfig
+    stop_reason: str | None
+    stop_message: str | None
+    max_errors_exceeded: bool
+    fatal_error: bool
     status: str
 
 
@@ -307,36 +342,122 @@ def _execute_pipeline(
         load_result.input_df,
         input_name,
     )
-    derived_values = compute_derived_fields(
-        config,
-        input_validation_result.dataframe,
-        load_result.reference_dfs,
+    validation_stop = _evaluate_validation_stop_policy(
+        config.error_handling,
+        input_validation_result.error_rows,
     )
-    filter_result = apply_filters(
-        config,
-        input_validation_result.dataframe,
-        input_name,
-        derived_values,
-    )
-    output_df_before_validation = build_output_dataframe(
-        config,
-        filter_result.input_df,
+    if validation_stop is not None:
+        finished_at = _timestamp(datetime.now())
+        return _build_failed_execution_result(
+            config=config,
+            run_id=run_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            load_result=load_result,
+            input_validation_result=input_validation_result,
+            input_rows_before_filter=input_validation_result.rows_after_validation,
+            input_rows_after_filter=input_validation_result.rows_after_validation,
+            skipped_rows=[],
+            output_name=output_name,
+            output_preview_df=pd.DataFrame(),
+            base_path=base_path,
+            stop_info=validation_stop,
+            check_results=[],
+        )
+
+    rowwise_result = _build_rowwise_output(
+        config=config,
+        input_df=input_validation_result.dataframe,
+        input_name=input_name,
+        output_columns=list(config.outputs[output_name].columns),
         reference_dfs=load_result.reference_dfs,
-        derived_values=filter_result.derived_values,
+        base_error_count=len(input_validation_result.error_rows),
     )
-    output_row_numbers = filter_result.input_df["__row_number"].reset_index(drop=True)
+    if rowwise_result.stop_info is not None:
+        finished_at = _timestamp(datetime.now())
+        return _build_failed_execution_result(
+            config=config,
+            run_id=run_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            load_result=load_result,
+            input_validation_result=input_validation_result,
+            input_rows_before_filter=rowwise_result.input_rows_before_filter,
+            input_rows_after_filter=rowwise_result.input_rows_after_filter,
+            skipped_rows=rowwise_result.skipped_rows,
+            output_name=output_name,
+            output_preview_df=rowwise_result.output_df,
+            base_path=base_path,
+            stop_info=rowwise_result.stop_info,
+            check_results=[],
+            mapping_error_rows=rowwise_result.mapping_error_rows,
+        )
+
     output_validation_result = validate_output_rows(
         config,
-        output_df_before_validation,
-        output_row_numbers,
+        rowwise_result.output_df,
+        rowwise_result.output_row_numbers,
         output_name,
     )
+
+    error_rows = (
+        input_validation_result.error_rows
+        + rowwise_result.mapping_error_rows
+        + output_validation_result.error_rows
+    )
+    max_errors_stop = _evaluate_max_errors(config.error_handling, len(error_rows))
+    if max_errors_stop is not None:
+        finished_at = _timestamp(datetime.now())
+        return _build_failed_execution_result(
+            config=config,
+            run_id=run_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            load_result=load_result,
+            input_validation_result=input_validation_result,
+            output_validation_result=output_validation_result,
+            input_rows_before_filter=rowwise_result.input_rows_before_filter,
+            input_rows_after_filter=rowwise_result.input_rows_after_filter,
+            skipped_rows=rowwise_result.skipped_rows,
+            output_name=output_name,
+            output_preview_df=output_validation_result.dataframe,
+            base_path=base_path,
+            stop_info=max_errors_stop,
+            check_results=[],
+            mapping_error_rows=rowwise_result.mapping_error_rows,
+        )
+
+    validation_error_rows = input_validation_result.error_rows + output_validation_result.error_rows
+    validation_stop = _evaluate_validation_stop_policy(
+        config.error_handling,
+        validation_error_rows,
+    )
+    if validation_stop is not None:
+        finished_at = _timestamp(datetime.now())
+        return _build_failed_execution_result(
+            config=config,
+            run_id=run_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            load_result=load_result,
+            input_validation_result=input_validation_result,
+            output_validation_result=output_validation_result,
+            input_rows_before_filter=rowwise_result.input_rows_before_filter,
+            input_rows_after_filter=rowwise_result.input_rows_after_filter,
+            skipped_rows=rowwise_result.skipped_rows,
+            output_name=output_name,
+            output_preview_df=output_validation_result.dataframe,
+            base_path=base_path,
+            stop_info=validation_stop,
+            check_results=[],
+            mapping_error_rows=rowwise_result.mapping_error_rows,
+        )
+
     check_context = {
         "input_rows": load_result.input_rows,
         "output_rows": len(output_validation_result.dataframe),
-        "error_rows": len(input_validation_result.error_rows)
-        + len(output_validation_result.error_rows),
-        "skipped_rows": len(filter_result.skipped_rows),
+        "error_rows": len(error_rows),
+        "skipped_rows": len(rowwise_result.skipped_rows),
     }
     check_results = evaluate_checks(config.checks, check_context)
     status = (
@@ -358,10 +479,232 @@ def _execute_pipeline(
         output_preview_df=output_validation_result.dataframe,
         input_rows_before_validation=load_result.input_rows,
         input_rows_after_validation=input_validation_result.rows_after_validation,
-        input_rows_before_filter=filter_result.rows_before_filter,
-        input_rows_after_filter=filter_result.rows_after_filter,
-        skipped_rows=filter_result.skipped_rows,
-        error_rows=input_validation_result.error_rows + output_validation_result.error_rows,
+        input_rows_before_filter=rowwise_result.input_rows_before_filter,
+        input_rows_after_filter=rowwise_result.input_rows_after_filter,
+        skipped_rows=rowwise_result.skipped_rows,
+        error_rows=error_rows,
         check_results=check_results,
+        error_handling=config.error_handling,
+        stop_reason=None,
+        stop_message=None,
+        max_errors_exceeded=False,
+        fatal_error=False,
         status=status,
+    )
+
+
+@dataclass(frozen=True)
+class StopInfo:
+    """Fatal pipeline stop metadata."""
+
+    reason: str
+    message: str | None
+    max_errors_exceeded: bool = False
+
+
+@dataclass(frozen=True)
+class RowwiseOutputResult:
+    """Row-wise output construction result."""
+
+    output_df: pd.DataFrame
+    output_row_numbers: pd.Series
+    skipped_rows: list[SkippedRow]
+    mapping_error_rows: list[ValidationErrorRow]
+    input_rows_before_filter: int
+    input_rows_after_filter: int
+    stop_info: StopInfo | None
+
+
+def _evaluate_validation_stop_policy(
+    error_handling: ErrorHandlingConfig,
+    error_rows: list[ValidationErrorRow],
+) -> StopInfo | None:
+    if error_rows and error_handling.on_validation_error == "stop":
+        return StopInfo(
+            reason="validation_error",
+            message=f"validation error count: {len(error_rows)}",
+        )
+    return None
+
+
+def _evaluate_max_errors(
+    error_handling: ErrorHandlingConfig,
+    total_error_count: int,
+) -> StopInfo | None:
+    if total_error_count > error_handling.max_errors:
+        return StopInfo(
+            reason="max_errors_exceeded",
+            message=(
+                f"error count {total_error_count} exceeded max_errors {error_handling.max_errors}"
+            ),
+            max_errors_exceeded=True,
+        )
+    return None
+
+
+def _build_rowwise_output(
+    *,
+    config: DatamapxConfig,
+    input_df: pd.DataFrame,
+    input_name: str,
+    output_columns: list[str],
+    reference_dfs: dict[str, pd.DataFrame],
+    base_error_count: int,
+) -> RowwiseOutputResult:
+    output_rows: list[dict[str, object]] = []
+    output_row_numbers: list[object] = []
+    skipped_rows: list[SkippedRow] = []
+    mapping_error_rows: list[ValidationErrorRow] = []
+    rows_after_filter = 0
+    for index, row in input_df.iterrows():
+        row_df = input_df.loc[[index]]
+        row_number = _row_number(row)
+        normalized_row = row.to_dict()
+        try:
+            derived_values = compute_derived_fields(config, row_df, reference_dfs)
+            filter_result = apply_filters(
+                config,
+                row_df,
+                input_name,
+                derived_values,
+            )
+            skipped_rows.extend(filter_result.skipped_rows)
+            if filter_result.input_df.empty:
+                continue
+            rows_after_filter += 1
+            output_df = build_output_dataframe(
+                config,
+                filter_result.input_df,
+                reference_dfs=reference_dfs,
+                derived_values=filter_result.derived_values,
+            )
+            output_rows.append(output_df.iloc[0].to_dict())
+            output_row_numbers.append(filter_result.input_df.iloc[0]["__row_number"])
+        except MappingError as exc:
+            stop_info = _classify_mapping_error(exc)
+            mapping_error_rows.append(
+                ValidationErrorRow(
+                    row_number=row_number,
+                    stage="mapping",
+                    field=_mapping_error_field(str(exc)),
+                    rule=stop_info.reason,
+                    message=str(exc),
+                    normalized_row=normalized_row,
+                )
+            )
+            if _mapping_error_policy(config.error_handling, stop_info) == "stop":
+                return RowwiseOutputResult(
+                    output_df=pd.DataFrame(output_rows, columns=output_columns),
+                    output_row_numbers=pd.Series(output_row_numbers),
+                    skipped_rows=skipped_rows,
+                    mapping_error_rows=mapping_error_rows,
+                    input_rows_before_filter=len(input_df),
+                    input_rows_after_filter=rows_after_filter,
+                    stop_info=stop_info,
+                )
+            max_errors_stop = _evaluate_max_errors(
+                config.error_handling,
+                base_error_count + len(mapping_error_rows),
+            )
+            if max_errors_stop is not None:
+                return RowwiseOutputResult(
+                    output_df=pd.DataFrame(output_rows, columns=output_columns),
+                    output_row_numbers=pd.Series(output_row_numbers),
+                    skipped_rows=skipped_rows,
+                    mapping_error_rows=mapping_error_rows,
+                    input_rows_before_filter=len(input_df),
+                    input_rows_after_filter=rows_after_filter,
+                    stop_info=max_errors_stop,
+                )
+
+    output_df = pd.DataFrame(output_rows, columns=output_columns)
+    output_row_series = pd.Series(output_row_numbers)
+    return RowwiseOutputResult(
+        output_df=output_df,
+        output_row_numbers=output_row_series,
+        skipped_rows=skipped_rows,
+        mapping_error_rows=mapping_error_rows,
+        input_rows_before_filter=len(input_df),
+        input_rows_after_filter=rows_after_filter,
+        stop_info=None,
+    )
+
+
+def _classify_mapping_error(exc: MappingError) -> StopInfo:
+    message = str(exc)
+    if "lookup missing:" in message:
+        return StopInfo(reason="lookup_missing", message=message)
+    return StopInfo(reason="transform_error", message=message)
+
+
+def _mapping_error_policy(
+    error_handling: ErrorHandlingConfig,
+    stop_info: StopInfo,
+) -> str:
+    if stop_info.reason == "lookup_missing":
+        return error_handling.on_lookup_missing
+    return error_handling.on_transform_error
+
+
+def _mapping_error_field(message: str) -> str:
+    if ":" not in message:
+        return "mapping"
+    field, _, _ = message.partition(":")
+    return field.strip() or "mapping"
+
+
+def _row_number(row: pd.Series) -> object:
+    if "__row_number" in row:
+        return row["__row_number"]
+    return row.name
+
+
+def _build_failed_execution_result(
+    *,
+    config: DatamapxConfig,
+    run_id: str,
+    started_at: str,
+    finished_at: str,
+    load_result: LoadPhaseResult,
+    input_validation_result: ValidationResult,
+    input_rows_before_filter: int,
+    input_rows_after_filter: int,
+    skipped_rows: list[SkippedRow],
+    output_name: str,
+    output_preview_df: pd.DataFrame,
+    base_path: Path | None,
+    stop_info: StopInfo,
+    check_results: list[CheckResult],
+    mapping_error_rows: list[ValidationErrorRow] | None = None,
+    output_validation_result: ValidationResult | None = None,
+) -> ExecutionResult:
+    error_rows = input_validation_result.error_rows
+    if mapping_error_rows:
+        error_rows = error_rows + mapping_error_rows
+    if output_validation_result is not None:
+        error_rows = error_rows + output_validation_result.error_rows
+    output_columns = list(output_preview_df.columns)
+    return ExecutionResult(
+        run_id=run_id,
+        started_at=started_at,
+        finished_at=finished_at,
+        load_result=load_result,
+        output_name=output_name,
+        output_path=str(resolve_output_path(config.outputs[output_name].path, base_path)),
+        output_rows=len(output_preview_df),
+        output_columns=output_columns,
+        output_preview_df=output_preview_df,
+        input_rows_before_validation=load_result.input_rows,
+        input_rows_after_validation=input_validation_result.rows_after_validation,
+        input_rows_before_filter=input_rows_before_filter,
+        input_rows_after_filter=input_rows_after_filter,
+        skipped_rows=skipped_rows,
+        error_rows=error_rows,
+        check_results=check_results,
+        error_handling=config.error_handling,
+        stop_reason=stop_info.reason,
+        stop_message=stop_info.message,
+        max_errors_exceeded=stop_info.max_errors_exceeded,
+        fatal_error=True,
+        status="failed",
     )

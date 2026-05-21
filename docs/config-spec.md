@@ -484,6 +484,8 @@ The following summary variables are allowed in `checks[].rule` and are not treat
 ## 13. error_handling
 
 `error_handling` defines how row-level and runtime errors are handled.
+Phase 1 honors `on_validation_error`, `on_lookup_missing`, `on_transform_error`, and `max_errors` during execution and records fatal stop reasons in `summary.json`.
+When `on_lookup_missing` or `on_transform_error` is `output_error`, the affected row is kept as an error row and omitted from the output preview. When either option is `stop`, execution stops immediately.
 
 ```yaml
 error_handling:

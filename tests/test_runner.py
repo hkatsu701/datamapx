@@ -108,11 +108,95 @@ def test_dry_run_builds_composite_lookup_output_preview_dataframe() -> None:
     ]
 
 
-def test_dry_run_lookup_missing_error_fails() -> None:
+def test_dry_run_lookup_missing_becomes_row_error() -> None:
     config = load_config(MAPPING_FIXTURES / "mapping_config_lookup_missing_error.yml")
 
-    with pytest.raises(Exception, match="lookup missing"):
-        run_dry_run(config, MAPPING_FIXTURES)
+    result = run_dry_run(config, MAPPING_FIXTURES)
+
+    assert result.fatal_error is False
+    assert result.output_rows == 2
+    assert result.total_error_count == 1
+    assert result.error_rows[0].stage == "mapping"
+    assert result.error_rows[0].rule == "lookup_missing"
+
+
+def test_dry_run_lookup_missing_respects_validation_stop_policy() -> None:
+    config = load_config(MAPPING_FIXTURES / "mapping_config_lookup_missing_error.yml")
+    config = config.model_copy(
+        update={
+            "error_handling": config.error_handling.model_copy(
+                update={"on_validation_error": "stop"}
+            )
+        }
+    )
+
+    result = run_dry_run(config, MAPPING_FIXTURES)
+
+    assert result.fatal_error is False
+    assert result.stop_reason is None
+    assert result.output_rows == 2
+    assert result.output_preview_df["id"].tolist() == ["u001", "u002"]
+
+
+def test_dry_run_lookup_missing_stop_marks_failure() -> None:
+    config = load_config(MAPPING_FIXTURES / "mapping_config_lookup_missing_error.yml")
+    config = config.model_copy(
+        update={
+            "error_handling": config.error_handling.model_copy(
+                update={"on_lookup_missing": "stop"}
+            )
+        }
+    )
+
+    result = run_dry_run(config, MAPPING_FIXTURES)
+
+    assert result.fatal_error is True
+    assert result.stop_reason == "lookup_missing"
+    assert result.output_rows == 2
+    assert result.output_preview_df["id"].tolist() == ["u001", "u002"]
+
+
+def test_dry_run_transform_error_becomes_row_error() -> None:
+    config = load_config(MAPPING_FIXTURES / "mapping_config_expression_missing_value.yml")
+
+    result = run_dry_run(config, MAPPING_FIXTURES)
+
+    assert result.fatal_error is False
+    assert result.total_error_count == 1
+    assert result.error_rows[0].stage == "mapping"
+    assert result.error_rows[0].rule == "transform_error"
+
+
+def test_dry_run_validation_stop_marks_failure() -> None:
+    fixtures = Path(__file__).parent / "fixtures" / "validation"
+    config = load_config(fixtures / "validation_config_output_errors.yml")
+    config = config.model_copy(
+        update={
+            "error_handling": config.error_handling.model_copy(
+                update={"on_validation_error": "stop"}
+            )
+        }
+    )
+
+    result = run_dry_run(config, fixtures)
+
+    assert result.fatal_error is True
+    assert result.stop_reason == "validation_error"
+    assert result.total_error_count >= 1
+
+
+def test_dry_run_max_errors_stop_marks_failure() -> None:
+    fixtures = Path(__file__).parent / "fixtures" / "validation"
+    config = load_config(fixtures / "validation_config_output_errors.yml")
+    config = config.model_copy(
+        update={"error_handling": config.error_handling.model_copy(update={"max_errors": 0})}
+    )
+
+    result = run_dry_run(config, fixtures)
+
+    assert result.fatal_error is True
+    assert result.stop_reason == "max_errors_exceeded"
+    assert result.max_errors_exceeded is True
 
 
 def test_dry_run_builds_when_output_preview_dataframe() -> None:

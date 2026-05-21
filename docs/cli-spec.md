@@ -380,11 +380,12 @@ Lookup, when, expression, derived, and filter results are included in the output
 Validations are included in the preview data. Dry-run still succeeds when validation error rows exist, as long as preview construction and optional report writing complete successfully.
 
 Checks are evaluated during dry-run. If any check fails, the command exits with code `1` after the preview and optional reports are produced.
+If execution stops because of validation policy or a mapping/runtime error configured to stop, the CLI prints a `Stop:` block before exiting with code `1`.
 
 ### Exit code policy
 
 - `0`: dry-run completed successfully
-- `1`: configuration error, input CSV read error, type conversion error, reference CSV read error, reference key validation error, mapping error, or report write error
+- `1`: configuration error, input CSV read error, type conversion error, reference CSV read error, reference key validation error, mapping error, fatal validation stop, or report write error
 - `2`: invalid CLI usage
 
 ## datamapx run migration.yml
@@ -420,14 +421,15 @@ Print run summary:
 - summary file path
 - final status
 
-`run` always writes the main output CSV and the report files. Validation error rows do not make the command fail if the pipeline completes and reports are written successfully.
+`run` always writes the main output CSV and the report files when execution completes successfully. Validation error rows do not make the command fail if the configured policy is `output_error`.
 
 Checks are evaluated during `run`. If any check fails, the command exits with code `1` after the output and report files are written.
+If execution stops because of validation policy or a mapping/runtime error configured to stop, `run` skips writing the main output CSV, writes the reports when possible, prints a `Stop:` block, and exits with code `1`.
 
 ### Exit code policy
 
 - `0`: run completed successfully
-- `1`: configuration error, fatal runtime error, CSV write error, report write error, or check failure
+- `1`: configuration error, fatal runtime error, CSV write error, report write error, fatal validation stop, or check failure
 - `2`: invalid CLI usage
 
 ## datamapx profile-input migration.yml

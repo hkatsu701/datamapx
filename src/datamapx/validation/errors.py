@@ -15,7 +15,7 @@ class ValidationErrorRow:
     """A single row-level validation failure."""
 
     row_number: Any
-    stage: Literal["input_validation", "output_validation"]
+    stage: Literal["input_validation", "output_validation", "mapping"]
     field: str
     rule: str
     message: str

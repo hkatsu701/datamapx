@@ -80,6 +80,63 @@ def test_run_check_failure_exits_nonzero(tmp_path: Path) -> None:
     assert (tmp_path / "output" / "users_out.csv").exists()
 
 
+def test_run_validation_stop_exits_nonzero_and_skips_output(tmp_path: Path) -> None:
+    config_path = _prepare_fixture(tmp_path, "run_config_with_errors.yml")
+    _set_error_handling(config_path, {"on_validation_error": "stop"})
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "Execution stopped (validation_error)" in result.output
+    assert not (tmp_path / "output" / "users_out.csv").exists()
+
+    summary = json.loads((tmp_path / "reports" / "summary.json").read_text(encoding="utf-8"))
+    assert summary["notes"]["fatal_error"] is True
+    assert summary["notes"]["stop_reason"] == "validation_error"
+
+
+def test_run_lookup_missing_stop_exits_nonzero_and_keeps_preview_counts(tmp_path: Path) -> None:
+    fixture_dir = Path(__file__).parent / "fixtures" / "mapping"
+    for path in fixture_dir.iterdir():
+        target = tmp_path / path.name
+        if path.is_dir():
+            shutil.copytree(path, target)
+        else:
+            shutil.copy2(path, target)
+
+    config_path = tmp_path / "mapping_config_lookup_missing_error.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["error_handling"]["on_lookup_missing"] = "stop"
+    rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    config_path.write_text(rendered, encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "Execution stopped (lookup_missing)" in result.output
+    assert not (tmp_path / "output" / "users.csv").exists()
+
+    summary = json.loads((tmp_path / "output" / "summary.json").read_text(encoding="utf-8"))
+    assert summary["counts"]["output_rows"] == 2
+    assert summary["notes"]["fatal_error"] is True
+    assert summary["notes"]["stop_reason"] == "lookup_missing"
+
+
+def test_run_max_errors_stop_exits_nonzero(tmp_path: Path) -> None:
+    config_path = _prepare_fixture(tmp_path, "run_config_with_errors.yml")
+    _set_error_handling(config_path, {"max_errors": 0})
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "Execution stopped (max_errors_exceeded)" in result.output
+
+    summary = json.loads((tmp_path / "reports" / "summary.json").read_text(encoding="utf-8"))
+    assert summary["notes"]["fatal_error"] is True
+    assert summary["notes"]["stop_reason"] == "max_errors_exceeded"
+    assert summary["notes"]["max_errors_exceeded"] is True
+
+
 def test_run_reports_dir_writes_reports_to_override_directory(tmp_path: Path) -> None:
     config_path = _prepare_fixture(tmp_path, "run_config_with_errors.yml")
     reports_dir = tmp_path / "custom_reports"
@@ -137,5 +194,12 @@ def _prepare_fixture(tmp_path: Path, fixture_name: str) -> Path:
 def _set_checks(config_path: Path, checks: list[dict[str, object]]) -> None:
     data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     data["checks"] = checks
+    rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    config_path.write_text(rendered, encoding="utf-8")
+
+
+def _set_error_handling(config_path: Path, updates: dict[str, object]) -> None:
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["error_handling"].update(updates)
     rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
     config_path.write_text(rendered, encoding="utf-8")

@@ -318,14 +318,60 @@ def test_dry_run_lookup_output_preview_is_displayed() -> None:
     assert "Unknown" in result.output
 
 
-def test_dry_run_lookup_missing_fails() -> None:
+def test_dry_run_lookup_missing_becomes_row_error() -> None:
     result = CliRunner().invoke(
         app,
         ["dry-run", str(FIXTURES / "mapping" / "mapping_config_lookup_missing_error.yml")],
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 0
+    assert "Error preview:" in result.output
     assert "lookup missing" in result.output
+
+
+def test_dry_run_lookup_missing_stop_fails(tmp_path: Path) -> None:
+    fixture_dir = FIXTURES / "mapping"
+    for path in fixture_dir.iterdir():
+        target = tmp_path / path.name
+        if path.is_dir():
+            shutil.copytree(path, target)
+        else:
+            shutil.copy2(path, target)
+
+    config_path = tmp_path / "lookup_stop.yml"
+    data = yaml.safe_load(
+        (tmp_path / "mapping_config_lookup_missing_error.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    data["error_handling"] = {
+        "error_output": "./output/errors.csv",
+        "skipped_output": "./output/skipped.csv",
+        "on_lookup_missing": "stop",
+    }
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["dry-run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "Output preview:" in result.output
+    assert "u001" in result.output
+    assert "u002" in result.output
+    assert "Execution stopped (lookup_missing)" in result.output
+
+
+def test_dry_run_transform_error_becomes_row_error() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["dry-run", str(FIXTURES / "mapping" / "mapping_config_expression_missing_value.yml")],
+    )
+
+    assert result.exit_code == 0
+    assert "Error preview:" in result.output
+    assert "transform_error" in result.output
 
 
 def test_dry_run_when_output_preview_is_displayed() -> None:

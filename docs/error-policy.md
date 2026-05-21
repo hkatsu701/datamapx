@@ -11,6 +11,7 @@ In Phase 1, `validate-config` treats undefined field references as configuration
 ### input validation error
 
 An input row fails a validation rule or schema requirement, such as `required`, type conversion, or regex validation.
+When `error_handling.on_validation_error` is `output_error`, the row is retained internally as an error row. When it is `stop`, execution stops.
 
 ### output validation error
 
@@ -18,7 +19,7 @@ A transformed output row fails an output validation rule, such as `required`, `e
 
 ### lookup missing
 
-A lookup key does not match any row in the configured reference CSV.
+A lookup key does not match any row in the configured reference CSV. In Phase 1 this is reported as a row-level mapping error when `error_handling.on_lookup_missing` is `output_error`, and as a fatal stop reason when it is `stop`.
 
 ### lookup duplicate
 
@@ -26,7 +27,7 @@ A reference CSV contains duplicate keys. Phase 1 supports only `on_duplicate: er
 
 ### transform error
 
-A mapping, derived field, condition, or expression cannot be evaluated for a row.
+A mapping, derived field, condition, or expression cannot be evaluated for a row. In Phase 1 this is reported as a row-level mapping error when `error_handling.on_transform_error` is `output_error`, and as a fatal stop reason when it is `stop`.
 
 ### skipped row
 
@@ -56,9 +57,9 @@ CSV reader errors are runtime errors in Phase 1 and produce CLI exit code `1`.
 - Undefined field reference: stop
 - Output columns and mappings mismatch: stop
 - Reference duplicate key: stop
-- Lookup missing: row is retained internally as an error row and written to `errors.csv` in `run`, or when `--write-reports` is used in `dry-run`
+- Lookup missing: row is retained internally as an error row when `error_handling.on_lookup_missing` is `output_error`; stop when it is `stop`
 - Type conversion failure: stop during CSV loading
-- Validation failure: row is retained internally as an error row and written to `errors.csv` in `run`, or when `--write-reports` is used in `dry-run`
+- Validation failure: row is retained internally as an error row when `error_handling.on_validation_error` is `output_error`; stop when it is `stop`
 - Filter exclusion: row is retained internally as a skipped row and written to `skipped.csv` in `run`, or when `--write-reports` is used in `dry-run`
 - Check failure: stop after the pipeline completes and report the failed assertion
 - Reaching `max_errors`: stop
@@ -103,7 +104,7 @@ CSV reader errors are runtime errors in Phase 1 and produce CLI exit code `1`.
 - `filters.include` or `filters.exclude` is not a list: stop
 - Filtered rows are retained internally as skipped rows during dry-run
 - Unsupported mapping rule during execution: stop
-- Mapping runtime error: fatal stop
+- Mapping runtime error: fatal stop when the configured policy is `stop`; otherwise retain the row as an error row
 - Output CSV write error: fatal stop
 - Report write error: fatal stop
 
@@ -203,7 +204,7 @@ JSON report writers use `ensure_ascii=False` so Japanese text is preserved in CS
 ## 6. Run Exit Policy
 
 - Validation error rows are data quality failures, not fatal execution failures. `run` exits `0` when it completes and writes all configured files successfully.
-- Mapping runtime errors are fatal in Phase 1. If a mapping rule cannot be evaluated safely, `run` exits `1`.
+- Mapping runtime errors respect `error_handling.on_lookup_missing` and `error_handling.on_transform_error`. `run` exits `0` when those policies are `output_error` and the pipeline completes successfully.
 - CSV write failures for the main output CSV or report files are fatal and exit `1`.
 
 ## Open Questions
