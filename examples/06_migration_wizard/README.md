@@ -5,7 +5,7 @@ Japanese README: [README.ja.md](README.ja.md)
 ## 1. This example teaches
 
 - How to build a full `migration.yml` with `migration-wizard`.
-- Numbered selection, rename, schema overrides, `lookup`, `derived`, `expression`, `when`, `validations`, `filters`, and `checks`.
+- Output column counts and names, column read settings, `lookup`, `derived`, `expression`, `when`, `validations`, `filters`, and `checks`.
 - How the wizard stays usable for people who want the result but do not write YAML by hand.
 
 ## 2. File layout
@@ -42,8 +42,8 @@ Loads the input and reference CSVs, applies the schema, and shows the output pre
 
 ## 6. YAML highlights
 
-- Input schema overrides for `user_id`, `full_name`, `department_code`, `amount`, `status_code`, and `active_flag`
-- Reference schema overrides for `dept_code`, `dept_name`, and `bonus_rate`
+- Input column read settings for `user_id`, `full_name`, `department_code`, `amount`, `status_code`, and `active_flag`
+- Reference column read settings for `dept_code`, `dept_name`, and `bonus_rate`
 - `lookup` for department name and bonus rate
 - `derived.tax_amount`
 - `expression` for gross amount

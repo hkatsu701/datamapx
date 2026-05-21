@@ -638,12 +638,12 @@ def _format_migration_review(
         lines.append(f"- {output_column}: {_summarize_rule(rule)}")
     if reference_specs:
         lines.append("")
-        lines.append("reference CSV:")
+        lines.append("reference CSV の列設定:")
         for spec in reference_specs:
             lines.append(
                 f"- {spec.name}: {spec.path} (key: {', '.join(spec.key)})"
                 + (
-                    f", schema 変更 {len(spec.schema_overrides)} 件"
+                    f", 列設定 {len(spec.schema_overrides)} 件"
                     if spec.schema_overrides
                     else ""
                 )
@@ -655,7 +655,7 @@ def _format_migration_review(
             lines.append(f"- {spec.name}")
     if schema_overrides:
         lines.append("")
-        lines.append("input schema 変更:")
+        lines.append("input 列の読み込み設定:")
         for spec in schema_overrides:
             lines.append(f"- {spec.field}")
     total_validations = len(validations["input"]) + len(validations["output"])
@@ -788,39 +788,13 @@ def _prompt_reference_schema_overrides(
     columns: list[ColumnPreview],
 ) -> list[SchemaOverrideSpec]:
     typer.echo("")
-    typer.echo(f"  {reference_name} の reference schema を設定します。")
-    override_count = _prompt_int("  schema を変更する列はいくつありますか？", 0)
-    overrides: list[SchemaOverrideSpec] = []
-    used_fields: set[str] = set()
-    for index in range(1, override_count + 1):
-        typer.echo("")
-        typer.echo(f"  reference schema {index}")
-        options = [
-            ChoiceOption(
-                label=fill(
-                    f"{column.index}. {reference_name}.{column.safe_field} (CSV: {column.header})",
-                    width=96,
-                    subsequent_indent="    ",
-                ),
-                value=column,
-            )
-            for column in columns
-            if column.safe_field not in used_fields
-        ]
-        if not options:
-            raise ConfigError("reference schema を変更できる列がありません")
-        selected = _prompt_number_choice(
-            "    対象列を番号で選択",
-            options,
-            default_index=1,
-            help_text="1件だけ選びます。",
-        )
-        used_fields.add(selected.safe_field)
-        field_overrides = _prompt_schema_field_overrides(
-            context=f"references.{reference_name}.schema.{selected.safe_field}",
-        )
-        overrides.append(SchemaOverrideSpec(field=selected.safe_field, values=field_overrides))
-    return overrides
+    typer.echo(f"  {reference_name} の列の読み込み設定を確認します。")
+    typer.echo(_format_column_preview_list(f"  {reference_name} の列", columns))
+    return _prompt_schema_overrides_for_columns(
+        context_prefix=f"references.{reference_name}.schema",
+        columns=columns,
+        section_label="reference",
+    )
 
 
 def _prompt_derived_specs(
@@ -2052,38 +2026,30 @@ def _prompt_input_schema_overrides(
     input_columns: list[ColumnPreview],
 ) -> list[SchemaOverrideSpec]:
     typer.echo("")
-    typer.echo("input schema を設定します。")
-    override_count = _prompt_int("schema を変更する列はいくつありますか？", 0)
+    typer.echo("input の列の読み込み設定を確認します。")
+    typer.echo(_format_column_preview_list(f"  {input_name} の列", input_columns))
+    return _prompt_schema_overrides_for_columns(
+        context_prefix=f"inputs.{input_name}.schema",
+        columns=input_columns,
+        section_label="input",
+    )
+
+
+def _prompt_schema_overrides_for_columns(
+    *,
+    context_prefix: str,
+    columns: list[ColumnPreview],
+    section_label: str,
+) -> list[SchemaOverrideSpec]:
     overrides: list[SchemaOverrideSpec] = []
-    used_fields: set[str] = set()
-    for index in range(1, override_count + 1):
+    for index, column in enumerate(columns, start=1):
         typer.echo("")
-        typer.echo(f"schema {index}")
-        options = [
-            ChoiceOption(
-                label=fill(
-                    f"{column.index}. {input_name}.{column.safe_field} (CSV: {column.header})",
-                    width=96,
-                    subsequent_indent="    ",
-                ),
-                value=column,
-            )
-            for column in input_columns
-            if column.safe_field not in used_fields
-        ]
-        if not options:
-            raise ConfigError("schema を変更できる列がありません")
-        selected = _prompt_number_choice(
-            "  対象列を番号で選択",
-            options,
-            default_index=1,
-            help_text="1件だけ選びます。",
-        )
-        used_fields.add(selected.safe_field)
+        typer.echo(f"  {section_label} schema {index}")
+        typer.echo(f"  {column.index}. {column.header} ({column.safe_field})")
         field_overrides = _prompt_schema_field_overrides(
-            context=f"inputs.{input_name}.schema.{selected.safe_field}",
+            context=f"{context_prefix}.{column.safe_field}",
         )
-        overrides.append(SchemaOverrideSpec(field=selected.safe_field, values=field_overrides))
+        overrides.append(SchemaOverrideSpec(field=column.safe_field, values=field_overrides))
     return overrides
 
 
@@ -2099,7 +2065,7 @@ def _build_default_schema_field(column: ColumnPreview) -> dict[str, Any]:
 def _prompt_schema_field_overrides(*, context: str) -> dict[str, Any]:
     values: dict[str, Any] = {}
     values["type"] = _prompt_number_choice(
-        f"{context}: type を選択",
+        f"{context}: 型を選択",
         [
             ChoiceOption(label="string", value="string"),
             ChoiceOption(label="integer", value="integer"),
@@ -2110,22 +2076,22 @@ def _prompt_schema_field_overrides(*, context: str) -> dict[str, Any]:
         default_index=1,
     )
     values["required"] = _prompt_number_choice(
-        f"{context}: required を選択",
+        f"{context}: 空欄をエラーにするかを選択",
         [
-            ChoiceOption(label="false", value=False),
-            ChoiceOption(label="true", value=True),
+            ChoiceOption(label="しない", value=False),
+            ChoiceOption(label="する", value=True),
         ],
         default_index=1,
     )
     normalize_values = _prompt_number_choices(
-        f"{context}: normalize を選択",
+        f"{context}: 値を整える処理を選択",
         [
             ChoiceOption(label="trim", value="trim"),
             ChoiceOption(label="remove_commas", value="remove_commas"),
             ChoiceOption(label="remove_currency_symbol", value="remove_currency_symbol"),
         ],
         default_indices=[1],
-        help_text="複数選択は 1,2 のように入力できます。Enter で trim を使います。",
+        help_text="複数選択は 1,2 のように入力できます。Enter で標準設定を使えます。",
     )
     values["normalize"] = normalize_values
     if values["type"] == "boolean":

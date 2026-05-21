@@ -5,7 +5,7 @@ This document is the source of truth for Phase 1 YAML behavior.
 ## 1. Overview
 
 datamapx uses a YAML file to define CSV input, reference CSVs, filters, derived fields, output CSV, mappings, validations, checks, error handling, and runtime behavior.
-The `migration-wizard` can author the same input schema fields, reference schema fields, output mappings, and advanced sections interactively, including numbered schema overrides for selected columns.
+The `migration-wizard` can author the same input and reference column read settings, output mappings, and advanced sections interactively.
 It now also shows a final natural-language review before saving and allows redo only for the output column / mapping section.
 See [examples/06_migration_wizard/README.md](../examples/06_migration_wizard/README.md) for a runnable wizard-authored migration configuration.
 

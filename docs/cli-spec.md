@@ -104,8 +104,8 @@ Next steps:
 Interactively generate a `migration.yml` configuration from a single input CSV and output path.
 
 The wizard is a configuration authoring aid only. It does not run validation or write any output CSV.
-It prompts for project metadata, paths, input/output names, the number of output columns to create, the output column names themselves, and optional input schema overrides.
-In advanced mode it can also add input schema overrides, reference schema overrides, reference CSVs, derived fields, validations, filters, checks, output settings, error handling, runtime settings, and per-column rules for `source`, `value`, `concat`, `map`, `when`, `lookup`, and `expression`.
+It prompts for project metadata, paths, input/output names, the number of output columns to create, the output column names themselves, and optional column read settings.
+In advanced mode it can also add input column read settings, reference column read settings, reference CSVs, derived fields, validations, filters, checks, output settings, error handling, runtime settings, and per-column rules for `source`, `value`, `concat`, `map`, `when`, `lookup`, and `expression`.
 Before saving, the wizard shows a natural-language review of the generated migration and lets you save, redo only the output column / rule section, or cancel.
 See [examples/06_migration_wizard/README.md](../examples/06_migration_wizard/README.md) for a runnable migration-wizard example.
 
@@ -131,12 +131,12 @@ migration.yml を作成しました
 出力列数: 2
 設定モード: 基本設定のみ
 reference 数: 0
-reference schema 変更数: 0
+reference 列設定数: 0
 derived 数: 0
 validation 数: 0
 filter 数: 0
 check 数: 0
-schema 変更数: 0
+input 列設定数: 0
 output.if_exists: error
 output.newline: \n
 error_handling.max_errors: 1000
@@ -153,7 +153,7 @@ runtime.log_level: INFO
 
 - Generates a migration YAML scaffold only.
 - Basic mode uses `source` mappings only.
-- Advanced mode can generate `input schema` overrides, `reference schema` overrides, `lookup`, `derived`, `validations`, `filters`, `checks`, `output` settings, `error_handling`, and `runtime` sections plus non-source mapping rules.
+- Advanced mode can generate input and reference column read settings, `lookup`, `derived`, `validations`, `filters`, `checks`, `output` settings, `error_handling`, and `runtime` sections plus non-source mapping rules.
 - Does not execute the migration.
 - Uses the same safe field-name helper as `generate-config`, so headers that cannot be made safe fall back to generated names like `field_001`.
 - Lets you declare the output column count and output column names explicitly.

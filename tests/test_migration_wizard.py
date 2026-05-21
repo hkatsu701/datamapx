@@ -10,6 +10,23 @@ from datamapx.config import load_config
 FIXTURES = Path(__file__).parent / "fixtures" / "generate_config"
 
 
+def _schema_answers(
+    type_index: int = 1,
+    required_index: int = 1,
+    normalize: str = "1",
+) -> list[str]:
+    return [str(type_index), str(required_index), normalize]
+
+
+def _schema_answers_for_columns(
+    column_specs: list[tuple[int, int, str]],
+) -> list[str]:
+    answers: list[str] = []
+    for type_index, required_index, normalize in column_specs:
+        answers.extend(_schema_answers(type_index, required_index, normalize))
+    return answers
+
+
 def test_migration_wizard_command_generates_valid_config(
     tmp_path: Path,
     monkeypatch,
@@ -122,7 +139,7 @@ def test_migration_wizard_advanced_mode_can_write_lookup_and_derived(
             str(reference_path),
             'departments',
             '1',
-            '0',
+            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1')]),
             '1',
             'name_copy',
             '1',
@@ -132,7 +149,7 @@ def test_migration_wizard_advanced_mode_can_write_lookup_and_derived(
             '0',
             '0',
             '0',
-            '0',
+            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1'), (1, 1, '1')]),
             '1',
             '1',
             '1',
@@ -192,18 +209,14 @@ def test_migration_wizard_advanced_mode_can_write_reference_schema_overrides(
             str(reference_path),
             'departments',
             '1',
-            '1',
-            '2',
-            '1',
-            '2',
-            '1',
+            *_schema_answers_for_columns([(1, 2, '1'), (1, 2, '1')]),
             '0',
             '0',
             '0',
             '0',
             '0',
             '0',
-            '0',
+            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1'), (1, 1, '1')]),
             '1',
             '1',
             '1',
@@ -230,7 +243,7 @@ def test_migration_wizard_advanced_mode_can_write_reference_schema_overrides(
     result = CliRunner().invoke(app, ["migration-wizard"])
 
     assert result.exit_code == 0
-    assert "reference schema 変更数: 1" in result.output
+    assert "reference 列設定数: 2" in result.output
     config = load_config(config_path)
     reference = config.references["departments"]
     assert set(reference.fields_schema) == {"dept_code", "dept_name"}
@@ -283,7 +296,7 @@ def test_migration_wizard_advanced_mode_can_write_validations_filters_and_checks
             'row_count_check',
             '2',
             'input_rows == output_rows + error_rows + skipped_rows',
-            '0',
+            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1'), (1, 1, '1')]),
             '1',
             '1',
             '1',
@@ -353,7 +366,7 @@ def test_migration_wizard_advanced_mode_can_write_output_error_handling_runtime_
             '0',
             '0',
             '0',
-            '0',
+            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1'), (1, 1, '1')]),
             '2',
             '2',
             '2',
@@ -424,11 +437,7 @@ def test_migration_wizard_advanced_mode_can_write_input_schema_overrides(
             '0',
             '0',
             '0',
-            '1',
-            '3',
-            '3',
-            '2',
-            '1,2,3',
+            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1'), (3, 2, '1,2,3')]),
             '1',
             '1',
             '1',
@@ -455,7 +464,7 @@ def test_migration_wizard_advanced_mode_can_write_input_schema_overrides(
     result = CliRunner().invoke(app, ["migration-wizard"])
 
     assert result.exit_code == 0
-    assert "schema 変更数: 1" in result.output
+    assert "input 列設定数: 3" in result.output
     config = load_config(config_path)
     amount_schema = config.inputs["users"].fields_schema["amount"]
     assert amount_schema.type == "decimal"
@@ -505,7 +514,7 @@ def test_migration_wizard_can_build_filter_and_check_rules(
             'row_count_check',
             '2',
             'input_rows == output_rows + error_rows + skipped_rows',
-            '0',
+            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1'), (1, 1, '1')]),
             '1',
             '1',
             '1',
@@ -567,7 +576,7 @@ def test_migration_wizard_can_suggest_expression_from_natural_language(
             '0',
             '0',
             '0',
-            '0',
+            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1'), (1, 1, '1')]),
             '1',
             '1',
             '1',
