@@ -11,6 +11,7 @@ import pandas as pd
 from datamapx.config import DatamapxConfig
 from datamapx.io.csv_reader import read_input_csv, read_reference_csv
 from datamapx.io.csv_writer import resolve_output_path
+from datamapx.transform.checks import CheckResult, evaluate_checks
 from datamapx.transform.filters import SkippedRow, apply_filters
 from datamapx.transform.mapper import build_output_dataframe, compute_derived_fields
 from datamapx.validation import ValidationErrorRow, validate_input_rows, validate_output_rows
@@ -63,6 +64,7 @@ class DryRunResult:
     input_rows_after_filter: int
     skipped_rows: list[SkippedRow]
     error_rows: list[ValidationErrorRow]
+    check_results: list[CheckResult]
     status: str
 
     @property
@@ -80,6 +82,18 @@ class DryRunResult:
     @property
     def total_error_count(self) -> int:
         return len(self.error_rows)
+
+    @property
+    def check_failure_count(self) -> int:
+        return sum(1 for check in self.check_results if not check.passed)
+
+    @property
+    def check_success_count(self) -> int:
+        return sum(1 for check in self.check_results if check.passed)
+
+    @property
+    def has_check_failures(self) -> bool:
+        return self.check_failure_count > 0
 
 
 @dataclass(frozen=True)
@@ -103,6 +117,7 @@ class RunResult:
     input_rows_after_filter: int
     skipped_rows: list[SkippedRow]
     error_rows: list[ValidationErrorRow]
+    check_results: list[CheckResult]
     status: str
 
     @property
@@ -120,6 +135,18 @@ class RunResult:
     @property
     def total_error_count(self) -> int:
         return len(self.error_rows)
+
+    @property
+    def check_failure_count(self) -> int:
+        return sum(1 for check in self.check_results if not check.passed)
+
+    @property
+    def check_success_count(self) -> int:
+        return sum(1 for check in self.check_results if check.passed)
+
+    @property
+    def has_check_failures(self) -> bool:
+        return self.check_failure_count > 0
 
 
 def run_load_phase(
@@ -188,7 +215,12 @@ def run_dry_run(
         input_rows_after_filter=execution.input_rows_after_filter,
         skipped_rows=execution.skipped_rows,
         error_rows=execution.error_rows,
-        status="dry_run_completed",
+        check_results=execution.check_results,
+        status=(
+            "dry_run_completed_with_check_failures"
+            if any(not check.passed for check in execution.check_results)
+            else "dry_run_completed"
+        ),
     )
 
 
@@ -217,7 +249,12 @@ def run_pipeline(
         input_rows_after_filter=execution.input_rows_after_filter,
         skipped_rows=execution.skipped_rows,
         error_rows=execution.error_rows,
-        status="completed",
+        check_results=execution.check_results,
+        status=(
+            "completed_with_check_failures"
+            if any(not check.passed for check in execution.check_results)
+            else "completed"
+        ),
     )
 
 
@@ -250,6 +287,8 @@ class ExecutionResult:
     input_rows_after_filter: int
     skipped_rows: list[SkippedRow]
     error_rows: list[ValidationErrorRow]
+    check_results: list[CheckResult]
+    status: str
 
 
 def _execute_pipeline(
@@ -292,6 +331,19 @@ def _execute_pipeline(
         output_row_numbers,
         output_name,
     )
+    check_context = {
+        "input_rows": load_result.input_rows,
+        "output_rows": len(output_validation_result.dataframe),
+        "error_rows": len(input_validation_result.error_rows)
+        + len(output_validation_result.error_rows),
+        "skipped_rows": len(filter_result.skipped_rows),
+    }
+    check_results = evaluate_checks(config.checks, check_context)
+    status = (
+        "completed_with_check_failures"
+        if any(not check.passed for check in check_results)
+        else "completed"
+    )
     finished_at = _timestamp(datetime.now())
     output_path = str(resolve_output_path(config.outputs[output_name].path, base_path))
     return ExecutionResult(
@@ -310,4 +362,6 @@ def _execute_pipeline(
         input_rows_after_filter=filter_result.rows_after_filter,
         skipped_rows=filter_result.skipped_rows,
         error_rows=input_validation_result.error_rows + output_validation_result.error_rows,
+        check_results=check_results,
+        status=status,
     )

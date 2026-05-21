@@ -13,7 +13,7 @@ Current release: v0.3.1.
 - `migration-wizard` で migration.yml のひな形を対話的に作れます。入力先・出力先・出力名の方針に加えて、出力列を番号で選び、必要なら個別に rename できます。詳細設定では input schema、reference schema、reference CSV、derived、lookup、validations、filters、checks、output 設定、error_handling、runtime なども対話式で追加できます。保存前には自然文のレビュー画面が出て、出力列と rule をやり直すこともできます。
 - `merge-wizard` で merge.yml のひな形を対話的に作れます。入力列・出力列・出力列名の確認・ルールを番号で選び、必要なら推奨ルールをまとめて使えます。入力を間違えても日本語の案内でやり直せます。最後の確認画面では自然文で内容を確認でき、そこから列ルールだけ戻ってやり直せます。入力プレビューと番号は同じ並びで表示され、長い項目名は折り返して見やすくしています。
 - YAML で変換ルールを定義します。
-- 変換、lookup、条件分岐、計算、検証、レポート出力までを CLI で実行できます。
+- 変換、lookup、条件分岐、計算、検証、run-level check、レポート出力までを CLI で実行できます。
 
 ## 2. 主な機能
 
@@ -202,12 +202,15 @@ mappings:
 - Excel / JSON / DB 非対応
 - 複数 Input join 非対応
 - 複数 Output 非対応
-- `check` rule の本格実行は未対応
 
 ## 16. ロードマップ
 
 [docs/roadmap.md](docs/roadmap.md) を参照してください。
 
-## 17. ライセンス
+## 17. 開発ワークフロー
+
+PM / Developer / QA / Release の役割分担で小さく開発する場合は、[docs/agent-workflow.md](docs/agent-workflow.md) を参照してください。
+
+## 18. ライセンス
 
 MIT License。詳細は [LICENSE](LICENSE) を参照してください。

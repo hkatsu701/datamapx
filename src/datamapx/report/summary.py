@@ -91,8 +91,20 @@ def build_summary_payload(
             "error_rows": result.total_error_count,
             "input_validation_errors": result.input_validation_error_count,
             "output_validation_errors": result.output_validation_error_count,
+            "check_failures": result.check_failure_count,
+            "check_successes": result.check_success_count,
             "output_rows": result.output_rows,
         },
+        "checks": [
+            {
+                "name": check.name,
+                "rule": check.rule,
+                "passed": check.passed,
+                "evaluated_value": check.evaluated_value,
+                "message": check.message,
+            }
+            for check in result.check_results
+        ],
         "reports": {
             "errors_csv": str(report_paths.errors_csv),
             "skipped_csv": str(report_paths.skipped_csv),
@@ -101,6 +113,7 @@ def build_summary_payload(
         "notes": {
             "dry_run": result.dry_run,
             "output_file_written": result.output_file_written,
+            "checks_passed": not result.has_check_failures,
         },
     }
 

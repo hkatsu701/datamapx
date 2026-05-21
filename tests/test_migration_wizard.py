@@ -278,7 +278,7 @@ def test_migration_wizard_advanced_mode_can_write_validations_filters_and_checks
             "1",
             "row_count_check",
             "2",
-            "users.amount >= 0",
+            "input_rows == output_rows + error_rows + skipped_rows",
             "0",
             "1",
             "1",
@@ -321,7 +321,7 @@ def test_migration_wizard_advanced_mode_can_write_validations_filters_and_checks
     assert config.filters.exclude[0].if_ == "users.amount <= 0"
     assert config.filters.exclude[0].reason == "drop zero rows"
     assert config.checks[0].name == "row_count_check"
-    assert config.checks[0].rule == "users.amount >= 0"
+    assert config.checks[0].rule == "input_rows == output_rows + error_rows + skipped_rows"
 
 
 def test_migration_wizard_advanced_mode_can_write_output_error_handling_runtime_settings(

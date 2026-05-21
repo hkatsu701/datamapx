@@ -68,6 +68,7 @@ Future candidates:
 - `errors.csv`
 - `skipped.csv`
 - `summary.json`
+- Run-level checks
 - Main output CSV writer
 - run_id logs
 - Examples
@@ -79,7 +80,6 @@ Future candidates:
 - Stronger date format conversion
 - `zenkaku_to_hankaku`
 - Multiple outputs
-- More detailed checks
 - HTML report
 - Improvements for large CSV files
 

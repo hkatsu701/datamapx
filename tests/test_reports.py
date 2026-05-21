@@ -6,13 +6,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from datamapx.config import load_config
+from datamapx.config import CheckConfig, load_config
 from datamapx.report.writers import (
     write_dry_run_reports,
     write_errors_csv,
     write_skipped_csv,
 )
 from datamapx.runner import DryRunResult, LoadPhaseResult, ReferenceLoadSummary, run_dry_run
+from datamapx.transform.checks import CheckResult
 from datamapx.transform.filters import SkippedRow
 from datamapx.validation.errors import ValidationErrorRow
 
@@ -79,6 +80,8 @@ def test_summary_json_is_written(tmp_path: Path) -> None:
     summary = json.loads(report_paths.summary_json.read_text(encoding="utf-8"))
     assert summary["run_id"] == result.run_id
     assert summary["counts"]["error_rows"] == result.total_error_count
+    assert summary["counts"]["check_failures"] == 0
+    assert summary["checks"] == []
 
 
 def test_summary_json_includes_dry_run_flags(tmp_path: Path) -> None:
@@ -90,6 +93,30 @@ def test_summary_json_includes_dry_run_flags(tmp_path: Path) -> None:
     summary = json.loads(report_paths.summary_json.read_text(encoding="utf-8"))
     assert summary["notes"]["dry_run"] is True
     assert summary["notes"]["output_file_written"] is False
+    assert summary["notes"]["checks_passed"] is True
+
+
+def test_summary_json_includes_check_results(tmp_path: Path) -> None:
+    config = load_config(FIXTURES / "runner" / "runner_config.yml")
+    config = config.model_copy(
+        update={
+            "checks": [
+                CheckConfig(
+                    name="row_count_check",
+                    rule="input_rows == output_rows + error_rows + skipped_rows",
+                )
+            ]
+        }
+    )
+    result = run_dry_run(config, FIXTURES / "runner")
+
+    report_paths = write_dry_run_reports(result, config, FIXTURES / "runner", tmp_path)
+
+    summary = json.loads(report_paths.summary_json.read_text(encoding="utf-8"))
+    assert summary["counts"]["check_failures"] == 0
+    assert summary["checks"][0]["name"] == "row_count_check"
+    assert summary["checks"][0]["passed"] is True
+    assert summary["notes"]["checks_passed"] is True
 
 
 def test_row_json_preserves_japanese(tmp_path: Path) -> None:
@@ -181,5 +208,13 @@ def _make_result(error_rows: list[ValidationErrorRow]) -> DryRunResult:
             )
         ],
         error_rows=error_rows,
+        check_results=[
+            CheckResult(
+                name="row_count_check",
+                rule="input_rows == output_rows + error_rows + skipped_rows",
+                passed=True,
+                evaluated_value=True,
+            )
+        ],
         status="dry_run_completed",
     )

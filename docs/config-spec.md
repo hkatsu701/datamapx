@@ -468,9 +468,11 @@ checks:
     rule: input_rows == output_rows + error_rows + skipped_rows
 ```
 
-Phase 1 stores configured checks in `summary.json`, but it does not evaluate them as assertions yet. Check rule execution is deferred to a later phase.
+Phase 1 evaluates configured checks after output preview construction and stores the results in `summary.json`.
+Check rules may use the run-level summary variables below.
+Field references in `checks[].rule` are not supported. `validate-config` rejects any check rule that uses field references or unknown variables.
 
-During `validate-config`, Phase 1 does not evaluate check expressions. It validates only field references found in `checks[].rule`.
+During `validate-config`, Phase 1 does not evaluate check expressions. It validates that `checks[].rule` uses only supported summary variables.
 
 The following summary variables are allowed in `checks[].rule` and are not treated as field references:
 
@@ -478,8 +480,6 @@ The following summary variables are allowed in `checks[].rule` and are not treat
 - `output_rows`
 - `error_rows`
 - `skipped_rows`
-
-If a check contains a field reference such as `users.amount`, the reference must exist in the input schema. Unknown namespaces or unknown fields are configuration errors.
 
 ## 13. error_handling
 

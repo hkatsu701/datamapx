@@ -173,4 +173,11 @@ def test_checks_unknown_field_reference_fails() -> None:
     data = _valid_data()
     data["checks"] = [{"name": "amount_check", "rule": "users.unknown_amount > 0"}]
 
-    _assert_invalid(data, "unknown input field 'users.unknown_amount'")
+    _assert_invalid(data, "field references are not supported in checks")
+
+
+def test_checks_unknown_summary_variable_fails() -> None:
+    data = _valid_data()
+    data["checks"] = [{"name": "amount_check", "rule": "total_rows > 0"}]
+
+    _assert_invalid(data, "unknown check variable 'total_rows'")

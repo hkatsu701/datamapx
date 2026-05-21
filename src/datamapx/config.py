@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 from typing import Any, Literal
@@ -251,7 +252,7 @@ class DatamapxConfig(StrictModel):
 
             self._validate_filter_references(input_name, input_fields, derived_fields, errors)
             self._validate_validation_fields(input_name, input_fields, output_name, errors)
-            self._validate_check_references(input_name, input_fields, derived_fields, errors)
+            self._validate_check_references(errors)
 
         if errors:
             raise ValueError("; ".join(errors))
@@ -391,20 +392,33 @@ class DatamapxConfig(StrictModel):
 
     def _validate_check_references(
         self,
-        input_name: str,
-        input_fields: set[str],
-        derived_fields: set[str],
         errors: list[str],
     ) -> None:
         for index, check in enumerate(self.checks):
-            self._validate_expression_references(
-                check.rule,
-                f"checks[{index}].rule",
-                input_name,
-                input_fields,
-                derived_fields,
-                errors,
-            )
+            self._validate_check_rule(check.rule, f"checks[{index}].rule", errors)
+
+    def _validate_check_rule(
+        self,
+        rule: str,
+        context: str,
+        errors: list[str],
+    ) -> None:
+        try:
+            tree = ast.parse(rule, mode="eval")
+        except SyntaxError:
+            errors.append(f"{context}: invalid syntax")
+            return
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute):
+                errors.append(f"{context}: field references are not supported in checks")
+                return
+            if isinstance(node, ast.Call):
+                errors.append(f"{context}: function calls are not supported in checks")
+                return
+            if isinstance(node, ast.Name) and node.id not in CHECK_RESERVED_NAMES:
+                errors.append(f"{context}: unknown check variable '{node.id}'")
+                return
 
     def _validate_expression_references(
         self,

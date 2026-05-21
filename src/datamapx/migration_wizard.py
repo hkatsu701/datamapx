@@ -1195,9 +1195,6 @@ def _prompt_condition_rule(
 def _prompt_check_rule(
     *,
     context: str,
-    input_name: str,
-    input_columns: list[ColumnPreview],
-    derived_names: list[str],
 ) -> str:
     mode = _prompt_number_choice(
         f"{context}: rule の入力方法を選択",
@@ -1210,12 +1207,7 @@ def _prompt_check_rule(
     )
     if mode == "direct":
         return _prompt_text(f"{context}: rule", "")
-    return _build_check_rule(
-        context=context,
-        input_name=input_name,
-        input_columns=input_columns,
-        derived_names=derived_names,
-    )
+    return _build_check_rule(context=context)
 
 
 def _build_condition_rule(
@@ -1261,15 +1253,9 @@ def _build_condition_rule(
 def _build_check_rule(
     *,
     context: str,
-    input_name: str,
-    input_columns: list[ColumnPreview],
-    derived_names: list[str],
 ) -> str:
     left = _prompt_check_operand(
         context=f"{context}: 左辺",
-        input_name=input_name,
-        input_columns=input_columns,
-        derived_names=derived_names,
     )
     operator = _prompt_number_choice(
         f"{context}: 比較演算子を選択",
@@ -1285,9 +1271,6 @@ def _build_check_rule(
     )
     right = _prompt_check_operand(
         context=f"{context}: 右辺",
-        input_name=input_name,
-        input_columns=input_columns,
-        derived_names=derived_names,
     )
     return f"{left} {operator} {right}"
 
@@ -1394,9 +1377,6 @@ def _prompt_expression_operand(
 def _prompt_check_operand(
     *,
     context: str,
-    input_name: str,
-    input_columns: list[ColumnPreview],
-    derived_names: list[str],
 ) -> str:
     operand_type = _prompt_number_choice(
         f"{context}: 項目の種類を選択",
@@ -1405,7 +1385,6 @@ def _prompt_check_operand(
                 label="input_rows / output_rows / error_rows / skipped_rows",
                 value="summary",
             ),
-            ChoiceOption(label="列を使う", value="field"),
             ChoiceOption(label="数値を使う", value="number"),
             ChoiceOption(label="文字列を使う", value="string"),
         ],
@@ -1421,14 +1400,6 @@ def _prompt_check_operand(
                 ChoiceOption(label="skipped_rows", value="skipped_rows"),
             ],
             default_index=1,
-        )
-    if operand_type == "field":
-        return _prompt_field_reference(
-            message=f"{context}: 列を番号で選択",
-            input_name=input_name,
-            input_columns=input_columns,
-            derived_names=derived_names,
-            default_source=None,
         )
     if operand_type == "number":
         return _prompt_numeric_literal(f"{context}: 数値")
@@ -2093,16 +2064,9 @@ def _prompt_checks(
         typer.echo("")
         typer.echo(f"check {index}")
         name = _prompt_text("  check 名", f"check_{index}")
-        typer.echo("  参照候補:")
-        derived_names = [spec.name for spec in derived_specs]
-        for line in _format_reference_candidates(input_name, input_columns, derived_names):
-            typer.echo(f"  {line}")
         typer.echo("  summary 変数: input_rows, output_rows, error_rows, skipped_rows")
         rule = _prompt_check_rule(
             context="  rule",
-            input_name=input_name,
-            input_columns=input_columns,
-            derived_names=derived_names,
         )
         checks.append({"name": name, "rule": rule})
     return checks

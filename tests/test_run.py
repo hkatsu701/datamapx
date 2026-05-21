@@ -5,6 +5,7 @@ import json
 import shutil
 from pathlib import Path
 
+import yaml
 from typer.testing import CliRunner
 
 from datamapx.cli import app
@@ -63,6 +64,22 @@ def test_run_omits_invalid_and_skipped_rows_from_output(tmp_path: Path) -> None:
     assert summary["counts"]["error_rows"] >= 1
 
 
+def test_run_check_failure_exits_nonzero(tmp_path: Path) -> None:
+    config_path = _prepare_fixture(tmp_path, "run_config.yml")
+    _set_checks(config_path, [{"name": "row_count_check", "rule": "input_rows == 0"}])
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "One or more checks failed." in result.output
+
+    summary = json.loads((tmp_path / "reports" / "summary.json").read_text(encoding="utf-8"))
+    assert summary["counts"]["check_failures"] == 1
+    assert summary["notes"]["checks_passed"] is False
+    assert summary["checks"][0]["passed"] is False
+    assert (tmp_path / "output" / "users_out.csv").exists()
+
+
 def test_run_reports_dir_writes_reports_to_override_directory(tmp_path: Path) -> None:
     config_path = _prepare_fixture(tmp_path, "run_config_with_errors.yml")
     reports_dir = tmp_path / "custom_reports"
@@ -115,3 +132,10 @@ def _prepare_fixture(tmp_path: Path, fixture_name: str) -> Path:
         else:
             shutil.copy2(path, target)
     return tmp_path / fixture_name
+
+
+def _set_checks(config_path: Path, checks: list[dict[str, object]]) -> None:
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["checks"] = checks
+    rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    config_path.write_text(rendered, encoding="utf-8")

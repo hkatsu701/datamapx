@@ -149,6 +149,9 @@ def dry_run(
     if write_reports and report_paths is not None:
         typer.echo("")
         typer.echo(format_report_written(report_paths))
+    if result.has_check_failures:
+        typer.echo("One or more checks failed.", err=True)
+        raise typer.Exit(1)
 
 
 @app.command("run")
@@ -190,6 +193,9 @@ def run(
         raise typer.Exit(1) from exc
 
     typer.echo(format_run_result(result, report_paths))
+    if result.has_check_failures:
+        typer.echo("One or more checks failed.", err=True)
+        raise typer.Exit(1)
 
 
 @app.command("profile-input")
@@ -477,8 +483,17 @@ def format_dry_run_result(result: DryRunResult) -> str:
             f"- input validation errors: {result.input_validation_error_count}",
             f"- output validation errors: {result.output_validation_error_count}",
             f"- total error rows: {result.total_error_count}",
+            "",
+            "Checks:",
+            f"- configured: {len(result.check_results)}",
+            f"- passed: {result.check_success_count}",
+            f"- failed: {result.check_failure_count}",
         ]
     )
+    if result.check_results:
+        lines.extend(["", "Check preview:", "name,passed,message"])
+        for check in result.check_results[:5]:
+            lines.append(f"{check.name},{check.passed},{check.message or ''}")
     if result.error_rows:
         lines.extend(["", "Error preview:", "row_number,stage,field,rule,message"])
         for error_row in result.error_rows[:5]:
@@ -510,29 +525,39 @@ def format_dry_run_result(result: DryRunResult) -> str:
 def format_run_result(result: RunResult, report_paths: ReportPaths) -> str:
     """Return a human-readable run summary."""
 
-    return "\n".join(
-        [
-            "Run completed",
-            "",
-            f"Run ID: {result.run_id}",
-            f"Project: {result.load_result.project_name}",
-            "",
-            "Output:",
-            f"- path: {result.output_path}",
-            f"- rows written: {result.output_rows}",
-            "",
-            "Reports:",
-            f"- errors: {report_paths.errors_csv}",
-            f"- skipped: {report_paths.skipped_csv}",
-            f"- summary: {report_paths.summary_json}",
-            "",
-            "Counts:",
-            f"- input rows: {result.input_rows_before_validation}",
-            f"- output rows: {result.output_rows}",
-            f"- skipped rows: {result.skipped_count}",
-            f"- error rows: {result.total_error_count}",
-        ]
-    )
+    lines = [
+        "Run completed",
+        "",
+        f"Run ID: {result.run_id}",
+        f"Project: {result.load_result.project_name}",
+        f"Status: {result.status}",
+        "",
+        "Output:",
+        f"- path: {result.output_path}",
+        f"- rows written: {result.output_rows}",
+        "",
+        "Reports:",
+        f"- errors: {report_paths.errors_csv}",
+        f"- skipped: {report_paths.skipped_csv}",
+        f"- summary: {report_paths.summary_json}",
+        "",
+        "Counts:",
+        f"- input rows: {result.input_rows_before_validation}",
+        f"- output rows: {result.output_rows}",
+        f"- skipped rows: {result.skipped_count}",
+        f"- error rows: {result.total_error_count}",
+        f"- check failures: {result.check_failure_count}",
+        "",
+        "Checks:",
+        f"- configured: {len(result.check_results)}",
+        f"- passed: {result.check_success_count}",
+        f"- failed: {result.check_failure_count}",
+    ]
+    if result.check_results:
+        lines.extend(["", "Check preview:", "name,passed,message"])
+        for check in result.check_results[:5]:
+            lines.append(f"{check.name},{check.passed},{check.message or ''}")
+    return "\n".join(lines)
 
 
 def format_report_written(report_paths: ReportPaths) -> str:

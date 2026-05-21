@@ -6,7 +6,7 @@
 
 Configuration cannot be parsed, validated, or safely executed. Examples include invalid YAML, missing required sections, undefined field references, unsupported Phase 1 settings, and output mapping mismatches.
 
-In Phase 1, `validate-config` treats undefined field references as configuration errors. This includes references found in mappings, derived fields, expressions, conditions, filters, validations, and checks.
+In Phase 1, `validate-config` treats undefined field references as configuration errors. This includes references found in mappings, derived fields, expressions, conditions, filters, validations, and check rules that are expected to use only reserved summary variables.
 
 ### input validation error
 
@@ -36,6 +36,10 @@ A row is intentionally excluded by a configured filter.
 
 A non-fatal condition that should be visible to the user but does not make output invalid.
 
+### check failure
+
+A configured run-level check evaluated to false after the pipeline completed.
+
 ### fatal error
 
 An error that requires execution to stop immediately, such as invalid configuration, unsupported settings, unreadable input files, reference duplicate keys, or reaching `max_errors`.
@@ -56,6 +60,7 @@ CSV reader errors are runtime errors in Phase 1 and produce CLI exit code `1`.
 - Type conversion failure: stop during CSV loading
 - Validation failure: row is retained internally as an error row and written to `errors.csv` in `run`, or when `--write-reports` is used in `dry-run`
 - Filter exclusion: row is retained internally as a skipped row and written to `skipped.csv` in `run`, or when `--write-reports` is used in `dry-run`
+- Check failure: stop after the pipeline completes and report the failed assertion
 - Reaching `max_errors`: stop
 - CSV file missing or unreadable: stop
 - Unsupported `header: false`: stop
@@ -112,8 +117,8 @@ Phase 1 field reference validation rules:
 - `derived.field_name` must reference a key defined in `derived`.
 - `validations.input[].field` must reference the single input namespace.
 - `validations.output[].field` must be an output column name.
-- `checks[].rule` may use `input_rows`, `output_rows`, `error_rows`, and `skipped_rows` as reserved summary variables.
-- `validate-config` does not evaluate expressions or conditions; it validates only their field references.
+- `checks[].rule` may use only `input_rows`, `output_rows`, `error_rows`, and `skipped_rows` as reserved summary variables.
+- `validate-config` does not evaluate expressions or conditions; it validates only their field references or reserved variable names.
 
 Phase 1 `when` execution uses a limited parser instead of Python `eval`.
 Supported condition forms are direct comparisons, `in`, and `not in` against one input field reference.
@@ -126,6 +131,8 @@ Expression field references must use the single input namespace.
 Phase 1 derived fields are evaluated before output mappings. Derived fields may depend on other derived fields; dependencies are resolved before execution. Circular dependencies and unresolved `derived.*` references stop execution with exit code `1`.
 
 Phase 1 filters run after derived field calculation and before output mapping. Include rules run before exclude rules. Skipped row metadata includes the original `__row_number`, reason, and normalized row data. `skipped.csv` is written by `run`, and dry-run only displays a skipped preview unless `--write-reports` is enabled.
+
+Phase 1 checks run after output validation. `dry-run` and `run` both evaluate checks and exit with code `1` when any check fails.
 
 ## 3. errors.csv Schema
 

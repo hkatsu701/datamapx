@@ -16,7 +16,7 @@ Current release: v0.3.1.
 - Create a merge YAML scaffold interactively with `merge-wizard` using numbered selections for inputs, output columns, renames, and rules, with optional purpose-based templates, Japanese retry prompts for invalid input, a natural-language final review, and a limited back step from the final review. Input previews and numbered choices are shown in the same order, and long labels wrap for readability.
 - Normalize and type-convert input fields from schema definitions.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
-- Apply filters and validations before writing the final output.
+- Apply filters, validations, and run-level checks before writing the final output.
 - Write `errors.csv`, `skipped.csv`, and `summary.json`.
 - Run `generate-config`, `merge`, `merge-wizard`, `validate-config`, `inspect`, `profile-input`, `dry-run`, and `run`.
 
@@ -29,7 +29,6 @@ Current release: v0.3.1.
 - Plugins
 - Streaming processing
 - AI-assisted YAML generation
-- `check` rule execution beyond the current Phase 1 scope
 
 ## Installation / Development Setup
 
@@ -168,12 +167,17 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 
 See [docs/roadmap.md](docs/roadmap.md).
 
+## Development Workflow
+
+For the recommended PM / Developer / QA / Release workflow, see [docs/agent-workflow.md](docs/agent-workflow.md).
+
 ## Documentation
 
 - [Concept](docs/concept.md)
 - [Configuration specification](docs/config-spec.md)
 - [CLI specification](docs/cli-spec.md)
 - [Error policy](docs/error-policy.md)
+- [Agent workflow](docs/agent-workflow.md)
 - [Roadmap](docs/roadmap.md)
 
 ## License
