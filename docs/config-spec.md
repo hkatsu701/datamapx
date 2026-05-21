@@ -470,7 +470,6 @@ checks:
 
 Phase 1 evaluates configured checks after output preview construction and stores the results in `summary.json`.
 Check rules may use the run-level summary variables below.
-Field references in `checks[].rule` are not supported. `validate-config` rejects any check rule that uses field references or unknown variables.
 
 During `validate-config`, Phase 1 does not evaluate check expressions. It validates that `checks[].rule` uses only supported summary variables.
 
@@ -735,7 +734,7 @@ Python `eval` must not be used directly.
 
 Phase 1 uses a dedicated safe arithmetic evaluator with a strict allowlist.
 
-The current Phase 1 configuration validation step does not execute expressions. It only validates field references in `expression`, `when.if`, `when.then`, `when.default`, `filters.include[].if`, `filters.exclude[].if`, and `checks[].rule`.
+The current Phase 1 configuration validation step does not execute expressions. It validates field references in `expression`, `when.if`, `when.then`, `when.default`, `filters.include[].if`, and `filters.exclude[].if`. It validates `checks[].rule` against the reserved summary variables listed above.
 
 `when` mapping execution uses a limited parser instead of Python `eval`.
 Supported condition forms are direct comparisons, `in`, `not in`, logical `and` / `or`, `is null`, `is not null`, and bare boolean field references against `users.*` or `derived.*`.

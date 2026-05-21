@@ -215,5 +215,4 @@ JSON report writers use `ensure_ascii=False` so Japanese text is preserved in CS
 
 ## Open Questions
 
-- Whether row-level errors should allow exit code `0` when the run completes according to configured policy.
 - Behavior for existing `errors.csv`, `skipped.csv`, and `summary.json` when `if_exists: overwrite` is used in the future `run` command.

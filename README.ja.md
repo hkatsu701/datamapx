@@ -42,9 +42,8 @@ Current release: v0.3.1.
 - `required` 推定
 - 自然言語だけからの完全自動 YAML 生成
 - lookup / validation / filters / checks の完全自動推定
-- Excel / JSON / DB 対応
+- Excel / JSON / DB 非対応
 - 複数 Input / 複数 Output
-- `check` rule の本格実行
 
 ## 5. インストール / 開発環境セットアップ
 
@@ -210,7 +209,7 @@ mappings:
 
 ## 17. 開発ワークフロー
 
-PM / Developer / QA / Release の役割分担で小さく開発する場合は、[docs/agent-workflow.md](docs/agent-workflow.md) を参照してください。
+PM / Developer / QA / Release の役割分担で小さく開発する場合は、[docs/agent-workflow.md](docs/agent-workflow.md) とそこから参照できる各チェックリストを使ってください。
 
 ## 18. ライセンス
 

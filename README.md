@@ -162,7 +162,6 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - No Excel / JSON / DB support
 - No multiple input joins
 - No multiple output files
-- `check` rule execution is not part of the core MVP scope
 
 ## Roadmap
 
@@ -170,7 +169,7 @@ See [docs/roadmap.md](docs/roadmap.md).
 
 ## Development Workflow
 
-For the recommended PM / Developer / QA / Release workflow, see [docs/agent-workflow.md](docs/agent-workflow.md).
+For the recommended PM / Developer / QA / Release workflow, see [docs/agent-workflow.md](docs/agent-workflow.md) and the role checklists linked from there.
 
 ## Documentation
 
@@ -179,6 +178,10 @@ For the recommended PM / Developer / QA / Release workflow, see [docs/agent-work
 - [CLI specification](docs/cli-spec.md)
 - [Error policy](docs/error-policy.md)
 - [Agent workflow](docs/agent-workflow.md)
+- [PM checklist](docs/pm-checklist.md)
+- [Developer checklist](docs/developer-checklist.md)
+- [QA checklist](docs/qa-checklist.md)
+- [Release checklist](docs/release-checklist.md)
 - [Roadmap](docs/roadmap.md)
 
 ## License
