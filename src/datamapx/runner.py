@@ -12,9 +12,13 @@ from datamapx.config import DatamapxConfig, ErrorHandlingConfig
 from datamapx.io.csv_reader import read_input_csv, read_reference_csv
 from datamapx.io.csv_writer import resolve_output_path
 from datamapx.transform.checks import CheckResult, evaluate_checks
-from datamapx.transform.errors import MappingError
-from datamapx.transform.filters import SkippedRow, apply_filters
-from datamapx.transform.mapper import build_output_dataframe, compute_derived_fields
+from datamapx.transform.error_policy import (
+    StopInfo,
+    evaluate_max_errors,
+    evaluate_validation_stop_policy,
+)
+from datamapx.transform.filters import SkippedRow
+from datamapx.transform.row_executor import build_rowwise_output
 from datamapx.validation import (
     ValidationErrorRow,
     ValidationResult,
@@ -342,7 +346,7 @@ def _execute_pipeline(
         load_result.input_df,
         input_name,
     )
-    validation_stop = _evaluate_validation_stop_policy(
+    validation_stop = evaluate_validation_stop_policy(
         config.error_handling,
         input_validation_result.error_rows,
     )
@@ -365,7 +369,7 @@ def _execute_pipeline(
             check_results=[],
         )
 
-    rowwise_result = _build_rowwise_output(
+    rowwise_result = build_rowwise_output(
         config=config,
         input_df=input_validation_result.dataframe,
         input_name=input_name,
@@ -405,7 +409,7 @@ def _execute_pipeline(
         + rowwise_result.mapping_error_rows
         + output_validation_result.error_rows
     )
-    max_errors_stop = _evaluate_max_errors(config.error_handling, len(error_rows))
+    max_errors_stop = evaluate_max_errors(config.error_handling, len(error_rows))
     if max_errors_stop is not None:
         finished_at = _timestamp(datetime.now())
         return _build_failed_execution_result(
@@ -428,7 +432,7 @@ def _execute_pipeline(
         )
 
     validation_error_rows = input_validation_result.error_rows + output_validation_result.error_rows
-    validation_stop = _evaluate_validation_stop_policy(
+    validation_stop = evaluate_validation_stop_policy(
         config.error_handling,
         validation_error_rows,
     )
@@ -491,172 +495,6 @@ def _execute_pipeline(
         fatal_error=False,
         status=status,
     )
-
-
-@dataclass(frozen=True)
-class StopInfo:
-    """Fatal pipeline stop metadata."""
-
-    reason: str
-    message: str | None
-    max_errors_exceeded: bool = False
-
-
-@dataclass(frozen=True)
-class RowwiseOutputResult:
-    """Row-wise output construction result."""
-
-    output_df: pd.DataFrame
-    output_row_numbers: pd.Series
-    skipped_rows: list[SkippedRow]
-    mapping_error_rows: list[ValidationErrorRow]
-    input_rows_before_filter: int
-    input_rows_after_filter: int
-    stop_info: StopInfo | None
-
-
-def _evaluate_validation_stop_policy(
-    error_handling: ErrorHandlingConfig,
-    error_rows: list[ValidationErrorRow],
-) -> StopInfo | None:
-    if error_rows and error_handling.on_validation_error == "stop":
-        return StopInfo(
-            reason="validation_error",
-            message=f"validation error count: {len(error_rows)}",
-        )
-    return None
-
-
-def _evaluate_max_errors(
-    error_handling: ErrorHandlingConfig,
-    total_error_count: int,
-) -> StopInfo | None:
-    if total_error_count > error_handling.max_errors:
-        return StopInfo(
-            reason="max_errors_exceeded",
-            message=(
-                f"error count {total_error_count} exceeded max_errors {error_handling.max_errors}"
-            ),
-            max_errors_exceeded=True,
-        )
-    return None
-
-
-def _build_rowwise_output(
-    *,
-    config: DatamapxConfig,
-    input_df: pd.DataFrame,
-    input_name: str,
-    output_columns: list[str],
-    reference_dfs: dict[str, pd.DataFrame],
-    base_error_count: int,
-) -> RowwiseOutputResult:
-    output_rows: list[dict[str, object]] = []
-    output_row_numbers: list[object] = []
-    skipped_rows: list[SkippedRow] = []
-    mapping_error_rows: list[ValidationErrorRow] = []
-    rows_after_filter = 0
-    for index, row in input_df.iterrows():
-        row_df = input_df.loc[[index]]
-        row_number = _row_number(row)
-        normalized_row = row.to_dict()
-        try:
-            derived_values = compute_derived_fields(config, row_df, reference_dfs)
-            filter_result = apply_filters(
-                config,
-                row_df,
-                input_name,
-                derived_values,
-            )
-            skipped_rows.extend(filter_result.skipped_rows)
-            if filter_result.input_df.empty:
-                continue
-            rows_after_filter += 1
-            output_df = build_output_dataframe(
-                config,
-                filter_result.input_df,
-                reference_dfs=reference_dfs,
-                derived_values=filter_result.derived_values,
-            )
-            output_rows.append(output_df.iloc[0].to_dict())
-            output_row_numbers.append(filter_result.input_df.iloc[0]["__row_number"])
-        except MappingError as exc:
-            stop_info = _classify_mapping_error(exc)
-            mapping_error_rows.append(
-                ValidationErrorRow(
-                    row_number=row_number,
-                    stage="mapping",
-                    field=_mapping_error_field(str(exc)),
-                    rule=stop_info.reason,
-                    message=str(exc),
-                    normalized_row=normalized_row,
-                )
-            )
-            if _mapping_error_policy(config.error_handling, stop_info) == "stop":
-                return RowwiseOutputResult(
-                    output_df=pd.DataFrame(output_rows, columns=output_columns),
-                    output_row_numbers=pd.Series(output_row_numbers),
-                    skipped_rows=skipped_rows,
-                    mapping_error_rows=mapping_error_rows,
-                    input_rows_before_filter=len(input_df),
-                    input_rows_after_filter=rows_after_filter,
-                    stop_info=stop_info,
-                )
-            max_errors_stop = _evaluate_max_errors(
-                config.error_handling,
-                base_error_count + len(mapping_error_rows),
-            )
-            if max_errors_stop is not None:
-                return RowwiseOutputResult(
-                    output_df=pd.DataFrame(output_rows, columns=output_columns),
-                    output_row_numbers=pd.Series(output_row_numbers),
-                    skipped_rows=skipped_rows,
-                    mapping_error_rows=mapping_error_rows,
-                    input_rows_before_filter=len(input_df),
-                    input_rows_after_filter=rows_after_filter,
-                    stop_info=max_errors_stop,
-                )
-
-    output_df = pd.DataFrame(output_rows, columns=output_columns)
-    output_row_series = pd.Series(output_row_numbers)
-    return RowwiseOutputResult(
-        output_df=output_df,
-        output_row_numbers=output_row_series,
-        skipped_rows=skipped_rows,
-        mapping_error_rows=mapping_error_rows,
-        input_rows_before_filter=len(input_df),
-        input_rows_after_filter=rows_after_filter,
-        stop_info=None,
-    )
-
-
-def _classify_mapping_error(exc: MappingError) -> StopInfo:
-    message = str(exc)
-    if "lookup missing:" in message:
-        return StopInfo(reason="lookup_missing", message=message)
-    return StopInfo(reason="transform_error", message=message)
-
-
-def _mapping_error_policy(
-    error_handling: ErrorHandlingConfig,
-    stop_info: StopInfo,
-) -> str:
-    if stop_info.reason == "lookup_missing":
-        return error_handling.on_lookup_missing
-    return error_handling.on_transform_error
-
-
-def _mapping_error_field(message: str) -> str:
-    if ":" not in message:
-        return "mapping"
-    field, _, _ = message.partition(":")
-    return field.strip() or "mapping"
-
-
-def _row_number(row: pd.Series) -> object:
-    if "__row_number" in row:
-        return row["__row_number"]
-    return row.name
 
 
 def _build_failed_execution_result(
