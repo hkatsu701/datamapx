@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
 
+import pandas as pd
 import typer
 
 from datamapx.config import DatamapxConfig, load_config
@@ -33,6 +34,7 @@ from datamapx.report import (
 from datamapx.runner import DryRunResult, RunResult, run_dry_run, run_pipeline
 from datamapx.transform.errors import MappingError
 from datamapx.validation import ValidationError
+from datamapx.validation.errors import ValidationErrorRow
 
 app = typer.Typer(help="YAML-driven CSV migration and transformation tool.")
 
@@ -529,6 +531,7 @@ def format_dry_run_result(result: DryRunResult) -> str:
                 f"{error_row.row_number},{error_row.stage},{error_row.field},"
                 f"{error_row.rule},{error_row.message}"
             )
+        lines.extend(_format_error_details(result.error_rows))
 
     preview_csv = result.output_preview_df.head().to_csv(index=False).strip()
     lines.extend(
@@ -595,6 +598,8 @@ def format_run_result(result: RunResult, report_paths: ReportPaths) -> str:
         lines.extend(["", "Check preview:", "name,passed,message"])
         for check in result.check_results[:5]:
             lines.append(f"{check.name},{check.passed},{check.message or ''}")
+    if result.error_rows:
+        lines.extend(_format_error_details(result.error_rows))
     return "\n".join(lines)
 
 
@@ -619,6 +624,50 @@ def _format_stop_message(reason: str | None, message: str | None) -> str:
     if message:
         return f"Execution stopped: {message}"
     return "Execution stopped"
+
+
+def _format_error_details(
+    error_rows: list[ValidationErrorRow],
+    *,
+    limit: int = 5,
+) -> list[str]:
+    lines = ["", "Error details:"]
+    for error_row in error_rows[:limit]:
+        row_values = error_row.output_row or error_row.normalized_row or {}
+        lines.extend(
+            [
+                (
+                    f"- row {error_row.row_number}: {error_row.stage} / "
+                    f"{error_row.field} / {error_row.rule}"
+                ),
+                f"  message: {error_row.message}",
+                f"  values: {_format_row_values(row_values)}",
+            ]
+        )
+    return lines
+
+
+def _format_row_values(row_values: dict[str, object], *, limit: int = 8) -> str:
+    if not row_values:
+        return "(none)"
+    items: list[str] = []
+    for key, value in row_values.items():
+        if key == "__row_number":
+            continue
+        items.append(f"{key}={_format_value(value)}")
+        if len(items) >= limit:
+            break
+    if not items:
+        return "(none)"
+    return ", ".join(items)
+
+
+def _format_value(value: object) -> str:
+    if value is None:
+        return "None (NoneType)"
+    if pd.isna(value):
+        return f"<missing> ({type(value).__name__})"
+    return f"{value!r} ({type(value).__name__})"
 
 
 if __name__ == "__main__":

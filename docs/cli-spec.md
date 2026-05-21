@@ -362,6 +362,7 @@ Print a load phase summary:
 - validation error counts
 - check counts
 - error preview
+- error details
 - output name
 - output columns
 - rows previewed
@@ -378,6 +379,7 @@ The summary file includes row-category breakdowns for validation errors, mapping
 Lookup, when, expression, derived, and filter results are included in the output preview when those mappings are configured.
 
 `dry-run` displays a filter summary and a skipped preview. `skipped.csv` is not written during dry-run.
+When row-level errors exist, `dry-run` also prints an `Error details:` block with row numbers, fields, rules, messages, and row values so the failure cause can be inspected without opening `errors.csv`.
 
 Validations are included in the preview data. Dry-run still succeeds when validation error rows exist, as long as preview construction and optional report writing complete successfully.
 
@@ -422,12 +424,14 @@ Print run summary:
 - skipped file path
 - summary file path
 - final status
+- error details
 
 `run` always writes the main output CSV and the report files when execution completes successfully. Validation error rows do not make the command fail if the configured policy is `output_error`.
 
 The summary file includes row-category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors, plus `notes.final_outcome` for the overall result label.
 
 Checks are evaluated during `run`. If any check fails, the command exits with code `1` after the output and report files are written.
+When row-level errors exist, `run` also prints an `Error details:` block with row numbers, fields, rules, messages, and row values.
 If execution stops because of validation policy or a mapping/runtime error configured to stop, `run` skips writing the main output CSV, writes the reports when possible, prints a `Stop:` block, and exits with code `1`.
 
 ### Exit code policy

@@ -48,8 +48,10 @@ An error that requires execution to stop immediately, such as invalid configurat
 CSV reader errors are runtime errors in Phase 1 and produce CLI exit code `1`.
 
 `dry-run` currently executes CSV loading, schema application, reference validation, validation filtering, and in-memory output preview construction for supported mappings. Errors in these steps stop the command with exit code `1`.
+When row-level errors exist, `dry-run` prints an `Error details:` block with the affected row numbers, fields, rules, messages, and row values so the cause can be inspected without opening `errors.csv`.
 
 `run` executes the same pipeline and then writes the main output CSV plus `errors.csv`, `skipped.csv`, and `summary.json`. Validation error rows do not make `run` fail if the pipeline completes and the files are written successfully.
+When row-level errors exist, `run` prints the same `Error details:` block.
 
 ## 2. Default Behavior
 

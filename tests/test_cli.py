@@ -459,6 +459,32 @@ def test_dry_run_transform_error_becomes_row_error() -> None:
     assert "transform_error" in result.output
 
 
+def test_dry_run_expression_error_details_are_displayed(tmp_path: Path) -> None:
+    config_path = _prepare_expression_error_fixture(tmp_path)
+
+    result = CliRunner().invoke(app, ["dry-run", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Error details:" in result.output
+    assert "row 1" in result.output
+    assert "billingitemamount_c1='1000' (str)" in result.output
+    assert "servicereception_r_isunpaid_c1='true' (str)" in result.output
+    assert "TypeError" in result.output
+
+
+def test_run_expression_error_details_are_displayed(tmp_path: Path) -> None:
+    config_path = _prepare_expression_error_fixture(tmp_path)
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Error details:" in result.output
+    assert "row 1" in result.output
+    assert "billingitemamount_c1='1000' (str)" in result.output
+    assert "servicereception_r_isunpaid_c1='true' (str)" in result.output
+    assert "TypeError" in result.output
+
+
 def test_dry_run_when_output_preview_is_displayed() -> None:
     result = CliRunner().invoke(
         app,
@@ -623,3 +649,56 @@ def _set_checks(config_path: Path, checks: list[dict[str, object]]) -> None:
     data["checks"] = checks
     rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
     config_path.write_text(rendered, encoding="utf-8")
+
+
+def _prepare_expression_error_fixture(tmp_path: Path) -> Path:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    input_dir.mkdir()
+    output_dir.mkdir()
+    (input_dir / "expression_error.csv").write_text(
+        "user_id,billingitemamount_c1,servicereception_r_isunpaid_c1\n"
+        "u001,1000,true\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "expression_error.yml"
+    config = {
+        "version": 1,
+        "project": {"name": "expression_error"},
+        "inputs": {
+            "users": {
+                "path": "./input/expression_error.csv",
+                "schema": {
+                    "user_id": {"type": "string"},
+                    "billingitemamount_c1": {"type": "string"},
+                    "servicereception_r_isunpaid_c1": {"type": "string"},
+                },
+            }
+        },
+        "outputs": {
+            "users_out": {
+                "path": "./output/users_out.csv",
+                "columns": ["id", "result"],
+            }
+        },
+        "mappings": {
+            "users_out": {
+                "id": {"source": "users.user_id"},
+                "result": {
+                    "expression": (
+                        "users.billingitemamount_c1 * "
+                        "users.servicereception_r_isunpaid_c1"
+                    )
+                },
+            }
+        },
+        "error_handling": {
+            "error_output": "./output/errors.csv",
+            "skipped_output": "./output/skipped.csv",
+        },
+    }
+    config_path.write_text(
+        yaml.safe_dump(config, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    return config_path

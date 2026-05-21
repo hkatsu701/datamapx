@@ -124,8 +124,15 @@ def evaluate_expression_series(
         except Exception as exc:
             if isinstance(exc, MappingError):
                 raise
+            row_label = _row_label(row, row_index)
+            formatted_values = ", ".join(
+                f"{reference}={_format_value(names[safe_name])}"
+                for reference, safe_name in compiled.references.items()
+            )
             raise MappingError(
-                f"{output_column}: expression evaluation failed: {compiled.expression}"
+                f"{output_column}: expression evaluation failed at row {row_label}: "
+                f"{compiled.expression}; values: {formatted_values}; "
+                f"cause: {type(exc).__name__}: {exc}"
             ) from exc
     return pd.Series(values, index=input_df.index)
 
@@ -204,6 +211,18 @@ def _first_row_label(input_df: pd.DataFrame, missing: pd.Series) -> Any:
     if "__row_number" in input_df.columns:
         return input_df.loc[first_index, "__row_number"]
     return first_index
+
+
+def _row_label(row: pd.Series, row_index: Any) -> Any:
+    if "__row_number" in row.index:
+        return row["__row_number"]
+    return row_index
+
+
+def _format_value(value: Any) -> str:
+    if pd.isna(value):
+        return f"<missing> ({type(value).__name__})"
+    return f"{value!r} ({type(value).__name__})"
 
 
 def _eval_node(node: ast.AST, names: dict[str, Any]) -> Any:

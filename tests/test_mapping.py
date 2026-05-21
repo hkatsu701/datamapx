@@ -10,6 +10,7 @@ from datamapx.io.csv_reader import read_input_csv, read_reference_csv
 from datamapx.io.csv_writer import write_output_csv
 from datamapx.io.errors import CsvWriteError
 from datamapx.transform.errors import MappingError
+from datamapx.transform.expressions import evaluate_expression_series
 from datamapx.transform.mapper import (
     apply_mapping_rule,
     build_output_dataframe,
@@ -364,6 +365,33 @@ def test_expression_mapping_derived_reference_fails() -> None:
 def test_expression_mapping_missing_value_fails() -> None:
     with pytest.raises(MappingError, match="expression field has missing value"):
         _output_df("mapping_config_expression_missing_value.yml")
+
+
+def test_expression_mapping_type_error_includes_row_context() -> None:
+    input_df = pd.DataFrame(
+        {
+            "__row_number": [12],
+            "billingitemamount_c1": ["1000"],
+            "servicereception_r_isunpaid_c1": ["true"],
+        }
+    )
+
+    with pytest.raises(
+        MappingError,
+        match=(
+            r"result: expression evaluation failed at row 12: "
+            r"users\.billingitemamount_c1 \* users\.servicereception_r_isunpaid_c1; values: "
+            r"users.billingitemamount_c1='1000' \(str\), "
+            r"users.servicereception_r_isunpaid_c1='true' \(str\); "
+            r"cause: TypeError:"
+        ),
+    ):
+        evaluate_expression_series(
+            "users.billingitemamount_c1 * users.servicereception_r_isunpaid_c1",
+            input_df,
+            "users",
+            "result",
+        )
 
 
 def test_expression_mapping_disallowed_function_fails() -> None:
