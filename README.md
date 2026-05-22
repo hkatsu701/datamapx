@@ -146,6 +146,7 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - [05_merge_wizard](examples/05_merge_wizard/README.md)
 - [06_migration_wizard](examples/06_migration_wizard/README.md)
 - [07_practical_migration](examples/07_practical_migration/README.md)
+- [08_excel_design](examples/08_excel_design/README.md)
 
 ## Output Files
 
@@ -160,6 +161,7 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - Multiple reference CSVs allowed
 - Single output CSV only
 - No Excel / JSON / DB support
+- Excel design-to-YAML is planned separately; Excel is not an execution input format
 - No multiple input joins
 - No multiple output files
 
@@ -175,6 +177,7 @@ For the recommended PM / Developer / QA / Release workflow, see [docs/agent-work
 
 - [Concept](docs/concept.md)
 - [Configuration specification](docs/config-spec.md)
+- [Excel design specification](docs/excel-design-spec.md)
 - [CLI specification](docs/cli-spec.md)
 - [Error policy](docs/error-policy.md)
 - [Agent workflow](docs/agent-workflow.md)

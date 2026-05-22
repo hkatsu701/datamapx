@@ -1,0 +1,2 @@
+job_id,name,rule
+02_migrate_invoices,row_count_check,input_rows == output_rows + error_rows + skipped_rows

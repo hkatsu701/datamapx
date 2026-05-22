@@ -1,0 +1,3 @@
+job_id,output_column,rule_type,source_input,source_column,fallback_input,fallback_column,description
+01_merge_customers,customer_name,prefer_first,accounts_raw,account_name,customers_raw,customer_name,Prefer account name and fall back to customer name
+01_merge_customers,customer_status,prefer_first,accounts_raw,status,customers_raw,status,Prefer account status and fall back to customer status

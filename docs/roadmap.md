@@ -52,6 +52,21 @@ Future candidates:
 
 - Additional billing, customer master, and inventory-style migration examples
 
+## Excel design to YAML roadmap
+
+Goal: generate multiple `merge.yml` and `migration.yml` files, plus execution scripts, from a standard DataMapX Excel migration design workbook.
+
+Completed:
+
+- `docs/excel-design-spec.md`
+- `examples/08_excel_design/`
+
+Future candidates:
+
+- Excel parser and intermediate design model
+- `design-to-yaml` CLI
+- manifest and batch/script generation
+
 ## v0.3.0
 
 - `merge` command for staging multiple CSV inputs

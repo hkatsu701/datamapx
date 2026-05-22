@@ -1,0 +1,3 @@
+job_id,role,input_name,path,encoding,delimiter,header,key
+01_merge_customers,base,customers_raw,./input/customers.csv,utf-8-sig,",",true,customer_code
+01_merge_customers,lookup,accounts_raw,./input/accounts.csv,utf-8-sig,",",true,customer_code

@@ -1,0 +1,2 @@
+job_id,field,rule_type,expression,source,values,map_rules,when_rules,lookup_reference,lookup_key,lookup_value,lookup_default
+02_migrate_invoices,tax_amount,expression,users.amount * 0.1,,,,,,,,

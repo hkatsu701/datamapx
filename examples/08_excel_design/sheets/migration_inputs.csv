@@ -1,0 +1,2 @@
+job_id,input_name,path,encoding,delimiter,header
+02_migrate_invoices,invoices_stage,./generated/output/customers_staging.csv,utf-8-sig,",",true

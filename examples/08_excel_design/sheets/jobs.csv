@@ -1,0 +1,3 @@
+job_id,job_type,order,enabled,config_name,depends_on,description
+01_merge_customers,merge,1,true,merge_customers,,"Merge customer source files into a staging dataset"
+02_migrate_invoices,migration,2,true,migrate_invoices,01_merge_customers,"Migrate invoices using the merged customer staging data"

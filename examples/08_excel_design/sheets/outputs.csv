@@ -1,0 +1,2 @@
+job_id,output_name,path,encoding,delimiter,header,newline,if_exists,columns
+02_migrate_invoices,invoices_out,./output/invoices_out.csv,utf-8-sig,",",true,"\n",overwrite,"invoice_id,customer_name,amount,tax_amount,total_amount,status_label"

@@ -1,0 +1,3 @@
+job_id,input_name,field,source_columns,type,required,normalize,true_values,false_values
+02_migrate_invoices,invoices_stage,invoice_id,"Invoice ID",string,true,trim,,
+02_migrate_invoices,invoices_stage,amount,"Amount",decimal,true,"trim;remove_commas",,

@@ -1,0 +1,2 @@
+job_id,reference_name,path,encoding,delimiter,header,key,on_duplicate
+02_migrate_invoices,departments,./ref/departments.csv,utf-8-sig,",",true,department_code,error

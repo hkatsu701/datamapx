@@ -1,0 +1,2 @@
+job_id,run_id,log_dir,log_level,summary_output
+02_migrate_invoices,auto,./logs,INFO,./reports/summary.json

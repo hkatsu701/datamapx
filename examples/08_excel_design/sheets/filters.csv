@@ -1,0 +1,2 @@
+job_id,filter_type,condition,reason
+02_migrate_invoices,exclude,users.status_code == "VOID",Drop void rows

@@ -1,0 +1,3 @@
+job_id,reference_name,field,source_columns,type,required,normalize
+02_migrate_invoices,departments,department_code,"Dept Code",string,true,trim
+02_migrate_invoices,departments,department_name,"Dept Name",string,true,trim

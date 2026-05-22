@@ -1,0 +1,2 @@
+job_id,on_validation_error,on_lookup_missing,on_transform_error,max_errors,error_output,skipped_output,include_original_row
+02_migrate_invoices,output_error,output_error,output_error,1000,./reports/errors.csv,./reports/skipped.csv,true
