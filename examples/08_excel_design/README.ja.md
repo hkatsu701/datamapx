@@ -14,6 +14,8 @@
 examples/08_excel_design/
   README.md
   README.ja.md
+  generate_template.py
+  datamapx_design_template.xlsx
   sheets/
     project.csv
     jobs.csv
@@ -40,6 +42,8 @@ examples/08_excel_design/
 - `migration_*.csv` は migration job 用です。
 - 詳細シートはすべて `job_id` で紐づけます。
 - この sample は、将来の parser が複数 YAML と実行スクリプトを作る前提で置いています。
+- `datamapx_design_template.xlsx` が Excel で確認する本体です。
+- `python generate_template.py` で CSV のシート定義から再生成できます。
 
 ## 4. 補足
 

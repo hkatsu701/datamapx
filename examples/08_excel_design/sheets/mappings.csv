@@ -1,5 +1,5 @@
-job_id,output_name,output_column,rule_type,source,lookup_reference,lookup_key,lookup_value,expression,rule_args
-02_migrate_invoices,invoices_out,invoice_id,source,users.invoice_id,,,,,
-02_migrate_invoices,invoices_out,customer_name,lookup,,customers,users.customer_code,customer_name,,default:Unknown
-02_migrate_invoices,invoices_out,total_amount,expression,,,,,users.amount + derived.tax_amount,
-02_migrate_invoices,invoices_out,status_label,when,,,,,,users.status_code == HOLD => Pending | users.status_code == VOID => Closed
+job_id,output_name,output_column,rule_type,source,value,lookup_reference,lookup_key,lookup_value,lookup_default,expression,when_rules
+02_migrate_invoices,invoices_out,invoice_id,source,users.invoice_id,,,,,,,
+02_migrate_invoices,invoices_out,customer_name,lookup,,,customers,users.customer_code,customer_name,Unknown,,
+02_migrate_invoices,invoices_out,total_amount,expression,,,,,,,users.amount + derived.tax_amount,
+02_migrate_invoices,invoices_out,status_label,when,,,,,,,,users.status_code == HOLD => Pending | users.status_code == VOID => Closed

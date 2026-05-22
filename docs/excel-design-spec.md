@@ -104,6 +104,7 @@ Complex migrations are modeled as multiple merge and migration jobs linked by de
 `mappings`
 
 - output column rules for migration jobs
+- each row uses rule-specific fields such as `source`, `value`, `lookup_*`, `expression`, or `when_rules` instead of a free-form argument column
 
 `validations`
 
@@ -157,9 +158,11 @@ Required checks:
 
 Validation errors must include the sheet name, row number, and column name.
 
-## 7. Template Example
+## 7. Template Files
 
 The repository includes a CSV-based sheet sample under `examples/08_excel_design/`.
+The reviewable workbook template is `examples/08_excel_design/datamapx_design_template.xlsx`.
+It can be regenerated from the CSV sheets by `examples/08_excel_design/generate_template.py`.
 That sample mirrors this specification and is meant to be a reference for the future Excel parser implementation.
 
 ## 8. Assumptions

@@ -975,14 +975,12 @@ def _build_mapping_rule_from_type(
             )
         }
     if rule_type == "when":
-        return {
-            "when": _prompt_when_rules(
-                context=context,
-                input_name=input_name,
-                input_columns=input_columns,
-                derived_names=derived_names,
-            )
-        }
+        return _prompt_when_rules(
+            context=context,
+            input_name=input_name,
+            input_columns=input_columns,
+            derived_names=derived_names,
+        )
     if rule_type == "lookup":
         return {
             "lookup": _prompt_lookup_rule(

@@ -187,6 +187,31 @@ def test_migration_wizard_advanced_mode_can_write_lookup_and_derived(
     assert config.mappings["users_out"]["User ID"].lookup.reference == "departments"
 
 
+def test_build_mapping_rule_when_is_not_double_nested(monkeypatch) -> None:
+    from datamapx.migration_wizard import _build_mapping_rule_from_type
+
+    monkeypatch.setattr(
+        "datamapx.migration_wizard._prompt_when_rules",
+        lambda **kwargs: {
+            "when": [{"if": "users.status == \"A\"", "then": "Active"}],
+            "default": "Inactive",
+        },
+    )
+
+    rule = _build_mapping_rule_from_type(
+        rule_type="when",
+        context="mappings.output.status",
+        input_name="users",
+        input_columns=[],
+        reference_specs=[],
+        derived_names=[],
+        default_source=None,
+    )
+
+    assert rule["when"] == [{"if": 'users.status == "A"', "then": "Active"}]
+    assert rule["default"] == "Inactive"
+
+
 def test_migration_wizard_advanced_mode_can_write_reference_schema_overrides(
     tmp_path: Path,
     monkeypatch,

@@ -14,6 +14,8 @@ Japanese README: [README.ja.md](README.ja.md)
 examples/08_excel_design/
   README.md
   README.ja.md
+  generate_template.py
+  datamapx_design_template.xlsx
   sheets/
     project.csv
     jobs.csv
@@ -40,6 +42,8 @@ examples/08_excel_design/
 - `migration_*.csv` rows define migration jobs.
 - The detailed sheets are linked with `job_id`.
 - The sample is intentionally structured so the future parser can generate multiple YAML files and an execution script.
+- `datamapx_design_template.xlsx` is the workbook you can review in Excel.
+- Run `python generate_template.py` to regenerate the workbook from the CSV sheet fixtures.
 
 ## 4. Notes
 
