@@ -212,6 +212,31 @@ def test_build_mapping_rule_when_is_not_double_nested(monkeypatch) -> None:
     assert rule["default"] == "Inactive"
 
 
+def test_prompt_literal_list_writes_plain_string_items(monkeypatch) -> None:
+    from datamapx.migration_wizard import _prompt_literal_list
+
+    int_responses = iter([2])
+    choice_responses = iter(["string", "string"])
+    text_responses = iter(["現金", "クレジットカード"])
+
+    monkeypatch.setattr(
+        "datamapx.migration_wizard._prompt_int",
+        lambda *args, **kwargs: next(int_responses),
+    )
+    monkeypatch.setattr(
+        "datamapx.migration_wizard._prompt_number_choice",
+        lambda *args, **kwargs: next(choice_responses),
+    )
+    monkeypatch.setattr(
+        "datamapx.migration_wizard._prompt_text",
+        lambda *args, **kwargs: next(text_responses),
+    )
+
+    result = _prompt_literal_list("when 条件")
+
+    assert result == '["現金", "クレジットカード"]'
+
+
 def test_migration_wizard_advanced_mode_can_write_reference_schema_overrides(
     tmp_path: Path,
     monkeypatch,

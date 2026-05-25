@@ -1413,7 +1413,7 @@ def _prompt_condition_literal(
 
 
 def _prompt_literal_list(message: str) -> str:
-    items: list[str] = []
+    items: list[str | int | float | bool | None] = []
     count = _prompt_int(f"{message}: リストの件数", 2)
     for index in range(1, count + 1):
         item_mode = _prompt_number_choice(
@@ -1428,11 +1428,15 @@ def _prompt_literal_list(message: str) -> str:
             default_index=2,
         )
         if item_mode == "number":
-            items.append(_prompt_numeric_literal(f"{message}: {index}件目"))
+            items.append(_parse_numeric_literal(_prompt_numeric_literal(f"{message}: {index}件目")))
         elif item_mode == "string":
-            items.append(_prompt_quoted_literal(f"{message}: {index}件目"))
+            items.append(_prompt_text(f"{message}: {index}件目", ""))
+        elif item_mode == "true":
+            items.append(True)
+        elif item_mode == "false":
+            items.append(False)
         else:
-            items.append(item_mode)
+            items.append(None)
     return json.dumps(items, ensure_ascii=False)
 
 
@@ -1448,6 +1452,13 @@ def _prompt_numeric_literal(message: str) -> str:
                 return value
             except ValueError:
                 typer.echo(f"{message}: 数値で入力してください")
+
+
+def _parse_numeric_literal(value: str) -> int | float:
+    try:
+        return int(value)
+    except ValueError:
+        return float(value)
 
 
 def _prompt_quoted_literal(message: str) -> str:
