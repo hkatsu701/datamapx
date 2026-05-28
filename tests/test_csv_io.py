@@ -11,6 +11,7 @@ from datamapx.io.errors import CsvReadError
 
 FIXTURES = Path(__file__).parent / "fixtures" / "csv_io"
 DATE_FIXTURES = Path(__file__).parent / "fixtures" / "date_format"
+ZENKAKU_FIXTURES = Path(__file__).parent / "fixtures" / "zenkaku"
 
 
 def _config():
@@ -182,3 +183,24 @@ def test_date_format_reference_conversion() -> None:
     )
 
     assert pd.api.types.is_datetime64_any_dtype(df["effective_on"])
+
+
+def test_zenkaku_to_hankaku_input_normalization() -> None:
+    config = load_config(ZENKAKU_FIXTURES / "zenkaku_config.yml")
+
+    df = read_input_csv("users", config.inputs["users"], ZENKAKU_FIXTURES)
+
+    assert df.loc[0, "code"] == "ABC123"
+    assert df.loc[0, "label"] == "山田"
+    assert df.loc[0, "amount"] == 12345
+    assert df.loc[0, "optional_text"] == "アイウ"
+    assert pd.isna(df.loc[1, "optional_text"])
+
+
+def test_zenkaku_to_hankaku_reference_normalization() -> None:
+    config = load_config(ZENKAKU_FIXTURES / "zenkaku_config.yml")
+
+    df = read_reference_csv("departments", config.references["departments"], ZENKAKU_FIXTURES)
+
+    assert df.loc[0, "display_name"] == "営業部"
+    assert df.loc[1, "display_name"] == "支援部"

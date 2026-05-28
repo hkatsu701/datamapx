@@ -112,7 +112,6 @@ Completed:
 Future candidates:
 
 - Stronger date format conversion
-- `zenkaku_to_hankaku`
 - HTML report
 - Improvements for large CSV files
 

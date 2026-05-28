@@ -487,7 +487,7 @@ def test_migration_wizard_advanced_mode_can_write_input_schema_overrides(
             '0',
             '0',
             '0',
-            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1'), (3, 2, '1,2,3')]),
+            *_schema_answers_for_columns([(1, 1, '1'), (1, 1, '1'), (3, 2, '1,3,4')]),
             '1',
             '1',
             '1',

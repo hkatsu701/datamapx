@@ -32,9 +32,9 @@ class SchemaFieldConfig(StrictModel):
     type: Literal["string", "integer", "decimal", "boolean", "date"] = "string"
     required: bool = False
     date_format: str | None = None
-    normalize: list[Literal["trim", "remove_commas", "remove_currency_symbol"]] = Field(
-        default_factory=list
-    )
+    normalize: list[
+        Literal["trim", "remove_commas", "remove_currency_symbol", "zenkaku_to_hankaku"]
+    ] = Field(default_factory=list)
     true_values: list[str] | None = None
     false_values: list[str] | None = None
 

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Any
 
 import pandas as pd
 
-SUPPORTED_NORMALIZERS = {"trim", "remove_commas", "remove_currency_symbol"}
+SUPPORTED_NORMALIZERS = {
+    "trim",
+    "remove_commas",
+    "remove_currency_symbol",
+    "zenkaku_to_hankaku",
+}
 
 
 def is_missing(value: Any) -> bool:
@@ -24,6 +30,8 @@ def apply_normalizers(series: pd.Series, normalizers: list[str], field_name: str
             raise ValueError(f"{field_name}: unsupported normalize function '{normalizer}'")
         if normalizer == "trim":
             normalized = normalized.map(_trim_value)
+        elif normalizer == "zenkaku_to_hankaku":
+            normalized = normalized.map(_zenkaku_to_hankaku)
         elif normalizer == "remove_commas":
             normalized = normalized.map(_remove_commas)
         elif normalizer == "remove_currency_symbol":
@@ -52,4 +60,12 @@ def _remove_currency_symbol(value: Any) -> Any:
         return value
     if isinstance(value, str):
         return value.replace("¥", "").replace("￥", "").replace("$", "")
+    return value
+
+
+def _zenkaku_to_hankaku(value: Any) -> Any:
+    if is_missing(value):
+        return value
+    if isinstance(value, str):
+        return unicodedata.normalize("NFKC", value)
     return value

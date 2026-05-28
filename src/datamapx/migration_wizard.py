@@ -2096,6 +2096,7 @@ def _prompt_schema_field_overrides(*, context: str) -> dict[str, Any]:
         f"{context}: 値を整える処理を選択",
         [
             ChoiceOption(label="trim", value="trim"),
+            ChoiceOption(label="zenkaku_to_hankaku", value="zenkaku_to_hankaku"),
             ChoiceOption(label="remove_commas", value="remove_commas"),
             ChoiceOption(label="remove_currency_symbol", value="remove_currency_symbol"),
         ],

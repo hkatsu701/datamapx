@@ -98,11 +98,14 @@ def test_reference_on_duplicate_first_or_last_fails() -> None:
     _assert_invalid(data, "Input should be 'error'")
 
 
-def test_zenkaku_to_hankaku_normalize_fails() -> None:
-    data = _valid_data()
-    data["inputs"]["users"]["schema"]["user_id"]["normalize"] = ["zenkaku_to_hankaku"]
+def test_zenkaku_to_hankaku_normalize_loads() -> None:
+    config = load_config(FIXTURES / "zenkaku" / "zenkaku_config.yml")
 
-    _assert_invalid(data, "Input should be 'trim', 'remove_commas' or 'remove_currency_symbol'")
+    assert config.inputs["users"].fields_schema["code"].normalize == ["zenkaku_to_hankaku"]
+    assert config.inputs["users"].fields_schema["label"].normalize == [
+        "zenkaku_to_hankaku",
+        "trim",
+    ]
 
 
 def test_invalid_output_if_exists_fails() -> None:

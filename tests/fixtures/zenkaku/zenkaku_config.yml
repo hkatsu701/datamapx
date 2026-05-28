@@ -1,0 +1,63 @@
+version: 1
+
+project:
+  name: zenkaku_test
+
+inputs:
+  users:
+    path: ./input_zenkaku.csv
+    encoding: utf-8
+    delimiter: ","
+    header: true
+    schema:
+      code:
+        type: string
+        normalize: [zenkaku_to_hankaku]
+      label:
+        type: string
+        normalize: [zenkaku_to_hankaku, trim]
+      amount:
+        type: decimal
+        normalize: [zenkaku_to_hankaku, remove_currency_symbol, remove_commas]
+      optional_text:
+        type: string
+        normalize: [zenkaku_to_hankaku, trim]
+
+references:
+  departments:
+    path: ./ref_zenkaku.csv
+    encoding: utf-8
+    delimiter: ","
+    header: true
+    key: code
+    on_duplicate: error
+    schema:
+      code:
+        type: string
+      display_name:
+        type: string
+        normalize: [zenkaku_to_hankaku, trim]
+
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns:
+      - code
+      - label
+      - amount
+      - optional_text
+
+mappings:
+  users_out:
+    code:
+      source: users.code
+    label:
+      source: users.label
+    amount:
+      source: users.amount
+    optional_text:
+      source: users.optional_text
+
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

@@ -221,10 +221,9 @@ omitted, datamapx keeps the existing mixed parsing behavior.
 Supported normalize functions:
 
 - `trim`: remove leading and trailing whitespace
+- `zenkaku_to_hankaku`: convert common full-width alphanumerics and symbols to half-width with Unicode NFKC normalization
 - `remove_commas`: remove comma separators
 - `remove_currency_symbol`: remove common currency symbols before numeric conversion
-
-Phase 1 does not support `zenkaku_to_hankaku`.
 
 Phase 1 CSV reader behavior:
 
@@ -803,7 +802,6 @@ Phase 1 defaults:
 
 ## 20. Phase 1 limitations
 
-- `zenkaku_to_hankaku` is not supported.
 - `on_duplicate` supports only `error`.
 - `if_exists` supports only `error` and `overwrite`.
 - Multiple input joins are not supported.
