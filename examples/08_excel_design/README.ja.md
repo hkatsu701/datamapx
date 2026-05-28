@@ -5,7 +5,7 @@
 ## 1. このexampleの位置づけ
 
 - DataMapX 標準の Excel 移行設計書テンプレート例です。
-- 将来の `design-to-yaml` 実装に向けた workbook 仕様の参照用です。
+- `validate-design` 実装と将来の `design-to-yaml` 実装に向けた workbook 仕様の参照用です。
 - 1つの設計書から複数の merge job / migration job を表現する例です。
 
 ## 2. 含まれる内容
@@ -48,5 +48,5 @@ examples/08_excel_design/
 ## 4. 補足
 
 - この example は documentation-first です。
-- Excel parser と `design-to-yaml` コマンドはまだ未実装です。
+- `validate-design` で workbook の検証はできますが、`design-to-yaml` はまだ未実装です。
 - 各 sheet の CSV は、標準テンプレートのひな形として使います。

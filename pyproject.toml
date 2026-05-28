@@ -19,13 +19,13 @@ dependencies = [
   "PyYAML",
   "simpleeval",
   "python-dateutil",
+  "openpyxl",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest",
   "pytest-cov",
-  "openpyxl",
   "ruff",
   "types-PyYAML",
 ]

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from openpyxl import load_workbook
 from typer.testing import CliRunner
 
 from datamapx.cli import app
@@ -117,6 +118,53 @@ def test_validate_config_failure() -> None:
 
     assert result.exit_code == 1
     assert "missing mappings for output columns" in result.output
+
+
+def test_validate_design_success() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["validate-design", str(EXAMPLES / "08_excel_design" / "datamapx_design_template.xlsx")],
+    )
+
+    assert result.exit_code == 0
+    assert "Design is valid:" in result.output
+    assert "Project: invoice_migration" in result.output
+    assert "Sheets: 16" in result.output
+    assert "Jobs: 2" in result.output
+    assert "Enabled jobs: 2" in result.output
+
+
+def test_validate_design_writes_summary_and_errors_csv(tmp_path: Path) -> None:
+    design_path = _prepare_design_fixture(tmp_path)
+    workbook = load_workbook(design_path)
+    workbook.remove(workbook["runtime"])
+    workbook.save(design_path)
+    summary_path = tmp_path / "design-summary.json"
+    errors_path = tmp_path / "design-errors.csv"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "validate-design",
+            str(design_path),
+            "--summary-json",
+            str(summary_path),
+            "--errors-csv",
+            str(errors_path),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Design is invalid:" in result.output
+    assert summary_path.exists()
+    assert errors_path.exists()
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["valid"] is False
+    assert summary["error_count"] >= 1
+    with errors_path.open("r", encoding="utf-8", newline="") as file:
+        rows = list(csv.DictReader(file))
+    assert rows
+    assert rows[0]["sheet"] == "runtime"
 
 
 def test_inspect_success() -> None:
@@ -916,6 +964,12 @@ def _prepare_run_fixture(tmp_path: Path, fixture_name: str) -> Path:
         else:
             shutil.copy2(path, target)
     return tmp_path / fixture_name
+
+
+def _prepare_design_fixture(tmp_path: Path) -> Path:
+    target = tmp_path / "design.xlsx"
+    shutil.copy2(EXAMPLES / "08_excel_design" / "datamapx_design_template.xlsx", target)
+    return target
 
 
 def _prepare_example_fixture(tmp_path: Path, example_name: str) -> Path:

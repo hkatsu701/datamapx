@@ -39,6 +39,54 @@ On failure, print configuration errors with section and field context.
 - `1`: invalid YAML, invalid config, unsupported setting, or unresolved reference
 - `2`: invalid CLI usage
 
+## datamapx validate-design design.xlsx
+
+### Purpose
+
+Validate a standard `.xlsx` Excel design workbook against `docs/excel-design-spec.md`.
+The command checks required sheets, required columns, job graph rules, and job-to-detail-sheet consistency.
+It does not generate YAML, manifests, scripts, or execution outputs.
+
+### Usage
+
+```bash
+datamapx validate-design examples/08_excel_design/datamapx_design_template.xlsx
+datamapx validate-design design.xlsx --summary-json ./design-summary.json
+datamapx validate-design design.xlsx --errors-csv ./design-errors.csv
+datamapx validate-design design.xlsx --summary-json ./design-summary.json --errors-csv ./design-errors.csv
+```
+
+### Options
+
+- `--summary-json PATH`: write a JSON summary when specified.
+- `--errors-csv PATH`: write structured validation errors when specified.
+
+### Expected output
+
+On success:
+
+```text
+Design is valid: examples/08_excel_design/datamapx_design_template.xlsx
+Project: invoice_migration
+Sheets: 16
+Jobs: 2
+Enabled jobs: 2
+```
+
+On failure, print structured errors to stderr:
+
+```text
+Design is invalid: design.xlsx
+- jobs row 3 column job_id: job_id is required
+- jobs row 4 column job_type: unsupported job_type 'export'
+```
+
+### Exit code policy
+
+- `0`: valid workbook
+- `1`: invalid workbook, workbook read error, summary write error, or errors CSV write error
+- `2`: invalid CLI usage
+
 ## datamapx generate-config --input ./input/users.csv --output ./output/users_out.csv --config ./migration.yml
 
 ### Purpose

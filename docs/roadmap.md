@@ -54,12 +54,13 @@ Future candidates:
 
 ## Excel design to YAML roadmap
 
-Goal: generate multiple `merge.yml` and `migration.yml` files, plus execution scripts, from a standard DataMapX Excel migration design workbook.
+Goal: validate a standard DataMapX Excel migration design workbook and prepare the foundation for future YAML generation.
 
 Completed:
 
 - `docs/excel-design-spec.md`
 - `examples/08_excel_design/`
+- `validate-design` CLI v1
 
 Future candidates:
 

@@ -12,6 +12,13 @@ import typer
 
 from datamapx.config import DatamapxConfig, load_config
 from datamapx.config_generator import generate_basic_config
+from datamapx.excel_design import (
+    DesignWriteError,
+    format_design_result,
+    validate_design_workbook,
+    write_design_errors_csv,
+    write_design_summary_json,
+)
 from datamapx.exceptions import ConfigError
 from datamapx.io.csv_reader import InputProfile, profile_input_csv
 from datamapx.io.csv_writer import write_output_csv
@@ -107,6 +114,29 @@ def validate_config(config_path: Path) -> None:
         raise typer.Exit(1) from exc
 
     typer.echo(f"Config is valid: {config_path}")
+
+
+@app.command("validate-design")
+def validate_design(
+    design_path: Path,
+    summary_json: Annotated[Path, typer.Option("--summary-json")] = None,
+    errors_csv: Annotated[Path, typer.Option("--errors-csv")] = None,
+) -> None:
+    """Validate a standard Excel design workbook."""
+
+    result = validate_design_workbook(design_path)
+    try:
+        if summary_json is not None:
+            write_design_summary_json(summary_json, result)
+        if errors_csv is not None:
+            write_design_errors_csv(errors_csv, result.errors)
+    except DesignWriteError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(format_design_result(result), err=not result.valid)
+    if not result.valid:
+        raise typer.Exit(1)
 
 
 @app.command("inspect")
