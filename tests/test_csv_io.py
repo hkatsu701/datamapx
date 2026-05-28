@@ -204,3 +204,150 @@ def test_zenkaku_to_hankaku_reference_normalization() -> None:
 
     assert df.loc[0, "display_name"] == "営業部"
     assert df.loc[1, "display_name"] == "支援部"
+
+
+def test_input_row_count_limit_allows_small_files(tmp_path: Path) -> None:
+    input_path = tmp_path / "input_users.csv"
+    _write_csv(
+        input_path,
+        [
+            ["user_id", "name", "nickname", "age", "amount", "active", "joined", "department_code"],
+            ["u001", "Alice", "", "42", "1234.50", "true", "2024-01-01", "D001"],
+            ["u002", "Bob", "", "35", "2000", "false", "2024-01-02", "D002"],
+        ],
+    )
+    config = _config()
+    input_config = config.inputs["users"].model_copy(update={"path": str(input_path)})
+
+    df = read_input_csv("users", input_config, tmp_path, max_rows=2)
+
+    assert len(df) == 2
+
+
+def test_input_row_count_limit_rejects_large_files(tmp_path: Path) -> None:
+    input_path = tmp_path / "input_users.csv"
+    _write_csv(
+        input_path,
+        [
+            ["user_id", "name", "nickname", "age", "amount", "active", "joined", "department_code"],
+            ["u001", "Alice", "", "42", "1234.50", "true", "2024-01-01", "D001"],
+            ["u002", "Bob", "", "35", "2000", "false", "2024-01-02", "D002"],
+            ["u003", "Carol", "", "29", "500", "true", "2024-01-03", "D003"],
+        ],
+    )
+    config = _config()
+    input_config = config.inputs["users"].model_copy(update={"path": str(input_path)})
+
+    with pytest.raises(
+        CsvReadError,
+        match=r"inputs\.users: row count 3 exceeds runtime\.max_input_rows 2",
+    ):
+        read_input_csv("users", input_config, tmp_path, max_rows=2)
+
+
+def test_reference_row_count_limit_allows_small_files(tmp_path: Path) -> None:
+    reference_path = tmp_path / "ref_departments.csv"
+    _write_csv(
+        reference_path,
+        [
+            ["department_code", "department_name"],
+            ["D001", "Sales"],
+            ["D002", "Support"],
+        ],
+    )
+    config = _config()
+    reference_config = config.references["departments"].model_copy(
+        update={"path": str(reference_path)}
+    )
+
+    df = read_reference_csv("departments", reference_config, tmp_path, max_rows=2)
+
+    assert len(df) == 2
+
+
+def test_reference_row_count_limit_rejects_large_files(tmp_path: Path) -> None:
+    reference_path = tmp_path / "ref_departments.csv"
+    _write_csv(
+        reference_path,
+        [
+            ["department_code", "department_name"],
+            ["D001", "Sales"],
+            ["D002", "Support"],
+            ["D003", "QA"],
+        ],
+    )
+    config = _config()
+    reference_config = config.references["departments"].model_copy(
+        update={"path": str(reference_path)}
+    )
+
+    with pytest.raises(
+        CsvReadError,
+        match=r"references\.departments: row count 3 exceeds runtime\.max_reference_rows 2",
+    ):
+        read_reference_csv("departments", reference_config, tmp_path, max_rows=2)
+
+
+@pytest.mark.parametrize(
+    ("loader", "config_key", "path_name"),
+    [
+        (read_input_csv, "inputs", "users"),
+        (read_reference_csv, "references", "departments"),
+    ],
+)
+def test_row_count_limit_counts_empty_field_rows_as_data(
+    tmp_path: Path,
+    loader,
+    config_key: str,
+    path_name: str,
+) -> None:
+    csv_path = tmp_path / f"{path_name}.csv"
+    csv_path.write_text(
+        (
+            "user_id,name,nickname,age,amount,active,joined,department_code\n"
+            ",,,,,,,\n"
+            ",,,,,,,\n"
+            "u001,Alice,,42,1234.50,true,2024-01-01,D001\n"
+        ),
+        encoding="utf-8",
+    )
+    config = _config()
+    config_obj = getattr(config, config_key)[path_name].model_copy(update={"path": str(csv_path)})
+
+    with pytest.raises(
+        CsvReadError,
+        match=r"row count 3 exceeds runtime\.(max_input_rows|max_reference_rows) 2",
+    ):
+        loader(path_name, config_obj, tmp_path, max_rows=2)
+
+
+@pytest.mark.parametrize(
+    ("loader", "config_key", "path_name"),
+    [
+        (read_input_csv, "inputs", "users"),
+        (read_reference_csv, "references", "departments"),
+    ],
+)
+def test_header_false_is_reported_before_row_limit(
+    tmp_path: Path,
+    loader,
+    config_key: str,
+    path_name: str,
+) -> None:
+    csv_path = tmp_path / f"{path_name}.csv"
+    csv_path.write_text("user_id,name\nu001,Alice\nu002,Bob\n", encoding="utf-8")
+    config = _config()
+    config_obj = getattr(config, config_key)[path_name].model_copy(
+        update={"path": str(csv_path), "header": False}
+    )
+
+    with pytest.raises(
+        CsvReadError,
+        match="header: false is not supported in Phase 1 CSV reader",
+    ):
+        loader(path_name, config_obj, tmp_path, max_rows=1)
+
+
+def _write_csv(path: Path, rows: list[list[str]]) -> None:
+    content = "\n".join(",".join(row) for row in rows) + "\n"
+    path.write_text(content, encoding="utf-8")

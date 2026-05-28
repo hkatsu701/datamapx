@@ -254,6 +254,7 @@ def profile_input(
             input_config,
             config_path.parent,
             limit=limit,
+            max_rows=config.runtime.max_input_rows,
         )
     except (ConfigError, CsvReadError) as exc:
         typer.echo(str(exc), err=True)
@@ -392,6 +393,10 @@ def format_inspection(config: DatamapxConfig) -> str:
             f"Skipped output path: {config.error_handling.skipped_output}",
         ]
     )
+    if config.runtime.max_input_rows is not None:
+        lines.append(f"Runtime max input rows: {config.runtime.max_input_rows}")
+    if config.runtime.max_reference_rows is not None:
+        lines.append(f"Runtime max reference rows: {config.runtime.max_reference_rows}")
     return "\n".join(lines)
 
 

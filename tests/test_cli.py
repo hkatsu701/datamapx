@@ -142,6 +142,23 @@ def test_run_success(tmp_path: Path) -> None:
     assert "Counts:" in result.output
 
 
+def test_run_inspect_displays_runtime_row_limits(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["runtime"]["max_input_rows"] = 100
+    data["runtime"]["max_reference_rows"] = 200
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["inspect", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Runtime max input rows: 100" in result.output
+    assert "Runtime max reference rows: 200" in result.output
+
+
 def test_run_with_validation_errors_still_succeeds(tmp_path: Path) -> None:
     config_path = _prepare_run_fixture(tmp_path, "run_config_with_errors.yml")
 
@@ -274,6 +291,39 @@ def test_dry_run_write_reports_html_report_writes_files(tmp_path: Path) -> None:
     assert "Reports written:" in result.output
     assert "- html:" in result.output
     assert (reports_dir / "report.html").exists()
+
+
+def test_dry_run_rejects_input_row_limit_exceeded(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["runtime"]["max_input_rows"] = 1
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["dry-run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "inputs.users: row count 3 exceeds runtime.max_input_rows 1" in result.output
+
+
+def test_dry_run_rejects_reference_row_limit_exceeded(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["runtime"]["max_reference_rows"] = 1
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["dry-run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert (
+        "references.departments: row count 3 exceeds runtime.max_reference_rows 1"
+        in result.output
+    )
 
 
 def test_dry_run_check_failure_exits_nonzero(tmp_path: Path) -> None:
@@ -423,6 +473,39 @@ def test_run_html_report_writes_file(tmp_path: Path) -> None:
     assert "Reports:" in result.output
     assert "- html:" in result.output
     assert (reports_dir / "report.html").exists()
+
+
+def test_run_rejects_input_row_limit_exceeded(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["runtime"]["max_input_rows"] = 1
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "inputs.users: row count 3 exceeds runtime.max_input_rows 1" in result.output
+
+
+def test_run_rejects_reference_row_limit_exceeded(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["runtime"]["max_reference_rows"] = 1
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert (
+        "references.departments: row count 3 exceeds runtime.max_reference_rows 1"
+        in result.output
+    )
 
 
 def test_dry_run_without_write_reports_does_not_write_files(tmp_path: Path) -> None:

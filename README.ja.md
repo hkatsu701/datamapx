@@ -16,6 +16,7 @@ Current release: v0.3.1.
 - YAML で変換ルールを定義します。
 - `normalize` では `trim` / `zenkaku_to_hankaku` / `remove_commas` / `remove_currency_symbol` を使えます。
 - `type: date` の列では `date_format` を使って、既知の日時文字列を厳密に解析できます。
+- `runtime.max_input_rows` と `runtime.max_reference_rows` を設定すると、`profile-input` / `dry-run` / `run` の前に migration 入力・reference CSV の行数を確認して、上限超過を防げます。
 - 変換、lookup、条件分岐、計算、検証、run-level check、レポート出力までを CLI で実行できます。
 
 ## 2. 主な機能

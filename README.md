@@ -18,6 +18,7 @@ Current release: v0.3.1.
 - Normalize and type-convert input fields from schema definitions.
 - `normalize` supports `trim`, `zenkaku_to_hankaku`, `remove_commas`, and `remove_currency_symbol`.
 - Use `date_format` on `type: date` fields when you need strict parsing of known date strings.
+- Set `runtime.max_input_rows` and `runtime.max_reference_rows` to guard migration input and reference CSV loads before `profile-input`, `dry-run`, or `run` reads them.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
 - Apply filters, validations, and run-level checks before writing the final output.
 - Write `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html`.

@@ -111,6 +111,7 @@ Completed:
 - Date format conversion
 - `zenkaku_to_hankaku` normalize
 - HTML report
+- Large CSV guardrails
 
 Future candidates:
 

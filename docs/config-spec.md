@@ -518,11 +518,14 @@ runtime:
   log_dir: ./logs
   log_level: INFO
   summary_output: ./output/summary.json
+  max_input_rows: 100000
+  max_reference_rows: 500000
 ```
 
 `run_id: auto` means datamapx generates a run identifier.
 `summary_output` is optional. When omitted, `summary.json` defaults to the same directory as `error_handling.error_output`.
 When dry-run is executed with `--write-reports --reports-dir`, that directory overrides the configured report paths. When `run` is executed, report files are always written and use the same path resolution rules. If the CLI is invoked with `--html-report`, a browser-readable `report.html` is written beside the other reports without changing the CSV or JSON report structures.
+`max_input_rows` and `max_reference_rows` are optional positive integers. When set, datamapx counts CSV data rows before loading the migration input or reference CSV with pandas and raises a CSV read error if the file exceeds the configured limit. These limits are used by `profile-input`, `dry-run`, and `run`, and are not applied by `merge` or `union`.
 
 ## 15. union
 
@@ -814,6 +817,7 @@ Phase 1 defaults:
 - `dry-run --write-reports` can write `errors.csv`, `skipped.csv`, and `summary.json` without writing the main output CSV.
 - `run` always writes the main output CSV and report files.
 - `--html-report` is optional CLI output only; it writes `report.html` beside the other reports and does not alter `summary.json`, `errors.csv`, or `skipped.csv`.
+- `runtime.max_input_rows` and `runtime.max_reference_rows` are guardrails only; they do not change normal loading behavior when omitted.
 
 ## 21. Generate-config basic
 

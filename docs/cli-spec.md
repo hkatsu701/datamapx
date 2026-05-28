@@ -360,6 +360,7 @@ Summarized configuration, including:
 ### Purpose
 
 Run the load phase without writing outputs or reports.
+If `runtime.max_input_rows` or `runtime.max_reference_rows` is configured, the corresponding CSV is counted before loading and the command fails with exit code `1` when a limit is exceeded.
 
 The current Phase 1 implementation performs:
 
@@ -448,6 +449,7 @@ If execution stops because of validation policy or a mapping/runtime error confi
 Execute the configured CSV-to-CSV migration and write output, error, skipped, summary, and log files.
 
 This command is implemented in Phase 1.
+If `runtime.max_input_rows` or `runtime.max_reference_rows` is configured, the corresponding CSV is counted before loading and the command fails with exit code `1` when a limit is exceeded.
 
 ### Usage
 
@@ -497,6 +499,7 @@ If execution stops because of validation policy or a mapping/runtime error confi
 
 Inspect the configured input CSV after schema column resolution, normalization, and type conversion.
 The command is read-only and does not write output CSVs or reports.
+If `runtime.max_input_rows` is configured, the input file is counted before loading and the command fails with exit code `1` when the file exceeds the configured limit.
 
 ### Usage
 

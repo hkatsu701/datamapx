@@ -98,6 +98,35 @@ def test_reference_on_duplicate_first_or_last_fails() -> None:
     _assert_invalid(data, "Input should be 'error'")
 
 
+def test_runtime_row_limits_load() -> None:
+    data = _valid_data()
+    data["runtime"] = {
+        "run_id": "auto",
+        "log_dir": "./logs",
+        "log_level": "INFO",
+        "max_input_rows": 100,
+        "max_reference_rows": 200,
+    }
+
+    config = DatamapxConfig.model_validate(data)
+
+    assert config.runtime.max_input_rows == 100
+    assert config.runtime.max_reference_rows == 200
+
+
+@pytest.mark.parametrize("field", ["max_input_rows", "max_reference_rows"])
+def test_runtime_row_limits_must_be_positive(field: str) -> None:
+    data = _valid_data()
+    data["runtime"] = {
+        "run_id": "auto",
+        "log_dir": "./logs",
+        "log_level": "INFO",
+        field: 0,
+    }
+
+    _assert_invalid(data, "must be a positive integer")
+
+
 def test_zenkaku_to_hankaku_normalize_loads() -> None:
     config = load_config(FIXTURES / "zenkaku" / "zenkaku_config.yml")
 

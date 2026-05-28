@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -109,8 +110,21 @@ def read_input_csv(
     input_config: InputConfig,
     base_path: Path | None = None,
     limit: int | None = None,
+    max_rows: int | None = None,
 ) -> pd.DataFrame:
     """Read an input CSV and return a normalized dataframe with schema field names."""
+
+    if not input_config.header:
+        raise CsvReadError("header: false is not supported in Phase 1 CSV reader")
+
+    if max_rows is not None:
+        csv_path = _resolve_path(input_config.path, base_path)
+        row_count = _count_csv_data_rows(csv_path, input_config.encoding, input_config.delimiter)
+        if row_count > max_rows:
+            raise CsvReadError(
+                f"inputs.{input_name}: row count {row_count} exceeds "
+                f"runtime.max_input_rows {max_rows}"
+            )
 
     raw_df = _read_raw_csv(
         input_config.path,
@@ -127,8 +141,25 @@ def read_reference_csv(
     reference_name: str,
     reference_config: ReferenceConfig,
     base_path: Path | None = None,
+    max_rows: int | None = None,
 ) -> pd.DataFrame:
     """Read a reference CSV and validate configured reference keys."""
+
+    if not reference_config.header:
+        raise CsvReadError("header: false is not supported in Phase 1 CSV reader")
+
+    if max_rows is not None:
+        csv_path = _resolve_path(reference_config.path, base_path)
+        row_count = _count_csv_data_rows(
+            csv_path,
+            reference_config.encoding,
+            reference_config.delimiter,
+        )
+        if row_count > max_rows:
+            raise CsvReadError(
+                f"references.{reference_name}: row count {row_count} exceeds "
+                f"runtime.max_reference_rows {max_rows}"
+            )
 
     raw_df = _read_raw_csv(
         reference_config.path,
@@ -156,10 +187,17 @@ def profile_input_csv(
     input_config: InputConfig,
     base_path: Path | None = None,
     limit: int | None = None,
+    max_rows: int | None = None,
 ) -> InputProfile:
     """Return a profile for the configured input CSV."""
 
-    df = read_input_csv(input_name, input_config, base_path, limit=limit)
+    df = read_input_csv(
+        input_name,
+        input_config,
+        base_path,
+        limit=limit,
+        max_rows=max_rows,
+    )
     columns = [
         _profile_column(field_name, field_config, df[field_name])
         for field_name, field_config in input_config.fields_schema.items()
@@ -231,6 +269,23 @@ def _read_raw_csv(
     except OSError as exc:
         raise CsvReadError(f"{csv_path}: cannot read CSV: {exc}") from exc
     except pd.errors.ParserError as exc:
+        raise CsvReadError(f"{csv_path}: cannot parse CSV: {exc}") from exc
+
+
+def _count_csv_data_rows(csv_path: Path, encoding: str, delimiter: str) -> int:
+    try:
+        with csv_path.open("r", encoding=encoding, newline="") as file:
+            reader = csv.reader(file, delimiter=delimiter)
+            next(reader, None)
+            return sum(1 for row in reader if row != [])
+    except FileNotFoundError as exc:
+        raise CsvReadError(f"{csv_path}: CSV file not found") from exc
+    except UnicodeError as exc:
+        message = f"{csv_path}: cannot decode CSV with encoding '{encoding}': {exc}"
+        raise CsvReadError(message) from exc
+    except OSError as exc:
+        raise CsvReadError(f"{csv_path}: cannot read CSV: {exc}") from exc
+    except csv.Error as exc:
         raise CsvReadError(f"{csv_path}: cannot parse CSV: {exc}") from exc
 
 

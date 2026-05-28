@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from datamapx.exceptions import ConfigError
 
@@ -178,6 +178,15 @@ class RuntimeConfig(StrictModel):
     log_dir: str = "./logs"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     summary_output: str | None = None
+    max_input_rows: int | None = None
+    max_reference_rows: int | None = None
+
+    @field_validator("max_input_rows", "max_reference_rows")
+    @classmethod
+    def validate_positive_limit(cls, value: int | None) -> int | None:
+        if value is not None and value < 1:
+            raise ValueError("must be a positive integer")
+        return value
 
 
 class DatamapxConfig(StrictModel):

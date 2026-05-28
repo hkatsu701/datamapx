@@ -195,12 +195,23 @@ def run_load_phase(
     """Load input and reference CSVs, applying schema and key checks only."""
 
     input_name, input_config = next(iter(config.inputs.items()))
-    input_df = read_input_csv(input_name, input_config, base_path, limit=limit)
+    input_df = read_input_csv(
+        input_name,
+        input_config,
+        base_path,
+        limit=limit,
+        max_rows=config.runtime.max_input_rows,
+    )
 
     reference_summaries: list[ReferenceLoadSummary] = []
     reference_dfs: dict[str, pd.DataFrame] = {}
     for reference_name, reference_config in config.references.items():
-        reference_df = read_reference_csv(reference_name, reference_config, base_path)
+        reference_df = read_reference_csv(
+            reference_name,
+            reference_config,
+            base_path,
+            max_rows=config.runtime.max_reference_rows,
+        )
         reference_dfs[reference_name] = reference_df
         reference_summaries.append(
             ReferenceLoadSummary(
