@@ -10,3 +10,11 @@ examples/*/output/*
 !examples/*/output/.gitkeep
 examples/*/reports/*
 !examples/*/reports/.gitkeep
+
+# Local Codex operation notes kept out of the OSS repository.
+.codex/
+docs/agent-workflow.md
+docs/pm-checklist.md
+docs/developer-checklist.md
+docs/qa-checklist.md
+docs/release-checklist.md

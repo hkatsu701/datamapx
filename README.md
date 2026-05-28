@@ -169,10 +169,6 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 
 See [docs/roadmap.md](docs/roadmap.md).
 
-## Development Workflow
-
-For the recommended PM / Developer / QA / Release workflow, see [docs/agent-workflow.md](docs/agent-workflow.md) and the role checklists linked from there.
-
 ## Documentation
 
 - [Concept](docs/concept.md)
@@ -180,11 +176,6 @@ For the recommended PM / Developer / QA / Release workflow, see [docs/agent-work
 - [Excel design specification](docs/excel-design-spec.md)
 - [CLI specification](docs/cli-spec.md)
 - [Error policy](docs/error-policy.md)
-- [Agent workflow](docs/agent-workflow.md)
-- [PM checklist](docs/pm-checklist.md)
-- [Developer checklist](docs/developer-checklist.md)
-- [QA checklist](docs/qa-checklist.md)
-- [Release checklist](docs/release-checklist.md)
 - [Roadmap](docs/roadmap.md)
 
 ## License

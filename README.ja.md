@@ -209,10 +209,6 @@ mappings:
 
 [docs/roadmap.md](docs/roadmap.md) と [docs/excel-design-spec.md](docs/excel-design-spec.md) を参照してください。
 
-## 17. 開発ワークフロー
-
-PM / Developer / QA / Release の役割分担で小さく開発する場合は、[docs/agent-workflow.md](docs/agent-workflow.md) とそこから参照できる各チェックリストを使ってください。
-
-## 18. ライセンス
+## 17. ライセンス
 
 MIT License。詳細は [LICENSE](LICENSE) を参照してください。
