@@ -1,0 +1,79 @@
+version: 1
+
+project:
+  name: profile_input_test
+
+inputs:
+  users:
+    path: ./input_profile_metrics.csv
+    encoding: utf-8
+    delimiter: ","
+    header: true
+    schema:
+      user_id:
+        source_columns: [user_id, 顧客ID]
+        type: string
+        required: true
+        normalize: [trim]
+      name:
+        type: string
+        normalize: [trim]
+      nickname:
+        type: string
+      age:
+        type: integer
+      amount:
+        type: decimal
+        normalize: [trim, remove_currency_symbol, remove_commas]
+      active:
+        type: boolean
+      joined:
+        type: date
+      department_code:
+        type: string
+        normalize: [trim]
+
+references:
+  departments:
+    path: ./ref_departments.csv
+    encoding: utf-8
+    delimiter: ","
+    header: true
+    key: department_code
+    on_duplicate: error
+
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns:
+      - id
+      - name
+      - department_name
+
+mappings:
+  users_out:
+    id:
+      source: users.user_id
+    name:
+      source: users.name
+    department_name:
+      lookup:
+        reference: departments
+        key: users.department_code
+        value: department_name
+
+validations:
+  input:
+    - field: users.user_id
+      rule: required
+  output:
+    - field: id
+      rule: required
+
+checks:
+  - name: row_count_check
+    rule: input_rows == output_rows + error_rows + skipped_rows
+
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

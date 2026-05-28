@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
@@ -12,7 +13,7 @@ import typer
 from datamapx.config import DatamapxConfig, load_config
 from datamapx.config_generator import generate_basic_config
 from datamapx.exceptions import ConfigError
-from datamapx.io.csv_reader import profile_input_csv
+from datamapx.io.csv_reader import InputProfile, profile_input_csv
 from datamapx.io.csv_writer import write_output_csv
 from datamapx.io.errors import CsvReadError, CsvWriteError
 from datamapx.merge import (
@@ -223,16 +224,36 @@ def run(
 
 
 @app.command("profile-input")
-def profile_input(config_path: Path) -> None:
+def profile_input(
+    config_path: Path,
+    limit: Annotated[int, typer.Option("--limit")] = None,
+    format: Annotated[str, typer.Option("--format")] = "text",
+) -> None:
     """Profile the configured input CSV after schema normalization."""
+
+    if limit is not None and limit < 1:
+        typer.echo("--limit must be a positive integer", err=True)
+        raise typer.Exit(2)
+    if format not in {"text", "json"}:
+        typer.echo("--format must be 'text' or 'json'", err=True)
+        raise typer.Exit(2)
 
     try:
         config = load_config(config_path)
         input_name, input_config = next(iter(config.inputs.items()))
-        profile = profile_input_csv(input_name, input_config, config_path.parent)
+        profile = profile_input_csv(
+            input_name,
+            input_config,
+            config_path.parent,
+            limit=limit,
+        )
     except (ConfigError, CsvReadError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
+
+    if format == "json":
+        typer.echo(json.dumps(profile.to_dict(), ensure_ascii=False, indent=2))
+        return
 
     typer.echo(format_input_profile(profile))
 
@@ -352,39 +373,68 @@ def format_inspection(config: DatamapxConfig) -> str:
     return "\n".join(lines)
 
 
-def format_input_profile(profile: dict[str, object]) -> str:
+def format_input_profile(profile: InputProfile) -> str:
     """Return a human-readable input profile summary."""
 
     lines = [
         "datamapx input profile",
-        f"Input name: {profile['input_name']}",
-        f"Path: {profile['path']}",
-        f"Encoding: {profile['encoding']}",
-        f"Delimiter: {profile['delimiter']}",
-        f"Rows: {profile['rows']}",
-        f"Columns: {', '.join(profile['columns'])}",
+        f"Input name: {profile.input_name}",
+        f"Path: {profile.path}",
+        f"Encoding: {profile.encoding}",
+        f"Delimiter: {profile.delimiter}",
+        f"Rows: {profile.profiled_rows}",
+        f"Profiled rows: {profile.profiled_rows}",
+        f"Limit: {profile.limit if profile.limit is not None else '(none)'}",
         "Missing counts:",
     ]
 
-    missing_counts = profile["missing_counts"]
-    sample_values = profile["sample_values"]
-    dtypes = profile["dtypes"]
-    if not isinstance(missing_counts, dict) or not isinstance(sample_values, dict):
-        return "\n".join(lines)
-    if not isinstance(dtypes, dict):
+    if profile.limit is not None:
+        lines.append("Note: metrics are based on the limited sample.")
+
+    column_names = [column.name for column in profile.columns]
+    lines.append(f"Columns: {', '.join(column_names) if column_names else '(none)'}")
+
+    if not profile.columns:
         return "\n".join(lines)
 
-    for field in profile["columns"]:
-        lines.append(f"- {field}: {missing_counts.get(field, 0)}")
+    for column in profile.columns:
+        lines.append(f"- {column.name}: {column.missing_count}")
 
     lines.append("Sample values:")
-    for field in profile["columns"]:
-        values = sample_values.get(field, [])
-        lines.append(f"- {field}: {values}")
+    for column in profile.columns:
+        lines.append(f"- {column.name}: {column.sample_values}")
 
     lines.append("Inferred dtypes:")
-    for field in profile["columns"]:
-        lines.append(f"- {field}: {dtypes.get(field, 'unknown')}")
+    for column in profile.columns:
+        lines.append(f"- {column.name}: {column.dtype}")
+
+    lines.append("Column metrics:")
+    for column in profile.columns:
+        lines.extend(
+            [
+                f"- {column.name}:",
+                f"  - schema type: {column.schema_type}",
+                f"  - dtype: {column.dtype}",
+                f"  - missing_count: {column.missing_count}",
+                f"  - missing_rate: {column.missing_rate}",
+                f"  - non_null_count: {column.non_null_count}",
+                f"  - unique_count: {column.unique_count}",
+                f"  - duplicate_count: {column.duplicate_count}",
+                f"  - sample_values: {column.sample_values}",
+            ]
+        )
+        if column.top_values:
+            lines.append(f"  - top_values: {column.top_values}")
+        if column.min_length is not None:
+            lines.append(f"  - min_length: {column.min_length}")
+        if column.max_length is not None:
+            lines.append(f"  - max_length: {column.max_length}")
+        if column.min is not None:
+            lines.append(f"  - min: {column.min}")
+        if column.max is not None:
+            lines.append(f"  - max: {column.max}")
+        if column.mean is not None:
+            lines.append(f"  - mean: {column.mean}")
 
     return "\n".join(lines)
 

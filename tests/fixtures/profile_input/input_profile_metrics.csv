@@ -1,0 +1,4 @@
+user_id,name,nickname,age,amount,active,joined,department_code
+ u001 ,Al,,42,"¥1,234.50",true,2024-01-02,D001
+u002,Alice,B,7,"$2,000",false,2024/02/03,D002
+u001,Alice,C,,500,true,2024-03-04,D001

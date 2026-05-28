@@ -107,10 +107,10 @@ Completed:
 
 - Multiple outputs
 - [examples/10_multiple_outputs/](../examples/10_multiple_outputs/README.md)
+- Enhanced `profile-input`
 
 Future candidates:
 
-- Enhanced `profile-input`
 - Stronger date format conversion
 - `zenkaku_to_hankaku`
 - HTML report

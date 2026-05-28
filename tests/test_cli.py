@@ -5,6 +5,7 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
 import yaml
 from typer.testing import CliRunner
 
@@ -12,6 +13,7 @@ from datamapx.cli import app
 
 FIXTURES = Path(__file__).parent / "fixtures"
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
+PROFILE_FIXTURES = FIXTURES / "profile_input"
 
 
 def test_validate_config_success() -> None:
@@ -636,6 +638,139 @@ def test_profile_input_success() -> None:
     assert "datamapx input profile" in result.output
     assert "Input name: users" in result.output
     assert "Rows: 2" in result.output
+
+
+def test_profile_input_limit_displays_profiled_rows() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(PROFILE_FIXTURES / "profile_input_config.yml"),
+            "--limit",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Profiled rows: 1" in result.output
+    assert "Limit: 1" in result.output
+    assert "Note: metrics are based on the limited sample." in result.output
+
+
+def test_profile_input_json_output_is_valid() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(PROFILE_FIXTURES / "profile_input_config.yml"),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["input_name"] == "users"
+    assert payload["profiled_rows"] == 3
+    assert payload["limit"] is None
+    assert payload["columns"][0]["name"] == "user_id"
+    assert payload["columns"][0]["schema_type"] == "string"
+    assert payload["columns"][0]["sample_values"] == ["u001", "u002", "u001"]
+
+
+def test_profile_input_json_limit_reports_limit_and_metrics() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(PROFILE_FIXTURES / "profile_input_config.yml"),
+            "--limit",
+            "1",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["profiled_rows"] == 1
+    assert payload["limit"] == 1
+    assert payload["columns"][0]["missing_count"] == 0
+
+
+def test_profile_input_metrics_are_reported() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(PROFILE_FIXTURES / "profile_input_config.yml"),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    columns = {column["name"]: column for column in payload["columns"]}
+
+    assert columns["user_id"]["missing_count"] == 0
+    assert columns["user_id"]["non_null_count"] == 3
+    assert columns["user_id"]["unique_count"] == 2
+    assert columns["user_id"]["duplicate_count"] == 1
+    assert columns["user_id"]["top_values"][0] == {"value": "u001", "count": 2}
+    assert columns["name"]["min_length"] == 2
+    assert columns["name"]["max_length"] == 5
+    assert columns["age"]["min"] == 7
+    assert columns["age"]["max"] == 42
+    assert columns["age"]["mean"] == pytest.approx(24.5)
+    assert columns["amount"]["min"] == 500
+    assert columns["amount"]["max"] == 2000
+    assert columns["amount"]["mean"] == pytest.approx(1244.8333333333333)
+
+
+def test_profile_input_invalid_limit_exits_2() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(FIXTURES / "csv_io" / "csv_io_config.yml"),
+            "--limit",
+            "0",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "--limit must be a positive integer" in result.output
+
+
+def test_profile_input_negative_limit_exits_2() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(FIXTURES / "csv_io" / "csv_io_config.yml"),
+            "--limit",
+            "-1",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "--limit must be a positive integer" in result.output
+
+
+def test_profile_input_invalid_format_exits_2() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(FIXTURES / "csv_io" / "csv_io_config.yml"),
+            "--format",
+            "xml",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "--format must be 'text' or 'json'" in result.output
 
 
 def _prepare_run_fixture(tmp_path: Path, fixture_name: str) -> Path:

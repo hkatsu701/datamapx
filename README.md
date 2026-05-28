@@ -96,7 +96,7 @@ datamapx generate-config \
 - `merge-wizard` interactively generates a merge YAML scaffold with numbered selections, fixed steps, rename confirmation, optional purpose-based templates, retry prompts for invalid input, a natural-language final review, and a limited back step from the final review. Input previews and numbered choices use the same ordering, and long labels wrap for readability.
 - `validate-config` validates YAML structure, references, and Phase 1 constraints.
 - `inspect` prints a human-readable summary of the configuration.
-- `profile-input` shows a simple profile for the normalized input dataframe.
+- `profile-input` shows an enhanced profile for the normalized input dataframe, with optional `--limit` sampling and `--format json` output.
 - `dry-run` executes the pipeline in memory and shows previews.
 - `run` writes the main output CSV plus `errors.csv`, `skipped.csv`, and `summary.json`.
 

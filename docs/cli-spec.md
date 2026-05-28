@@ -486,30 +486,40 @@ If execution stops because of validation policy or a mapping/runtime error confi
 ### Purpose
 
 Inspect the configured input CSV after schema column resolution, normalization, and type conversion.
+The command is read-only and does not write output CSVs or reports.
 
 ### Usage
 
 ```bash
 datamapx profile-input migration.yml
+datamapx profile-input migration.yml --limit 100
+datamapx profile-input migration.yml --format json
+datamapx profile-input migration.yml --limit 100 --format json
 ```
 
 ### Options
 
-No Phase 1 options are required.
+- `--limit N`: profile only the first `N` normalized input rows. `N` must be a positive integer.
+- `--format text|json`: output format. Default: `text`.
 
 ### Expected output
 
-Simple Phase 1 profile:
+Text output keeps the existing heading labels and adds per-column metrics:
 
 - input name
 - path
 - encoding
 - delimiter
 - row count
+- profiled row count
 - canonical schema field names
 - missing value counts per schema field
 - sample values per schema field
 - simple inferred dtype per schema field
+- per-column `missing_rate`, `non_null_count`, `unique_count`, `duplicate_count`, `top_values`, and numeric/string metrics
+
+When `--limit` is used, the output makes it clear that the metrics are based on the limited sample.
+JSON output returns a machine-readable object with `input_name`, `path`, `encoding`, `delimiter`, `profiled_rows`, `limit`, and a `columns` array containing the per-field metrics.
 
 The profile is based on the normalized dataframe, not the raw CSV column names.
 
@@ -518,9 +528,3 @@ The profile is based on the normalized dataframe, not the raw CSV column names.
 - `0`: profile completed
 - `1`: configuration error or CSV read/schema/type conversion error
 - `2`: invalid CLI usage
-
-## Open Questions
-
-- Final exact output format for `inspect`.
-- Final default value for `dry-run --limit`.
-- Whether `profile-input` should support a sample row limit option in Phase 1.

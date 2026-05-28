@@ -830,8 +830,45 @@ Generation rules:
 - When original headers cannot be used safely, the generator may fall back to safe generated output column names.
 - `header: false` input files are not supported by the generator.
 
+## 22. Profile-input enhanced
+
+`profile-input` inspects the normalized input dataframe without writing any output files or reports.
+It supports a `--limit N` option to profile only the first `N` normalized rows and a `--format text|json` option.
+
+Text output keeps the existing headings:
+
+- `datamapx input profile`
+- `Input name:`
+- `Rows:`
+
+and adds `Profiled rows:`, `Limit:`, a per-column metric block, and limited-sample note when `--limit` is used.
+
+JSON output returns:
+
+- `input_name`
+- `path`
+- `encoding`
+- `delimiter`
+- `profiled_rows`
+- `limit`
+- `columns`
+
+Each column entry includes:
+
+- `name`
+- `schema_type`
+- `dtype`
+- `missing_count`
+- `missing_rate`
+- `non_null_count`
+- `unique_count`
+- `duplicate_count`
+- `sample_values`
+- `top_values` for string fields
+- `min_length` and `max_length` for string fields
+- `min`, `max`, and `mean` for integer and decimal fields
+
 ## Open Questions
 
 - Final Phase 1 scope for `date` type parsing.
-- Exact `profile-input` simple output fields.
 - Column naming rules when `header: false`.

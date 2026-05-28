@@ -26,7 +26,7 @@ Current release: v0.3.1.
 - フィルタによる行除外
 - 入力・出力 validation
 - `errors.csv` / `skipped.csv` / `summary.json`
-- `validate-config` / `inspect` / `profile-input` / `dry-run` / `run`
+- `validate-config` / `inspect` / `profile-input` / `dry-run` / `run`（`profile-input` は `--limit` と `--format json` に対応）
 - `generate-config` による YAML ひな形生成
 
 ## 3. 現時点でできること
