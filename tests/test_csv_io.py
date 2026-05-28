@@ -10,6 +10,7 @@ from datamapx.io.csv_reader import read_input_csv, read_reference_csv
 from datamapx.io.errors import CsvReadError
 
 FIXTURES = Path(__file__).parent / "fixtures" / "csv_io"
+DATE_FIXTURES = Path(__file__).parent / "fixtures" / "date_format"
 
 
 def _config():
@@ -149,3 +150,35 @@ def test_reference_composite_duplicate_key_fails() -> None:
 
     with pytest.raises(CsvReadError, match="duplicate key values"):
         read_reference_csv("departments", reference_config, FIXTURES)
+
+
+def test_date_format_input_conversion() -> None:
+    config = load_config(DATE_FIXTURES / "date_format_config.yml")
+
+    df = read_input_csv("users", config.inputs["users"], DATE_FIXTURES)
+
+    assert pd.api.types.is_datetime64_any_dtype(df["date_compact"])
+    assert pd.api.types.is_datetime64_any_dtype(df["date_dash"])
+    assert pd.api.types.is_datetime64_any_dtype(df["date_slash"])
+    assert pd.isna(df.loc[0, "date_blank"])
+    assert pd.isna(df.loc[1, "date_blank"])
+
+
+def test_date_format_input_mismatch_fails() -> None:
+    config = load_config(DATE_FIXTURES / "date_format_config.yml")
+    input_config = config.inputs["users"].model_copy(update={"path": "./input_dates_bad.csv"})
+
+    with pytest.raises(CsvReadError, match="date conversion failed"):
+        read_input_csv("users", input_config, DATE_FIXTURES)
+
+
+def test_date_format_reference_conversion() -> None:
+    config = load_config(DATE_FIXTURES / "date_format_config.yml")
+
+    df = read_reference_csv(
+        "events",
+        config.references["events"],
+        DATE_FIXTURES,
+    )
+
+    assert pd.api.types.is_datetime64_any_dtype(df["effective_on"])

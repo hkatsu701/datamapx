@@ -1,0 +1,64 @@
+version: 1
+
+project:
+  name: date_format_test
+
+inputs:
+  users:
+    path: ./input_dates.csv
+    encoding: utf-8
+    delimiter: ","
+    header: true
+    schema:
+      date_compact:
+        type: date
+        date_format: "%Y%m%d"
+      date_dash:
+        type: date
+        date_format: "%Y-%m-%d"
+      date_slash:
+        type: date
+        date_format: "%Y/%m/%d"
+      date_blank:
+        type: date
+        date_format: "%Y%m%d"
+
+references:
+  events:
+    path: ./ref_events.csv
+    encoding: utf-8
+    delimiter: ","
+    header: true
+    key: event_id
+    on_duplicate: error
+    schema:
+      event_id:
+        type: string
+        required: true
+      effective_on:
+        type: date
+        date_format: "%Y%m%d"
+
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns:
+      - date_compact
+      - date_dash
+      - date_slash
+      - date_blank
+
+mappings:
+  users_out:
+    date_compact:
+      source: users.date_compact
+    date_dash:
+      source: users.date_dash
+    date_slash:
+      source: users.date_slash
+    date_blank:
+      source: users.date_blank
+
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

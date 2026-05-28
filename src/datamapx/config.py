@@ -31,11 +31,20 @@ class SchemaFieldConfig(StrictModel):
     source_columns: list[str] | None = None
     type: Literal["string", "integer", "decimal", "boolean", "date"] = "string"
     required: bool = False
+    date_format: str | None = None
     normalize: list[Literal["trim", "remove_commas", "remove_currency_symbol"]] = Field(
         default_factory=list
     )
     true_values: list[str] | None = None
     false_values: list[str] | None = None
+
+    @model_validator(mode="after")
+    def validate_date_format(self) -> SchemaFieldConfig:
+        if self.date_format is not None and self.type != "date":
+            raise ValueError("date_format is only supported when type is date")
+        if self.date_format == "":
+            raise ValueError("date_format must not be empty")
+        return self
 
 
 class InputConfig(StrictModel):

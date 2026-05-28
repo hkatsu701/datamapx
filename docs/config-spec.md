@@ -214,6 +214,10 @@ Supported field types:
 - `boolean`
 - `date`
 
+`date` fields may also define `date_format`, which uses pandas/Python strftime-style
+format strings such as `%Y%m%d`, `%Y-%m-%d`, and `%Y/%m/%d`. When `date_format` is
+omitted, datamapx keeps the existing mixed parsing behavior.
+
 Supported normalize functions:
 
 - `trim`: remove leading and trailing whitespace
@@ -242,7 +246,9 @@ Phase 1 type conversion behavior:
 - `integer`: values are converted with pandas numeric conversion and stored as nullable integer.
 - `decimal`: values are converted with pandas numeric conversion.
 - `boolean`: values are converted using `true_values` / `false_values` when configured, otherwise built-in defaults.
-- `date`: values are parsed with `pandas.to_datetime`; advanced format and timezone handling is deferred.
+- `date`: values are parsed with `pandas.to_datetime`. If `date_format` is configured,
+  parsing is strict against that format. If it is omitted, the existing mixed parsing
+  behavior is preserved. Missing and blank values remain missing.
 
 Default boolean values:
 
@@ -870,5 +876,4 @@ Each column entry includes:
 
 ## Open Questions
 
-- Final Phase 1 scope for `date` type parsing.
 - Column naming rules when `header: false`.

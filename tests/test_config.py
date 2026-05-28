@@ -112,6 +112,20 @@ def test_invalid_output_if_exists_fails() -> None:
     _assert_invalid(data, "Input should be 'error' or 'overwrite'")
 
 
+def test_date_format_requires_date_type() -> None:
+    data = _valid_data()
+    data["inputs"]["users"]["schema"]["user_id"]["date_format"] = "%Y%m%d"
+
+    _assert_invalid(data, "date_format is only supported when type is date")
+
+
+def test_date_format_loads_for_date_type() -> None:
+    config = load_config(FIXTURES / "date_format" / "date_format_config.yml")
+
+    assert config.inputs["users"].fields_schema["date_compact"].date_format == "%Y%m%d"
+    assert config.references["events"].fields_schema["effective_on"].date_format == "%Y%m%d"
+
+
 def test_expression_unknown_input_field_fails() -> None:
     data = _valid_data()
     data["mappings"]["users_out"]["total_amount"] = {

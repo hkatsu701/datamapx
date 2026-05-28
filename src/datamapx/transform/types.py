@@ -28,7 +28,7 @@ def convert_series_type(
     if field_config.type == "boolean":
         return _to_boolean(series, field_name, field_config)
     if field_config.type == "date":
-        return _to_date(series, field_name)
+        return _to_date(series, field_name, field_config)
     raise ValueError(f"{field_name}: unsupported type '{field_config.type}'")
 
 
@@ -89,13 +89,23 @@ def _to_boolean(series: pd.Series, field_name: str, field_config: SchemaFieldCon
     return pd.Series(converted, index=series.index, dtype="boolean")
 
 
-def _to_date(series: pd.Series, field_name: str) -> pd.Series:
-    converted = pd.to_datetime(series, errors="coerce", format="mixed")
-    invalid = _non_missing_mask(series) & converted.isna()
+def _to_date(series: pd.Series, field_name: str, field_config: SchemaFieldConfig) -> pd.Series:
+    normalized = series.map(_date_value_or_missing)
+    parse_format = field_config.date_format or "mixed"
+    converted = pd.to_datetime(normalized, errors="coerce", format=parse_format)
+    invalid = _non_missing_mask(normalized) & converted.isna()
     if invalid.any():
         examples = _invalid_examples(series, invalid)
         raise ValueError(f"{field_name}: date conversion failed for values: {examples}")
     return converted
+
+
+def _date_value_or_missing(value: Any) -> Any:
+    if _is_missing(value):
+        return pd.NA
+    if isinstance(value, str) and value.strip() == "":
+        return pd.NA
+    return value
 
 
 def _invalid_examples(series: pd.Series, invalid: pd.Series) -> str:

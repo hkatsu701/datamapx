@@ -14,6 +14,7 @@ Current release: v0.3.1.
 - `migration-wizard` で migration.yml のひな形を対話的に作れます。入力先・出力先・入力名・出力名に加えて、出力列数と列名を入力し、その後に各 output 列の rule を割り当てます。詳細設定では入力列と参照列の読み込み設定、reference CSV、derived、lookup、validations、filters、checks、output 設定、error_handling、runtime なども対話式で追加できます。保存前には自然文のレビュー画面が出て、出力列と rule をやり直すこともできます。
 - `merge-wizard` で merge.yml のひな形を対話的に作れます。入力列・出力列・出力列名の確認・ルールを番号で選び、必要なら推奨ルールをまとめて使えます。入力を間違えても日本語の案内でやり直せます。最後の確認画面では自然文で内容を確認でき、そこから列ルールだけ戻ってやり直せます。入力プレビューと番号は同じ並びで表示され、長い項目名は折り返して見やすくしています。
 - YAML で変換ルールを定義します。
+- `type: date` の列では `date_format` を使って、既知の日時文字列を厳密に解析できます。
 - 変換、lookup、条件分岐、計算、検証、run-level check、レポート出力までを CLI で実行できます。
 
 ## 2. 主な機能
