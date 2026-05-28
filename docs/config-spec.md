@@ -13,11 +13,11 @@ Phase 1 supports:
 
 - Single input CSV
 - Multiple reference CSVs
-- Single output CSV
+- Multiple output CSVs
 - CSV-to-CSV transformation
 - YAML-driven behavior
 
-Phase 1 does not support multiple input joins or multiple output files in the migration pipeline.
+Phase 1 does not support multiple input joins in the migration pipeline.
 
 The separate `merge` command uses its own YAML configuration to combine multiple CSV files into a staging CSV before the main `run` pipeline is executed.
 The separate `union` command uses its own YAML configuration to vertically append same-format CSV inputs with key validation and report output.
@@ -354,7 +354,7 @@ derived:
 
 ## 9. outputs
 
-Phase 1 supports exactly one output entry.
+Phase 1 supports one or more output entries.
 
 ```yaml
 outputs:
@@ -375,7 +375,7 @@ outputs:
 - `error`
 - `overwrite`
 
-During `run`, `if_exists` controls the main output CSV. `error` stops when the output file already exists, and `overwrite` replaces it. Report files are handled separately from the main output CSV.
+During `run`, `if_exists` controls each configured output CSV. `error` stops when an output file already exists, and `overwrite` replaces it. Report files are handled separately from output CSVs.
 
 ## 10. mappings
 
@@ -448,14 +448,19 @@ validations:
 
 `validations.input[].field` must not reference `derived`.
 
-`validations.output[].field` must use an output column name directly:
+`validations.output[].output` selects which output CSV the rule applies to.
+When multiple outputs are configured, `validations.output[].output` is required.
+When only one output is configured, `validations.output[].output` may be omitted and is treated as that single output.
 
 ```yaml
 validations:
   output:
-    - field: id
+    - output: users_out
+      field: id
       rule: required
 ```
+
+`validations.output[].field` must use an output column name directly:
 
 `validations.output[].field` must not use `users.id` or `derived.id`.
 
@@ -796,7 +801,6 @@ Phase 1 defaults:
 - `on_duplicate` supports only `error`.
 - `if_exists` supports only `error` and `overwrite`.
 - Multiple input joins are not supported.
-- Multiple outputs are not supported.
 - Excel, JSON, DB, Web UI, plugins, and streaming are not supported.
 - Advanced date input/output format conversion is not included.
 - Dry-run builds an output preview for `source`, `value`, `concat`, `map`, `when`, `lookup`, `expression`, and `derived` mappings.

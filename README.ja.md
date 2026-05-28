@@ -169,6 +169,7 @@ mappings:
 - [06_migration_wizard](examples/06_migration_wizard/README.md) / [日本語](examples/06_migration_wizard/README.ja.md)
 - [07_practical_migration](examples/07_practical_migration/README.md) / [日本語](examples/07_practical_migration/README.ja.md)
 - [08_excel_design](examples/08_excel_design/README.md) / [日本語](examples/08_excel_design/README.ja.md)
+- [10_multiple_outputs](examples/10_multiple_outputs/README.md) / [日本語](examples/10_multiple_outputs/README.ja.md)
 
 ## 14. 日本語CSVの扱い
 
@@ -203,11 +204,10 @@ mappings:
 
 - 単一 input CSV のみ
 - 複数 reference CSV は可
-- 単一 output CSV のみ
+- 複数 output CSV は可
 - Excel / JSON / DB 非対応
 - Excel から YAML を設計する機能は別途対応予定で、Excel を実行入力として読む機能ではありません
 - 複数 Input join 非対応
-- 複数 Output 非対応
 
 ## 16. ロードマップ
 

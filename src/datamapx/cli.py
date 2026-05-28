@@ -180,16 +180,21 @@ def run(
                 reports_dir=reports_dir,
             )
         else:
-            output_config = config.outputs[result.output_name]
-            output_path = write_output_csv(
-                result.output_preview_df,
-                output_config,
-                config_path.parent,
-            )
+            _precheck_output_writes(result, config)
+            for output_result in result.output_results:
+                output_config = config.outputs[output_result.name]
+                write_output_csv(
+                    output_result.preview_df,
+                    output_config,
+                    config_path.parent,
+                )
             result = replace(
                 result,
                 output_file_written=True,
-                output_path=str(output_path),
+                output_results=[
+                    replace(output_result, file_written=True)
+                    for output_result in result.output_results
+                ],
             )
             report_paths = write_run_reports(
                 result,
@@ -586,15 +591,33 @@ def format_dry_run_result(result: DryRunResult) -> str:
             )
         lines.extend(_format_error_details(result.error_rows))
 
-    preview_csv = result.output_preview_df.head().to_csv(index=False).strip()
+    lines.append("")
+    if len(result.output_results) <= 1:
+        preview_csv = result.output_preview_df.head().to_csv(index=False).strip()
+        lines.extend(
+            [
+                "Output preview:",
+                f"- name: {result.output_name}",
+                f"- columns: {', '.join(result.output_columns)}",
+                f"- rows previewed: {min(len(result.output_preview_df), 5)}",
+                preview_csv,
+            ]
+        )
+    else:
+        lines.append("Output previews:")
+        for output_result in result.output_results:
+            preview_csv = output_result.preview_df.head().to_csv(index=False).strip()
+            lines.extend(
+                [
+                    f"- name: {output_result.name}",
+                    f"  - path: {output_result.path}",
+                    f"  - columns: {', '.join(output_result.columns)}",
+                    f"  - rows previewed: {min(len(output_result.preview_df), 5)}",
+                    f"  - preview: {preview_csv}",
+                ]
+            )
     lines.extend(
         [
-            "",
-            "Output preview:",
-            f"- name: {result.output_name}",
-            f"- columns: {', '.join(result.output_columns)}",
-            f"- rows previewed: {min(len(result.output_preview_df), 5)}",
-            preview_csv,
             "",
             f"Limit: {load_result.limit if load_result.limit is not None else 'none'}",
             f"Status: {result.status}",
@@ -616,27 +639,46 @@ def format_run_result(result: RunResult, report_paths: ReportPaths) -> str:
         f"Project: {result.load_result.project_name}",
         f"Status: {result.status}",
         "",
-        "Output:",
-        f"- path: {result.output_path}",
-        f"- rows written: {result.output_rows}",
-        "",
-        "Reports:",
-        f"- errors: {report_paths.errors_csv}",
-        f"- skipped: {report_paths.skipped_csv}",
-        f"- summary: {report_paths.summary_json}",
-        "",
-        "Counts:",
-        f"- input rows: {result.input_rows_before_validation}",
-        f"- output rows: {result.output_rows}",
-        f"- skipped rows: {result.skipped_count}",
-        f"- error rows: {result.total_error_count}",
-        f"- check failures: {result.check_failure_count}",
-        "",
-        "Checks:",
-        f"- configured: {len(result.check_results)}",
-        f"- passed: {result.check_success_count}",
-        f"- failed: {result.check_failure_count}",
+        "Output:" if len(result.output_results) <= 1 else "Outputs:",
     ]
+    if len(result.output_results) <= 1:
+        lines.extend(
+            [
+                f"- path: {result.output_path}",
+                f"- rows written: {result.output_rows}",
+            ]
+        )
+    else:
+        for output_result in result.output_results:
+            lines.extend(
+                [
+                    f"- {output_result.name}",
+                    f"  - path: {output_result.path}",
+                    f"  - rows written: {output_result.rows}",
+                    f"  - columns: {', '.join(output_result.columns)}",
+                ]
+            )
+    lines.extend(
+        [
+            "",
+            "Reports:",
+            f"- errors: {report_paths.errors_csv}",
+            f"- skipped: {report_paths.skipped_csv}",
+            f"- summary: {report_paths.summary_json}",
+            "",
+            "Counts:",
+            f"- input rows: {result.input_rows_before_validation}",
+            f"- output rows: {result.output_rows}",
+            f"- skipped rows: {result.skipped_count}",
+            f"- error rows: {result.total_error_count}",
+            f"- check failures: {result.check_failure_count}",
+            "",
+            "Checks:",
+            f"- configured: {len(result.check_results)}",
+            f"- passed: {result.check_success_count}",
+            f"- failed: {result.check_failure_count}",
+        ]
+    )
     if result.fatal_error:
         lines.extend(
             [
@@ -677,6 +719,25 @@ def _format_stop_message(reason: str | None, message: str | None) -> str:
     if message:
         return f"Execution stopped: {message}"
     return "Execution stopped"
+
+
+def _precheck_output_writes(
+    result: RunResult,
+    config: DatamapxConfig,
+) -> None:
+    """Fail fast before writing any output files."""
+
+    seen_paths: set[Path] = set()
+    for output_result in result.output_results:
+        output_config = config.outputs[output_result.name]
+        resolved_path = Path(output_result.path)
+        if resolved_path in seen_paths:
+            raise CsvWriteError(f"{resolved_path}: duplicate output path configured")
+        seen_paths.add(resolved_path)
+        if resolved_path.exists() and output_config.if_exists == "error":
+            raise CsvWriteError(f"{resolved_path}: output file already exists")
+        if not output_config.header:
+            raise CsvWriteError("outputs.header: false is not supported in Phase 1 CSV writer")
 
 
 def _format_error_details(

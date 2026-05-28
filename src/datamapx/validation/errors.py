@@ -19,5 +19,6 @@ class ValidationErrorRow:
     field: str
     rule: str
     message: str
+    output_name: str | None = None
     normalized_row: dict[str, Any] | None = None
     output_row: dict[str, Any] | None = None

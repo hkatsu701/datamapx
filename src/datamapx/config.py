@@ -123,6 +123,7 @@ class OutputConfig(StrictModel):
 
 class ValidationRule(StrictModel):
     field: str
+    output: str | None = None
     rule: Literal["required", "enum", "min", "max", "regex", "length"]
     values: list[Any] | None = None
     value: Any = None
@@ -190,30 +191,27 @@ class DatamapxConfig(StrictModel):
 
         if len(self.inputs) != 1:
             errors.append("inputs: Phase 1 supports exactly one input")
-        if len(self.outputs) != 1:
-            errors.append("outputs: Phase 1 supports exactly one output")
-
         input_name = next(iter(self.inputs), None)
-        output_name = next(iter(self.outputs), None)
+        output_names = set(self.outputs)
 
-        if output_name is not None:
+        for output_name, output_config in self.outputs.items():
             if output_name not in self.mappings:
                 errors.append(f"mappings.{output_name}: mappings for output are required")
-            else:
-                output_columns = set(self.outputs[output_name].columns)
-                mapping_fields = set(self.mappings[output_name])
-                missing = sorted(output_columns - mapping_fields)
-                extra = sorted(mapping_fields - output_columns)
-                if missing:
-                    errors.append(
-                        f"mappings.{output_name}: missing mappings for output columns: "
-                        f"{', '.join(missing)}"
-                    )
-                if extra:
-                    errors.append(
-                        f"mappings.{output_name}: mappings contain unknown output columns: "
-                        f"{', '.join(extra)}"
-                    )
+                continue
+            output_columns = set(output_config.columns)
+            mapping_fields = set(self.mappings[output_name])
+            missing = sorted(output_columns - mapping_fields)
+            extra = sorted(mapping_fields - output_columns)
+            if missing:
+                errors.append(
+                    f"mappings.{output_name}: missing mappings for output columns: "
+                    f"{', '.join(missing)}"
+                )
+            if extra:
+                errors.append(
+                    f"mappings.{output_name}: mappings contain unknown output columns: "
+                    f"{', '.join(extra)}"
+                )
 
         unknown_mapping_outputs = sorted(set(self.mappings) - set(self.outputs))
         if unknown_mapping_outputs:
@@ -251,8 +249,8 @@ class DatamapxConfig(StrictModel):
                     )
 
             self._validate_filter_references(input_name, input_fields, derived_fields, errors)
-            self._validate_validation_fields(input_name, input_fields, output_name, errors)
-            self._validate_check_references(errors)
+        self._validate_validation_fields(input_name, input_fields, output_names, errors)
+        self._validate_check_references(errors)
 
         if errors:
             raise ValueError("; ".join(errors))
@@ -377,7 +375,7 @@ class DatamapxConfig(StrictModel):
         self,
         input_name: str,
         input_fields: set[str],
-        output_name: str | None,
+        output_names: set[str],
         errors: list[str],
     ) -> None:
         for index, rule in enumerate(self.validations.input):
@@ -398,15 +396,24 @@ class DatamapxConfig(StrictModel):
             if field not in input_fields:
                 errors.append(f"{context}: unknown input field '{rule.field}'")
 
-        output_columns = (
-            set(self.outputs[output_name].columns) if output_name is not None else set()
-        )
         for index, rule in enumerate(self.validations.output):
             context = f"validations.output[{index}].field"
-            if rule.field not in output_columns:
+            target_output = rule.output
+            if target_output is None:
+                if len(output_names) != 1:
+                    errors.append(
+                        f"{context}: output validation requires output when "
+                        "multiple outputs are configured"
+                    )
+                    continue
+                target_output = next(iter(output_names))
+            if target_output not in self.outputs:
+                errors.append(f"{context}: unknown output '{target_output}'")
+                continue
+            if rule.field not in self.outputs[target_output].columns:
                 errors.append(
-                    f"{context}: output validation field is not defined in output columns: "
-                    f"{rule.field}"
+                    f"{context}: output validation field is not defined in output columns of "
+                    f"{target_output}: {rule.field}"
                 )
 
     def _validate_check_references(

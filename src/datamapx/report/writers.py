@@ -27,6 +27,7 @@ def write_errors_csv(path: Path, result: DryRunResult) -> Path:
             "run_id": result.run_id,
             "row_number": row.row_number,
             "stage": row.stage,
+            "output_name": row.output_name,
             "field": row.field,
             "rule": row.rule,
             "message": row.message,
@@ -37,7 +38,16 @@ def write_errors_csv(path: Path, result: DryRunResult) -> Path:
     _write_csv(
         path,
         rows,
-        ["run_id", "row_number", "stage", "field", "rule", "message", "row_json"],
+        [
+            "run_id",
+            "row_number",
+            "stage",
+            "output_name",
+            "field",
+            "rule",
+            "message",
+            "row_json",
+        ],
     )
     return path
 

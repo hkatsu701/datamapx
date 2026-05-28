@@ -150,10 +150,11 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - [06_migration_wizard](examples/06_migration_wizard/README.md)
 - [07_practical_migration](examples/07_practical_migration/README.md)
 - [08_excel_design](examples/08_excel_design/README.md)
+- [10_multiple_outputs](examples/10_multiple_outputs/README.md)
 
 ## Output Files
 
-- Main output CSV: the transformed data selected by `outputs.<name>.columns`
+- Output CSVs: the transformed data selected by each `outputs.<name>.columns`
 - `errors.csv`: validation and runtime error rows
 - `skipped.csv`: rows excluded by filters
 - `summary.json`: run summary, counts, and resolved report paths
@@ -162,11 +163,10 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 
 - Single input CSV only
 - Multiple reference CSVs allowed
-- Single output CSV only
+- Multiple output CSVs allowed
 - No Excel / JSON / DB support
 - Excel design-to-YAML is planned separately; Excel is not an execution input format
 - No multiple input joins
-- No multiple output files
 
 ## Roadmap
 

@@ -51,6 +51,36 @@ def test_run_writes_main_output_and_reports(tmp_path: Path) -> None:
     assert summary["notes"]["final_outcome"] == "success"
 
 
+def test_run_writes_multiple_outputs(tmp_path: Path) -> None:
+    config_path = _prepare_fixture(tmp_path, "run_config_multi_output.yml")
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 0
+    assert (tmp_path / "output" / "users_out.csv").exists()
+    assert (tmp_path / "output" / "users_out_copy.csv").exists()
+
+    summary = json.loads((tmp_path / "reports" / "summary.json").read_text(encoding="utf-8"))
+    assert len(summary["outputs"]) == 2
+    assert summary["counts"]["output_rows"] == 3
+    assert summary["outputs"][0]["file_written"] is True
+    assert summary["outputs"][1]["file_written"] is True
+
+
+def test_run_fails_when_multiple_outputs_share_same_path(tmp_path: Path) -> None:
+    config_path = _prepare_fixture(tmp_path, "run_config_multi_output.yml")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["outputs"]["users_out_copy"]["path"] = "./output/users_out.csv"
+    rendered = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    config_path.write_text(rendered, encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "duplicate output path configured" in result.output
+    assert not (tmp_path / "output" / "users_out.csv").exists()
+
+
 def test_run_omits_invalid_and_skipped_rows_from_output(tmp_path: Path) -> None:
     config_path = _prepare_fixture(tmp_path, "run_config_with_errors.yml")
 

@@ -366,7 +366,7 @@ The current Phase 1 implementation performs:
 - reference key validation
 - output dataframe construction for `source`, `value`, `concat`, and `map`
 - checks evaluation against run-level summary variables
-- output preview display
+- output preview display for one or more configured outputs
 
 ### Usage
 
@@ -404,10 +404,10 @@ Print a load phase summary:
 - check counts
 - error preview
 - error details
-- output name
+- output name(s)
 - output columns
 - rows previewed
-- output preview
+- output preview(s)
 - limit
 - status
 
@@ -460,7 +460,7 @@ Print run summary:
 - output rows
 - skipped rows
 - error rows
-- output file path
+- output file path(s)
 - error file path
 - skipped file path
 - summary file path

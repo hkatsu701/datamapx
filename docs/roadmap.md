@@ -103,10 +103,16 @@ Future candidates:
 
 ## Phase 2
 
+Completed:
+
+- Multiple outputs
+- [examples/10_multiple_outputs/](../examples/10_multiple_outputs/README.md)
+
+Future candidates:
+
 - Enhanced `profile-input`
 - Stronger date format conversion
 - `zenkaku_to_hankaku`
-- Multiple outputs
 - HTML report
 - Improvements for large CSV files
 

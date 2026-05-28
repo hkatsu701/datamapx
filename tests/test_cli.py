@@ -194,6 +194,18 @@ def test_dry_run_output_preview_is_displayed() -> None:
     assert "id,name,system_code,status" in result.output
 
 
+def test_dry_run_multi_output_previews_are_displayed() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["dry-run", str(FIXTURES / "run" / "run_config_multi_output.yml"), "--limit", "2"],
+    )
+
+    assert result.exit_code == 0
+    assert "Output previews:" in result.output
+    assert "- name: users_out" in result.output
+    assert "- name: users_out_copy" in result.output
+
+
 def test_dry_run_notes_output_file_is_not_written() -> None:
     result = CliRunner().invoke(
         app,

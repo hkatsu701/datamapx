@@ -74,6 +74,19 @@ def test_dry_run_builds_output_preview_dataframe() -> None:
     assert result.output_preview_df["status"].tolist() == ["active", "inactive", "unknown"]
 
 
+def test_dry_run_builds_multiple_output_previews() -> None:
+    run_fixtures = Path(__file__).parent / "fixtures" / "run"
+    config = load_config(run_fixtures / "run_config_multi_output.yml")
+
+    result = run_dry_run(config, run_fixtures)
+
+    assert [output.name for output in result.output_results] == ["users_out", "users_out_copy"]
+    assert result.output_rows == 3
+    assert result.output_results[0].rows == 3
+    assert result.output_results[1].rows == 3
+    assert result.output_preview_df["status"].tolist() == ["active", "inactive", "pending"]
+
+
 def test_dry_run_limit_also_limits_output_preview_rows() -> None:
     config = load_config(FIXTURES / "runner_config.yml")
 

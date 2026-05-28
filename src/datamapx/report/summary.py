@@ -53,6 +53,7 @@ def build_summary_payload(
     """Build the JSON payload for summary.json."""
 
     load_result = result.load_result
+    primary_output = result.output_results[0] if result.output_results else None
     output_name = result.output_name
     output_config = config.outputs[output_name]
     reference_rows = [
@@ -63,6 +64,16 @@ def build_summary_payload(
             "key": reference.key,
         }
         for reference in load_result.references
+    ]
+    outputs = [
+        {
+            "name": output_result.name,
+            "path": output_result.path,
+            "file_written": output_result.file_written,
+            "columns": output_result.columns,
+            "rows_previewed": output_result.rows,
+        }
+        for output_result in result.output_results
     ]
     return {
         "run_id": result.run_id,
@@ -84,8 +95,11 @@ def build_summary_payload(
             "name": output_name,
             "path": result.output_path,
             "columns": output_config.columns,
-            "rows_previewed": result.output_rows,
+            "rows_previewed": (
+                primary_output.rows if primary_output is not None else result.output_rows
+            ),
         },
+        "outputs": outputs,
         "counts": {
             "input_rows": result.input_rows_before_validation,
             "skipped_rows": result.skipped_count,

@@ -20,6 +20,26 @@ from datamapx.validation.errors import ValidationErrorRow
 
 
 @dataclass(frozen=True)
+class PreparedRow:
+    """A single filtered row with precomputed derived values."""
+
+    input_df: pd.DataFrame
+    derived_values: dict[str, pd.Series]
+
+
+@dataclass(frozen=True)
+class RowPreparationResult:
+    """Shared row preparation result before output-specific mapping."""
+
+    prepared_rows: list[PreparedRow]
+    skipped_rows: list[SkippedRow]
+    mapping_error_rows: list[ValidationErrorRow]
+    input_rows_before_filter: int
+    input_rows_after_filter: int
+    stop_info: StopInfo | None
+
+
+@dataclass(frozen=True)
 class RowwiseOutputResult:
     """Row-wise output construction result."""
 
@@ -32,19 +52,17 @@ class RowwiseOutputResult:
     stop_info: StopInfo | None
 
 
-def build_rowwise_output(
+def prepare_rowwise_inputs(
     *,
     config: DatamapxConfig,
     input_df: pd.DataFrame,
     input_name: str,
-    output_columns: list[str],
     reference_dfs: dict[str, pd.DataFrame],
     base_error_count: int,
-) -> RowwiseOutputResult:
-    """Execute derived, filter, and mapping steps row by row."""
+) -> RowPreparationResult:
+    """Compute derived values and filters once for the shared input rows."""
 
-    output_rows: list[dict[str, object]] = []
-    output_row_numbers: list[object] = []
+    prepared_rows: list[PreparedRow] = []
     skipped_rows: list[SkippedRow] = []
     mapping_error_rows: list[ValidationErrorRow] = []
     rows_after_filter = 0
@@ -65,20 +83,19 @@ def build_rowwise_output(
             if filter_result.input_df.empty:
                 continue
             rows_after_filter += 1
-            output_df = build_output_dataframe(
-                config,
-                filter_result.input_df,
-                reference_dfs=reference_dfs,
-                derived_values=filter_result.derived_values,
+            prepared_rows.append(
+                PreparedRow(
+                    input_df=filter_result.input_df,
+                    derived_values=filter_result.derived_values,
+                )
             )
-            output_rows.append(output_df.iloc[0].to_dict())
-            output_row_numbers.append(filter_result.input_df.iloc[0]["__row_number"])
         except MappingError as exc:
             stop_info = classify_mapping_error(exc)
             mapping_error_rows.append(
                 ValidationErrorRow(
                     row_number=row_number,
                     stage="mapping",
+                    output_name=None,
                     field=_mapping_error_field(str(exc)),
                     rule=stop_info.reason,
                     message=str(exc),
@@ -86,9 +103,8 @@ def build_rowwise_output(
                 )
             )
             if mapping_error_policy(config.error_handling, stop_info) == "stop":
-                return RowwiseOutputResult(
-                    output_df=pd.DataFrame(output_rows, columns=output_columns),
-                    output_row_numbers=pd.Series(output_row_numbers),
+                return RowPreparationResult(
+                    prepared_rows=prepared_rows,
                     skipped_rows=skipped_rows,
                     mapping_error_rows=mapping_error_rows,
                     input_rows_before_filter=len(input_df),
@@ -100,9 +116,8 @@ def build_rowwise_output(
                 base_error_count + len(mapping_error_rows),
             )
             if max_errors_stop is not None:
-                return RowwiseOutputResult(
-                    output_df=pd.DataFrame(output_rows, columns=output_columns),
-                    output_row_numbers=pd.Series(output_row_numbers),
+                return RowPreparationResult(
+                    prepared_rows=prepared_rows,
                     skipped_rows=skipped_rows,
                     mapping_error_rows=mapping_error_rows,
                     input_rows_before_filter=len(input_df),
@@ -110,13 +125,134 @@ def build_rowwise_output(
                     stop_info=max_errors_stop,
                 )
 
-    return RowwiseOutputResult(
-        output_df=pd.DataFrame(output_rows, columns=output_columns),
-        output_row_numbers=pd.Series(output_row_numbers),
+    return RowPreparationResult(
+        prepared_rows=prepared_rows,
         skipped_rows=skipped_rows,
         mapping_error_rows=mapping_error_rows,
         input_rows_before_filter=len(input_df),
         input_rows_after_filter=rows_after_filter,
+        stop_info=None,
+    )
+
+
+def build_rowwise_output(
+    *,
+    config: DatamapxConfig,
+    input_df: pd.DataFrame,
+    input_name: str,
+    output_columns: list[str],
+    reference_dfs: dict[str, pd.DataFrame],
+    base_error_count: int,
+    output_name: str | None = None,
+) -> RowwiseOutputResult:
+    """Execute derived, filter, and mapping steps row by row."""
+
+    preparation = prepare_rowwise_inputs(
+        config=config,
+        input_df=input_df,
+        input_name=input_name,
+        reference_dfs=reference_dfs,
+        base_error_count=base_error_count,
+    )
+    if preparation.stop_info is not None:
+        return RowwiseOutputResult(
+            output_df=pd.DataFrame(columns=output_columns),
+            output_row_numbers=pd.Series(dtype="object"),
+            skipped_rows=preparation.skipped_rows,
+            mapping_error_rows=preparation.mapping_error_rows,
+            input_rows_before_filter=preparation.input_rows_before_filter,
+            input_rows_after_filter=preparation.input_rows_after_filter,
+            stop_info=preparation.stop_info,
+        )
+
+    output_result = build_output_from_prepared_rows(
+        config=config,
+        prepared_rows=preparation.prepared_rows,
+        output_columns=output_columns,
+        reference_dfs=reference_dfs,
+        output_name=output_name,
+        base_error_count=base_error_count + len(preparation.mapping_error_rows),
+    )
+    return RowwiseOutputResult(
+        output_df=output_result.output_df,
+        output_row_numbers=output_result.output_row_numbers,
+        skipped_rows=preparation.skipped_rows,
+        mapping_error_rows=preparation.mapping_error_rows + output_result.mapping_error_rows,
+        input_rows_before_filter=preparation.input_rows_before_filter,
+        input_rows_after_filter=preparation.input_rows_after_filter,
+        stop_info=output_result.stop_info,
+    )
+
+
+@dataclass(frozen=True)
+class OutputBuildResult:
+    """Output dataframe build result for a single output."""
+
+    output_df: pd.DataFrame
+    output_row_numbers: pd.Series
+    mapping_error_rows: list[ValidationErrorRow]
+    stop_info: StopInfo | None
+
+
+def build_output_from_prepared_rows(
+    *,
+    config: DatamapxConfig,
+    prepared_rows: list[PreparedRow],
+    output_columns: list[str],
+    reference_dfs: dict[str, pd.DataFrame],
+    output_name: str | None,
+    base_error_count: int,
+) -> OutputBuildResult:
+    output_rows: list[dict[str, object]] = []
+    output_row_numbers: list[object] = []
+    mapping_error_rows: list[ValidationErrorRow] = []
+    for prepared_row in prepared_rows:
+        try:
+            output_df = build_output_dataframe(
+                config,
+                prepared_row.input_df,
+                reference_dfs=reference_dfs,
+                derived_values=prepared_row.derived_values,
+                output_name=output_name,
+            )
+        except MappingError as exc:
+            stop_info = classify_mapping_error(exc)
+            mapping_error_rows.append(
+                ValidationErrorRow(
+                    row_number=_row_number(prepared_row.input_df.iloc[0]),
+                    stage="mapping",
+                    output_name=output_name,
+                    field=_mapping_error_field(str(exc)),
+                    rule=stop_info.reason,
+                    message=str(exc),
+                    normalized_row=prepared_row.input_df.iloc[0].to_dict(),
+                )
+            )
+            if mapping_error_policy(config.error_handling, stop_info) == "stop":
+                return OutputBuildResult(
+                    output_df=pd.DataFrame(output_rows, columns=output_columns),
+                    output_row_numbers=pd.Series(output_row_numbers, dtype="object"),
+                    mapping_error_rows=mapping_error_rows,
+                    stop_info=stop_info,
+                )
+            max_errors_stop = evaluate_max_errors(
+                config.error_handling,
+                base_error_count + len(mapping_error_rows),
+            )
+            if max_errors_stop is not None:
+                return OutputBuildResult(
+                    output_df=pd.DataFrame(output_rows, columns=output_columns),
+                    output_row_numbers=pd.Series(output_row_numbers, dtype="object"),
+                    mapping_error_rows=mapping_error_rows,
+                    stop_info=max_errors_stop,
+                )
+            continue
+        output_rows.append(output_df.iloc[0].to_dict())
+        output_row_numbers.append(_row_number(prepared_row.input_df.iloc[0]))
+    return OutputBuildResult(
+        output_df=pd.DataFrame(output_rows, columns=output_columns),
+        output_row_numbers=pd.Series(output_row_numbers, dtype="object"),
+        mapping_error_rows=mapping_error_rows,
         stop_info=None,
     )
 

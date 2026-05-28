@@ -23,11 +23,17 @@ def build_output_dataframe(
     input_df: pd.DataFrame,
     reference_dfs: dict[str, pd.DataFrame] | None = None,
     derived_values: dict[str, pd.Series] | None = None,
+    output_name: str | None = None,
 ) -> pd.DataFrame:
     """Build the single Phase 1 output dataframe from supported mapping rules."""
 
     input_name = next(iter(config.inputs))
-    output_name, output_config = next(iter(config.outputs.items()))
+    if output_name is None:
+        output_name, output_config = next(iter(config.outputs.items()))
+    else:
+        if output_name not in config.outputs:
+            raise MappingError(f"output is not defined: {output_name}")
+        output_config = config.outputs[output_name]
     output_mappings = config.mappings.get(output_name, {})
     reference_dfs = reference_dfs or {}
     derived_values = (

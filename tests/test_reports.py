@@ -13,7 +13,13 @@ from datamapx.report.writers import (
     write_errors_csv,
     write_skipped_csv,
 )
-from datamapx.runner import DryRunResult, LoadPhaseResult, ReferenceLoadSummary, run_dry_run
+from datamapx.runner import (
+    DryRunResult,
+    LoadPhaseResult,
+    OutputExecutionResult,
+    ReferenceLoadSummary,
+    run_dry_run,
+)
 from datamapx.transform.checks import CheckResult
 from datamapx.transform.filters import SkippedRow
 from datamapx.validation.errors import ValidationErrorRow
@@ -31,6 +37,7 @@ def test_errors_csv_is_written(tmp_path: Path) -> None:
     assert errors_csv.exists()
     rows = list(csv.DictReader(errors_csv.open("r", encoding="utf-8")))
     assert rows[0]["run_id"] == result.run_id
+    assert rows[0]["output_name"] == "users_out"
     assert rows[0]["stage"] == "output_validation"
 
 
@@ -44,7 +51,7 @@ def test_errors_csv_header_only_when_no_rows(tmp_path: Path) -> None:
     errors_csv = write_errors_csv(tmp_path / "errors.csv", result)
     content = errors_csv.read_text(encoding="utf-8").splitlines()
 
-    assert content == ["run_id,row_number,stage,field,rule,message,row_json"]
+    assert content == ["run_id,row_number,stage,output_name,field,rule,message,row_json"]
 
 
 def test_skipped_csv_is_written(tmp_path: Path) -> None:
@@ -295,6 +302,17 @@ def _make_result(
         dry_run=True,
         output_file_written=False,
         load_result=load_result,
+        output_results=[
+            OutputExecutionResult(
+                name="users_out",
+                path="./output/users_out.csv",
+                file_written=False,
+                rows=1,
+                columns=["name"],
+                preview_df=pd.DataFrame([{"name": "山田太郎"}]),
+                validation_error_rows=[],
+            )
+        ],
         output_name="users_out",
         output_path="./output/users_out.csv",
         output_rows=1,
@@ -338,3 +356,16 @@ def _summary_from_result(tmp_path: Path, result: DryRunResult) -> dict[str, obje
     config = load_config(FIXTURES / "validation" / "validation_config.yml")
     report_paths = write_dry_run_reports(result, config, FIXTURES / "validation", tmp_path)
     return json.loads(report_paths.summary_json.read_text(encoding="utf-8"))
+
+
+def test_summary_json_includes_multiple_outputs(tmp_path: Path) -> None:
+    config = load_config(FIXTURES / "run" / "run_config_multi_output.yml")
+    result = run_dry_run(config, FIXTURES / "run")
+
+    report_paths = write_dry_run_reports(result, config, FIXTURES / "run", tmp_path)
+
+    summary = json.loads(report_paths.summary_json.read_text(encoding="utf-8"))
+    assert len(summary["outputs"]) == 2
+    assert summary["outputs"][0]["name"] == "users_out"
+    assert summary["outputs"][0]["file_written"] is False
+    assert summary["outputs"][1]["name"] == "users_out_copy"

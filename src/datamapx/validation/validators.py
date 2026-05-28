@@ -56,13 +56,15 @@ def validate_output_rows(
     """Validate mapped output rows before preview/report generation."""
 
     output_columns = set(config.outputs[output_name].columns)
+    rules = _output_validation_rules_for_output(config, output_name)
     return _validate_rows(
         df=output_df,
         row_numbers=row_numbers,
-        rules=config.validations.output,
+        rules=rules,
         stage="output_validation",
         input_name=next(iter(config.inputs)),
         output_columns=output_columns,
+        output_name=output_name,
     )
 
 
@@ -73,6 +75,7 @@ def _validate_rows(
     stage: ValidationStage,
     input_name: str,
     output_columns: set[str] | None,
+    output_name: str | None = None,
 ) -> ValidationResult:
     error_rows: list[ValidationErrorRow] = []
     invalid_indexes: set[Any] = set()
@@ -90,6 +93,7 @@ def _validate_rows(
                 input_name,
                 output_columns,
                 stage,
+                output_name,
             )
             messages = _validate_rule_value(rule, value)
             for message in messages:
@@ -97,6 +101,7 @@ def _validate_rows(
                     ValidationErrorRow(
                         row_number=row_numbers.loc[index],
                         stage=stage,
+                        output_name=output_name,
                         field=field_name,
                         rule=rule.rule,
                         message=message,
@@ -158,6 +163,7 @@ def _resolve_field_value(
     input_name: str,
     output_columns: set[str] | None,
     stage: ValidationStage,
+    output_name: str | None = None,
 ) -> tuple[str, Any]:
     field_name, series = _resolve_field_series(field, df, input_name, output_columns, stage)
     return field_name, row[field_name]
@@ -191,6 +197,29 @@ def _resolve_field_series(
     if field not in df.columns:
         raise ValidationError(f"output validation field is not defined in output columns: {field}")
     return field, df[field]
+
+
+def _output_validation_rules_for_output(
+    config: DatamapxConfig,
+    output_name: str,
+) -> list[ValidationRule]:
+    rules: list[ValidationRule] = []
+    for index, rule in enumerate(config.validations.output):
+        target_output = rule.output
+        if target_output is None:
+            if len(config.outputs) != 1:
+                raise ValidationError(
+                    f"validations.output[{index}].output: output validation requires output when "
+                    "multiple outputs are configured"
+                )
+            target_output = next(iter(config.outputs))
+        if target_output not in config.outputs:
+            raise ValidationError(
+                f"validations.output[{index}].output: unknown output '{target_output}'"
+            )
+        if target_output == output_name:
+            rules.append(rule)
+    return rules
 
 
 def _validate_rule_value(rule: ValidationRule, value: Any) -> list[str]:

@@ -52,12 +52,31 @@ def test_multiple_inputs_fail() -> None:
     _assert_invalid(data, "Phase 1 supports exactly one input")
 
 
-def test_multiple_outputs_fail() -> None:
+def test_multiple_outputs_pass() -> None:
+    config = load_config(FIXTURES / "run" / "run_config_multi_output.yml")
+
+    assert list(config.outputs) == ["users_out", "users_out_copy"]
+
+
+def test_output_validation_requires_output_when_multiple_outputs_exist() -> None:
     data = _valid_data()
     data["outputs"]["other_out"] = deepcopy(data["outputs"]["users_out"])
     data["mappings"]["other_out"] = deepcopy(data["mappings"]["users_out"])
+    data["validations"]["output"] = [
+        {"field": "id", "rule": "required"},
+    ]
 
-    _assert_invalid(data, "Phase 1 supports exactly one output")
+    _assert_invalid(
+        data,
+        "output validation requires output when multiple outputs are configured",
+    )
+
+
+def test_output_validation_unknown_output_fails() -> None:
+    data = _valid_data()
+    data["validations"]["output"][0]["output"] = "unknown_out"
+
+    _assert_invalid(data, "unknown output 'unknown_out'")
 
 
 def test_output_columns_and_mappings_must_match() -> None:
@@ -197,7 +216,8 @@ def test_output_validation_field_must_exist_in_output_columns() -> None:
     data["validations"]["output"][0]["field"] = "unknown_column"
 
     _assert_invalid(
-        data, "output validation field is not defined in output columns: unknown_column"
+        data,
+        "output validation field is not defined in output columns of users_out: unknown_column",
     )
 
 
