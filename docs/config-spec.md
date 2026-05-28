@@ -17,9 +17,10 @@ Phase 1 supports:
 - CSV-to-CSV transformation
 - YAML-driven behavior
 
-Phase 1 does not support multiple input joins or multiple output files.
+Phase 1 does not support multiple input joins or multiple output files in the migration pipeline.
 
 The separate `merge` command uses its own YAML configuration to combine multiple CSV files into a staging CSV before the main `run` pipeline is executed.
+The separate `union` command uses its own YAML configuration to vertically append same-format CSV inputs with key validation and report output.
 
 ## 2. Full YAML example
 
@@ -513,7 +514,31 @@ runtime:
 `summary_output` is optional. When omitted, `summary.json` defaults to the same directory as `error_handling.error_output`.
 When dry-run is executed with `--write-reports --reports-dir`, that directory overrides the configured report paths. When `run` is executed, report files are always written and use the same path resolution rules.
 
-## 15. Mapping rule types
+## 15. union
+
+`union` appends multiple same-format CSV inputs into one output CSV without transformation rules.
+
+```yaml
+union:
+  columns: [id, name, amount]
+```
+
+Execution status: supported.
+
+Rules:
+
+- Phase 1 supports at least two inputs.
+- Each input must define `key`.
+- All inputs must define the same `key` fields in the same order.
+- `union.columns` must match `output.columns`.
+- `union` does not support transformation rules.
+- The configured schema is applied before rows are appended.
+- Rows with missing keys fail.
+- Duplicate keys fail within each input and across all inputs.
+- Columns are appended in the order listed under `output.columns`.
+- `errors.csv`, `skipped.csv`, and `summary.json` are written for the union command.
+
+## 16. Mapping rule types
 
 ### source
 
@@ -585,7 +610,7 @@ status:
 ```
 
 Execution status: supported for the limited Phase 1 condition syntax documented in
-[Condition expression](#16-condition-expression).
+[Condition expression](#17-condition-expression).
 
 Rules:
 
@@ -679,7 +704,7 @@ Field reference rules:
 
 Expression execution does not use Python `eval`. Field references such as `users.price` are rewritten to safe internal variable names before evaluation, and only row-local values are provided to the evaluator.
 
-## 16. Condition expression
+## 17. Condition expression
 
 Condition expressions are used by `filters`, `when`, and `checks`.
 
@@ -728,7 +753,7 @@ During `validate-config`, Phase 1 does not evaluate condition expressions. It ex
 
 During `when` execution, both `users.*` and `derived.*` references are supported.
 
-## 17. Expression safety
+## 18. Expression safety
 
 Python `eval` must not be used directly.
 
@@ -752,7 +777,7 @@ Expressions must not:
 - Read or write files
 - Execute shell commands
 
-## 18. Defaults
+## 19. Defaults
 
 Phase 1 defaults:
 
@@ -765,7 +790,7 @@ Phase 1 defaults:
 - `runtime.log_level`: `INFO`
 - `runtime.summary_output`: omitted, and `summary.json` defaults to the directory of `error_handling.error_output`
 
-## 19. Phase 1 limitations
+## 20. Phase 1 limitations
 
 - `zenkaku_to_hankaku` is not supported.
 - `on_duplicate` supports only `error`.
@@ -780,7 +805,7 @@ Phase 1 defaults:
 - `dry-run --write-reports` can write `errors.csv`, `skipped.csv`, and `summary.json` without writing the main output CSV.
 - `run` always writes the main output CSV and report files.
 
-## 20. Generate-config basic
+## 21. Generate-config basic
 
 `generate-config` creates a minimal Phase 1 YAML skeleton from the input CSV headers.
 

@@ -33,6 +33,9 @@ from datamapx.report import (
 )
 from datamapx.runner import DryRunResult, RunResult, run_dry_run, run_pipeline
 from datamapx.transform.errors import MappingError
+from datamapx.union import UnionResult, load_union_config, run_union_pipeline
+from datamapx.union.errors import UnionError
+from datamapx.union.reports import write_union_reports
 from datamapx.validation import ValidationError
 from datamapx.validation.errors import ValidationErrorRow
 
@@ -256,6 +259,33 @@ def merge(
         raise typer.Exit(1)
 
 
+@app.command("union")
+def union(
+    config_path: Path,
+    reports_dir: Annotated[Path, typer.Option("--reports-dir")] = None,
+) -> None:
+    """Append same-format CSV inputs into a single union CSV."""
+
+    try:
+        config = load_union_config(config_path)
+        result = run_union_pipeline(config, config_path)
+        if result.error_count == 0:
+            output_path = write_output_csv(result.output_df, config.output, config_path.parent)
+            result = replace(
+                result,
+                output_file_written=True,
+                output_path=str(output_path),
+            )
+        report_paths = write_union_reports(result, config, config_path, reports_dir=reports_dir)
+    except (ConfigError, CsvReadError, CsvWriteError, UnionError, ReportWriteError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(format_union_result(result, report_paths))
+    if result.error_count > 0:
+        raise typer.Exit(1)
+
+
 @app.command("merge-wizard")
 def merge_wizard() -> None:
     """Interactively generate a merge YAML configuration."""
@@ -382,6 +412,34 @@ def format_merge_result(result: MergeResult, report_paths: ReportPaths) -> str:
     return "\n".join(lines)
 
 
+def format_union_result(result: UnionResult, report_paths: ReportPaths) -> str:
+    """Return a human-readable union summary."""
+
+    lines = [
+        "Union completed" if result.status == "completed" else "Union failed",
+        "",
+        f"Run ID: {result.run_id}",
+        f"Project: {result.project_name}",
+        "",
+        "Output:",
+        f"- path: {result.output_path}",
+        f"- rows written: {result.output_rows}",
+        "",
+        "Reports:",
+        f"- errors: {report_paths.errors_csv}",
+        f"- skipped: {report_paths.skipped_csv}",
+        f"- summary: {report_paths.summary_json}",
+        "",
+        "Counts:",
+        f"- input rows: {result.input_rows}",
+        f"- output rows: {result.output_rows}",
+        f"- skipped rows: {result.skipped_count}",
+        f"- error rows: {result.error_count}",
+        f"Status: {result.status}",
+    ]
+    return "\n".join(lines)
+
+
 def format_merge_wizard_result(result: MergeWizardResult) -> str:
     """Return a human-readable merge wizard summary."""
 
@@ -461,11 +519,7 @@ def format_dry_run_result(result: DryRunResult) -> str:
     ]
     if load_result.references:
         for reference in load_result.references:
-            key = (
-                ", ".join(reference.key)
-                if isinstance(reference.key, list)
-                else reference.key
-            )
+            key = ", ".join(reference.key) if isinstance(reference.key, list) else reference.key
             lines.extend(
                 [
                     f"- {reference.name}",

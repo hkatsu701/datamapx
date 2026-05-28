@@ -1,0 +1,59 @@
+version: 1
+
+project:
+  name: union_sample_missing_key
+  description: Missing key row
+
+inputs:
+  file_a:
+    path: ./input_union_missing_key.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: id
+    schema:
+      id:
+        type: string
+        required: true
+      name:
+        type: string
+        required: true
+      amount:
+        type: decimal
+  file_b:
+    path: ./input_union_b.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: id
+    schema:
+      id:
+        type: string
+        required: true
+      name:
+        type: string
+        required: true
+      amount:
+        type: decimal
+union:
+  columns: [id, name, amount]
+output:
+  path: ./output/unioned.csv
+  encoding: utf-8-sig
+  delimiter: ","
+  header: true
+  newline: "\n"
+  if_exists: overwrite
+  columns: [id, name, amount]
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO

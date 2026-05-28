@@ -206,6 +206,48 @@ On success:
 - `1`: config error, CSV read error, key validation error, merge rule error, output write error, or report write error
 - `2`: invalid CLI usage
 
+## datamapx union union.yml
+
+### Purpose
+
+Append multiple same-format CSV inputs into one output CSV without transformation rules.
+
+Phase 1 `union` is YAML-driven and focuses on vertical concatenation with explicit key validation.
+Each input must define the same key fields, rows with missing keys fail, and duplicate keys are rejected both within an input and across all inputs.
+The configured schema is applied before columns are appended in the order listed under `union.columns` and `output.columns`.
+
+### Usage
+
+```bash
+datamapx union union.yml
+```
+
+### Options
+
+- `--reports-dir PATH`: override the directory where `errors.csv`, `skipped.csv`, and `summary.json` are written.
+
+### Expected output
+
+On success:
+
+- the output CSV is written to the configured `output.path`
+- `errors.csv`, `skipped.csv`, and `summary.json` are written
+- a union summary is printed to the console
+
+### Limitations
+
+- No transformation rules
+- Same-format CSV inputs only
+- `union.columns` must match `output.columns`
+- Duplicate keys are rejected within each input and across inputs
+- Missing keys are rejected
+
+### Exit code policy
+
+- `0`: union completed successfully
+- `1`: config error, CSV read error, key validation error, output write error, or report write error
+- `2`: invalid CLI usage
+
 ## datamapx merge-wizard
 
 ### Purpose

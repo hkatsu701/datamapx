@@ -10,6 +10,7 @@ Current release: v0.3.1.
 
 - 1つの入力CSVと複数の参照CSVを扱えます。
 - 必要なら複数CSVを `merge` で1つの staging CSV にまとめられます。
+- 同一フォーマットのCSVを `union` で縦結合できます。
 - `migration-wizard` で migration.yml のひな形を対話的に作れます。入力先・出力先・入力名・出力名に加えて、出力列数と列名を入力し、その後に各 output 列の rule を割り当てます。詳細設定では入力列と参照列の読み込み設定、reference CSV、derived、lookup、validations、filters、checks、output 設定、error_handling、runtime なども対話式で追加できます。保存前には自然文のレビュー画面が出て、出力列と rule をやり直すこともできます。
 - `merge-wizard` で merge.yml のひな形を対話的に作れます。入力列・出力列・出力列名の確認・ルールを番号で選び、必要なら推奨ルールをまとめて使えます。入力を間違えても日本語の案内でやり直せます。最後の確認画面では自然文で内容を確認でき、そこから列ルールだけ戻ってやり直せます。入力プレビューと番号は同じ並びで表示され、長い項目名は折り返して見やすくしています。
 - YAML で変換ルールを定義します。
@@ -19,6 +20,7 @@ Current release: v0.3.1.
 
 - `source` / `value` / `concat` / `map` / `lookup` / `when` / `expression` / `derived`
 - `merge` による複数CSVの staging 化
+- `union` による同一フォーマットCSVの縦結合
 - `migration-wizard` による migration.yml の対話生成（出力列数・列名の明示入力、詳細設定、保存前レビューつき）
 - `merge-wizard` による merge.yml の対話生成（番号選択・固定手順・推奨ルール・入力ミス時の再入力案内・自然文レビュー・最後の確認画面からの限定的な戻り・入力順と番号順の一致・長い候補の折り返し表示）
 - フィルタによる行除外
@@ -33,6 +35,7 @@ Current release: v0.3.1.
 - 日本語ヘッダーを `source_columns` に保持する
 - `migration-wizard` で lookup、derived、条件分岐、計算式、validation、filters、checks を含む `migration.yml` を対話的に作る
 - `merge-wizard` で複数CSVを staging CSV にまとめる `merge.yml` を対話的に作る
+- `union` で同一フォーマットCSVを順序を保って縦結合する
 - `dry-run` で変換結果を確認する
 - `run` で main output CSV とレポートを出力する
 
@@ -162,6 +165,7 @@ mappings:
 - [03_validation_errors](examples/03_validation_errors/README.md) / [日本語](examples/03_validation_errors/README.ja.md)
 - [04_japanese_csv](examples/04_japanese_csv/README.md) / [日本語](examples/04_japanese_csv/README.ja.md)
 - [05_merge_wizard](examples/05_merge_wizard/README.md) / [日本語](examples/05_merge_wizard/README.ja.md)
+- [09_union](examples/09_union/README.md) / [日本語](examples/09_union/README.ja.md)
 - [06_migration_wizard](examples/06_migration_wizard/README.md) / [日本語](examples/06_migration_wizard/README.ja.md)
 - [07_practical_migration](examples/07_practical_migration/README.md) / [日本語](examples/07_practical_migration/README.ja.md)
 - [08_excel_design](examples/08_excel_design/README.md) / [日本語](examples/08_excel_design/README.ja.md)
