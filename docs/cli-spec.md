@@ -184,6 +184,7 @@ datamapx merge merge.yml
 ### Options
 
 - `--reports-dir PATH`: override the directory where `errors.csv`, `skipped.csv`, and `summary.json` are written.
+- `--html-report`: also write `report.html` beside the other reports.
 
 ### Expected output
 
@@ -191,6 +192,7 @@ On success:
 
 - a staging CSV is written to the configured `output.path`
 - `errors.csv`, `skipped.csv`, and `summary.json` are written
+- `report.html` is written when `--html-report` is set
 - a merge summary is printed to the console
 
 ### Limitations
@@ -226,6 +228,7 @@ datamapx union union.yml
 ### Options
 
 - `--reports-dir PATH`: override the directory where `errors.csv`, `skipped.csv`, and `summary.json` are written.
+- `--html-report`: also write `report.html` beside the other reports.
 
 ### Expected output
 
@@ -233,6 +236,7 @@ On success:
 
 - the output CSV is written to the configured `output.path`
 - `errors.csv`, `skipped.csv`, and `summary.json` are written
+- `report.html` is written when `--html-report` is set
 - a union summary is printed to the console
 
 ### Limitations
@@ -380,6 +384,7 @@ datamapx dry-run migration.yml --limit 20
 - `--limit INTEGER`: maximum number of input rows to load. If omitted, all input rows are loaded.
 - `--write-reports`: write `errors.csv`, `skipped.csv`, and `summary.json` after dry-run completes.
 - `--reports-dir PATH`: override report output directory. This option requires `--write-reports`.
+- `--html-report`: also write `report.html`. This option requires `--write-reports`.
 
 References are always loaded fully, even when `--limit` is set, because duplicate key validation must inspect all reference rows.
 
@@ -415,6 +420,8 @@ Print a load phase summary:
 Output files are not written during `dry-run`.
 
 When `--write-reports` is set, dry-run writes the internal error rows, skipped rows, and summary data to report files. In that mode, the CLI prints a `Reports written:` block with the resolved paths.
+When `--html-report` is also set, dry-run writes a browser-readable `report.html` beside the other reports and includes it in the same `Reports written:` block.
+If `--html-report` is used without `--write-reports`, the command fails as CLI usage with exit code `2`.
 
 The summary file includes row-category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors, plus `notes.final_outcome` for the overall result label.
 
@@ -451,6 +458,7 @@ datamapx run migration.yml
 ### Options
 
 - `--reports-dir PATH`: override the directory for `errors.csv`, `skipped.csv`, and `summary.json`.
+- `--html-report`: also write `report.html` beside the other reports.
 
 ### Expected output
 
@@ -469,6 +477,7 @@ Print run summary:
 - error details
 
 `run` always writes the main output CSV and the report files when execution completes successfully. Validation error rows do not make the command fail if the configured policy is `output_error`.
+When `--html-report` is enabled, `run` also writes `report.html` beside the other reports and prints its path in the `Reports:` block.
 
 The summary file includes row-category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors, plus `notes.final_outcome` for the overall result label.
 

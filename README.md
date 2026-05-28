@@ -20,7 +20,7 @@ Current release: v0.3.1.
 - Use `date_format` on `type: date` fields when you need strict parsing of known date strings.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
 - Apply filters, validations, and run-level checks before writing the final output.
-- Write `errors.csv`, `skipped.csv`, and `summary.json`.
+- Write `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html`.
 - Run `generate-config`, `merge`, `union`, `merge-wizard`, `validate-config`, `inspect`, `profile-input`, `dry-run`, and `run`.
 
 ## What It Does Not Do in Phase 1
@@ -160,6 +160,7 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - `errors.csv`: validation and runtime error rows
 - `skipped.csv`: rows excluded by filters
 - `summary.json`: run summary, counts, and resolved report paths
+- `report.html`: optional self-contained HTML summary when `--html-report` is used
 
 ## Phase 1 Limitations
 

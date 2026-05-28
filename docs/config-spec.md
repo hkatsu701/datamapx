@@ -522,7 +522,7 @@ runtime:
 
 `run_id: auto` means datamapx generates a run identifier.
 `summary_output` is optional. When omitted, `summary.json` defaults to the same directory as `error_handling.error_output`.
-When dry-run is executed with `--write-reports --reports-dir`, that directory overrides the configured report paths. When `run` is executed, report files are always written and use the same path resolution rules.
+When dry-run is executed with `--write-reports --reports-dir`, that directory overrides the configured report paths. When `run` is executed, report files are always written and use the same path resolution rules. If the CLI is invoked with `--html-report`, a browser-readable `report.html` is written beside the other reports without changing the CSV or JSON report structures.
 
 ## 15. union
 
@@ -547,6 +547,7 @@ Rules:
 - Duplicate keys fail within each input and across all inputs.
 - Columns are appended in the order listed under `output.columns`.
 - `errors.csv`, `skipped.csv`, and `summary.json` are written for the union command.
+When `--html-report` is used with `run`, `dry-run --write-reports`, `merge`, or `union`, a self-contained `report.html` is written beside the other report files.
 
 ## 16. Mapping rule types
 
@@ -812,6 +813,7 @@ Phase 1 defaults:
 - Filters, validations, and report generation are supported in dry-run and run.
 - `dry-run --write-reports` can write `errors.csv`, `skipped.csv`, and `summary.json` without writing the main output CSV.
 - `run` always writes the main output CSV and report files.
+- `--html-report` is optional CLI output only; it writes `report.html` beside the other reports and does not alter `summary.json`, `errors.csv`, or `skipped.csv`.
 
 ## 21. Generate-config basic
 

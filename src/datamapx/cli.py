@@ -128,10 +128,14 @@ def dry_run(
     limit: Annotated[int, typer.Option("--limit")] = -1,
     write_reports: Annotated[bool, typer.Option("--write-reports")] = False,
     reports_dir: Annotated[Path, typer.Option("--reports-dir")] = None,
+    html_report: Annotated[bool, typer.Option("--html-report")] = False,
 ) -> None:
     """Run the load phase without mapping, output, or report generation."""
 
     effective_limit = None if limit < 0 else limit
+    if html_report and not write_reports:
+        typer.echo("--html-report requires --write-reports", err=True)
+        raise typer.Exit(2)
     if reports_dir is not None and not write_reports:
         typer.echo("--reports-dir requires --write-reports", err=True)
         raise typer.Exit(2)
@@ -146,6 +150,7 @@ def dry_run(
                 config,
                 config_path,
                 reports_dir=reports_dir,
+                html_report=html_report,
             )
     except (ConfigError, CsvReadError, MappingError, ValidationError, ReportWriteError) as exc:
         typer.echo(str(exc), err=True)
@@ -167,6 +172,7 @@ def dry_run(
 def run(
     config_path: Path,
     reports_dir: Annotated[Path, typer.Option("--reports-dir")] = None,
+    html_report: Annotated[bool, typer.Option("--html-report")] = False,
 ) -> None:
     """Run the full pipeline and write output plus reports."""
 
@@ -179,6 +185,7 @@ def run(
                 config,
                 config_path,
                 reports_dir=reports_dir,
+                html_report=html_report,
             )
         else:
             _precheck_output_writes(result, config)
@@ -202,6 +209,7 @@ def run(
                 config,
                 config_path,
                 reports_dir=reports_dir,
+                html_report=html_report,
             )
     except (
         ConfigError,
@@ -262,6 +270,7 @@ def profile_input(
 def merge(
     config_path: Path,
     reports_dir: Annotated[Path, typer.Option("--reports-dir")] = None,
+    html_report: Annotated[bool, typer.Option("--html-report")] = False,
 ) -> None:
     """Merge multiple CSV inputs into a single staging CSV."""
 
@@ -275,7 +284,13 @@ def merge(
                 output_file_written=True,
                 output_path=str(output_path),
             )
-        report_paths = write_merge_reports(result, config, config_path, reports_dir=reports_dir)
+        report_paths = write_merge_reports(
+            result,
+            config,
+            config_path,
+            reports_dir=reports_dir,
+            html_report=html_report,
+        )
     except (ConfigError, CsvReadError, CsvWriteError, MergeError, ReportWriteError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
@@ -289,6 +304,7 @@ def merge(
 def union(
     config_path: Path,
     reports_dir: Annotated[Path, typer.Option("--reports-dir")] = None,
+    html_report: Annotated[bool, typer.Option("--html-report")] = False,
 ) -> None:
     """Append same-format CSV inputs into a single union CSV."""
 
@@ -302,7 +318,13 @@ def union(
                 output_file_written=True,
                 output_path=str(output_path),
             )
-        report_paths = write_union_reports(result, config, config_path, reports_dir=reports_dir)
+        report_paths = write_union_reports(
+            result,
+            config,
+            config_path,
+            reports_dir=reports_dir,
+            html_report=html_report,
+        )
     except (ConfigError, CsvReadError, CsvWriteError, UnionError, ReportWriteError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
@@ -456,14 +478,20 @@ def format_merge_result(result: MergeResult, report_paths: ReportPaths) -> str:
         f"- errors: {report_paths.errors_csv}",
         f"- skipped: {report_paths.skipped_csv}",
         f"- summary: {report_paths.summary_json}",
-        "",
-        "Counts:",
-        f"- input rows: {result.input_rows}",
-        f"- output rows: {result.output_rows}",
-        f"- skipped rows: {result.skipped_count}",
-        f"- error rows: {result.error_count}",
-        f"Status: {result.status}",
     ]
+    if report_paths.html_report is not None:
+        lines.append(f"- html: {report_paths.html_report}")
+    lines.extend(
+        [
+            "",
+            "Counts:",
+            f"- input rows: {result.input_rows}",
+            f"- output rows: {result.output_rows}",
+            f"- skipped rows: {result.skipped_count}",
+            f"- error rows: {result.error_count}",
+            f"Status: {result.status}",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -484,14 +512,20 @@ def format_union_result(result: UnionResult, report_paths: ReportPaths) -> str:
         f"- errors: {report_paths.errors_csv}",
         f"- skipped: {report_paths.skipped_csv}",
         f"- summary: {report_paths.summary_json}",
-        "",
-        "Counts:",
-        f"- input rows: {result.input_rows}",
-        f"- output rows: {result.output_rows}",
-        f"- skipped rows: {result.skipped_count}",
-        f"- error rows: {result.error_count}",
-        f"Status: {result.status}",
     ]
+    if report_paths.html_report is not None:
+        lines.append(f"- html: {report_paths.html_report}")
+    lines.extend(
+        [
+            "",
+            "Counts:",
+            f"- input rows: {result.input_rows}",
+            f"- output rows: {result.output_rows}",
+            f"- skipped rows: {result.skipped_count}",
+            f"- error rows: {result.error_count}",
+            f"Status: {result.status}",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -715,6 +749,12 @@ def format_run_result(result: RunResult, report_paths: ReportPaths) -> str:
             f"- errors: {report_paths.errors_csv}",
             f"- skipped: {report_paths.skipped_csv}",
             f"- summary: {report_paths.summary_json}",
+        ]
+    )
+    if report_paths.html_report is not None:
+        lines.append(f"- html: {report_paths.html_report}")
+    lines.extend(
+        [
             "",
             "Counts:",
             f"- input rows: {result.input_rows_before_validation}",
@@ -751,14 +791,16 @@ def format_run_result(result: RunResult, report_paths: ReportPaths) -> str:
 def format_report_written(report_paths: ReportPaths) -> str:
     """Return a human-readable report write summary."""
 
-    return "\n".join(
-        [
-            "Reports written:",
-            f"- errors: {report_paths.errors_csv}",
-            f"- skipped: {report_paths.skipped_csv}",
-            f"- summary: {report_paths.summary_json}",
-        ]
-    )
+    lines = [
+        "Reports written:",
+        f"- errors: {report_paths.errors_csv}",
+        f"- skipped: {report_paths.skipped_csv}",
+        f"- summary: {report_paths.summary_json}",
+    ]
+    if report_paths.html_report is not None:
+        lines.append(f"- html: {report_paths.html_report}")
+    return "\n".join(lines)
+
 
 
 def _format_stop_message(reason: str | None, message: str | None) -> str:

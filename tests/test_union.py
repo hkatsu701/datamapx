@@ -126,6 +126,21 @@ def test_union_cli_reports_dir_override(tmp_path: Path) -> None:
     assert (reports_dir / "summary.json").exists()
 
 
+def test_union_cli_html_report_writes_file(tmp_path: Path) -> None:
+    example_dir = _copy_tree(EXAMPLES / "09_union", tmp_path / "example")
+    config_path = example_dir / "union.yml"
+    reports_dir = tmp_path / "custom_reports"
+
+    result = CliRunner().invoke(
+        app,
+        ["union", str(config_path), "--reports-dir", str(reports_dir), "--html-report"],
+    )
+
+    assert result.exit_code == 0
+    assert "- html:" in result.output
+    assert (reports_dir / "report.html").exists()
+
+
 def test_union_cli_duplicate_key_fails(tmp_path: Path) -> None:
     config_path = _copy_tree(FIXTURES, tmp_path / "fixture") / "union_config_duplicate_within.yml"
 

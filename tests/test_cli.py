@@ -240,6 +240,42 @@ def test_dry_run_write_reports_writes_files(tmp_path: Path) -> None:
     assert (reports_dir / "summary.json").exists()
 
 
+def test_dry_run_html_report_requires_write_reports() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "dry-run",
+            str(FIXTURES / "validation" / "validation_config_filter_and_errors.yml"),
+            "--html-report",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "--html-report requires --write-reports" in result.output
+
+
+def test_dry_run_write_reports_html_report_writes_files(tmp_path: Path) -> None:
+    reports_dir = tmp_path / "reports"
+    result = CliRunner().invoke(
+        app,
+        [
+            "dry-run",
+            str(FIXTURES / "validation" / "validation_config_filter_and_errors.yml"),
+            "--limit",
+            "10",
+            "--write-reports",
+            "--reports-dir",
+            str(reports_dir),
+            "--html-report",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Reports written:" in result.output
+    assert "- html:" in result.output
+    assert (reports_dir / "report.html").exists()
+
+
 def test_dry_run_check_failure_exits_nonzero(tmp_path: Path) -> None:
     config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
     _set_checks(config_path, [{"name": "row_count_check", "rule": "input_rows == 0"}])
@@ -372,6 +408,21 @@ def test_practical_migration_example_run(tmp_path: Path) -> None:
     assert summary["counts"]["check_failures"] == 0
     assert summary["notes"]["final_outcome"] == "completed_with_row_errors"
     assert summary["notes"]["fatal_error"] is False
+
+
+def test_run_html_report_writes_file(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+    reports_dir = tmp_path / "reports"
+
+    result = CliRunner().invoke(
+        app,
+        ["run", str(config_path), "--reports-dir", str(reports_dir), "--html-report"],
+    )
+
+    assert result.exit_code == 0
+    assert "Reports:" in result.output
+    assert "- html:" in result.output
+    assert (reports_dir / "report.html").exists()
 
 
 def test_dry_run_without_write_reports_does_not_write_files(tmp_path: Path) -> None:

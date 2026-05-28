@@ -108,11 +108,12 @@ Completed:
 - Multiple outputs
 - [examples/10_multiple_outputs/](../examples/10_multiple_outputs/README.md)
 - Enhanced `profile-input`
+- Date format conversion
+- `zenkaku_to_hankaku` normalize
+- HTML report
 
 Future candidates:
 
-- Stronger date format conversion
-- HTML report
 - Improvements for large CSV files
 
 ## Phase 3

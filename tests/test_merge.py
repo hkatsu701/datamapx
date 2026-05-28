@@ -112,6 +112,20 @@ def test_merge_cli_reports_dir_override(tmp_path: Path) -> None:
     assert (reports_dir / "summary.json").exists()
 
 
+def test_merge_cli_html_report_writes_file(tmp_path: Path) -> None:
+    config_path = _copy_fixture_tree(tmp_path, "merge_config.yml")
+    reports_dir = tmp_path / "custom_reports"
+
+    result = CliRunner().invoke(
+        app,
+        ["merge", str(config_path), "--reports-dir", str(reports_dir), "--html-report"],
+    )
+
+    assert result.exit_code == 0
+    assert "- html:" in result.output
+    assert (reports_dir / "report.html").exists()
+
+
 def test_merge_summary_json_contains_counts(tmp_path: Path) -> None:
     config_path = _copy_fixture_tree(tmp_path, "merge_config.yml")
     result = CliRunner().invoke(app, ["merge", str(config_path)])

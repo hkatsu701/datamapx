@@ -114,6 +114,7 @@ main output CSV と以下のレポートを出力します。
 - `errors.csv`
 - `skipped.csv`
 - `summary.json`
+- `report.html`（`--html-report` 指定時のみ）
 
 ## 11. 出力ファイル
 
@@ -121,6 +122,7 @@ main output CSV と以下のレポートを出力します。
 - `errors.csv`: validation や runtime error の行
 - `skipped.csv`: filter で除外された行
 - `summary.json`: 件数、状態、出力先パスのサマリ
+- `report.html`: `--html-report` 指定時に書き出される自己完結型の HTML サマリ
 
 ## 12. YAML設定の最小例
 

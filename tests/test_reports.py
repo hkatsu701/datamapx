@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from datamapx.config import CheckConfig, ErrorHandlingConfig, load_config
+from datamapx.report import build_html_report
 from datamapx.report.writers import (
     write_dry_run_reports,
     write_errors_csv,
@@ -259,6 +260,72 @@ def test_reports_dir_override_writes_all_files(tmp_path: Path) -> None:
     assert report_paths.errors_csv.exists()
     assert report_paths.skipped_csv.exists()
     assert report_paths.summary_json.exists()
+
+
+def test_html_report_is_written_and_escaped(tmp_path: Path) -> None:
+    config = load_config(FIXTURES / "validation" / "validation_config_filter_and_errors.yml")
+    result = run_dry_run(config, FIXTURES / "validation")
+    result = replace(
+        result,
+        load_result=replace(result.load_result, project_name="A <B> & C"),
+    )
+
+    report_paths = write_dry_run_reports(
+        result,
+        config,
+        FIXTURES / "validation",
+        tmp_path,
+        html_report=True,
+    )
+
+    assert report_paths.html_report is not None
+    html = report_paths.html_report.read_text(encoding="utf-8")
+    assert "A &lt;B&gt; &amp; C" in html
+    assert "report.html" in html
+    assert "Error preview" in html
+    assert "Skipped preview" in html
+
+
+def test_html_report_limits_previews_to_20_rows() -> None:
+    payload = {
+        "project_name": "demo",
+        "status": "completed",
+        "run_id": "run-1",
+        "started_at": "2024-01-01T00:00:00Z",
+        "finished_at": "2024-01-01T00:00:01Z",
+        "config_path": "./migration.yml",
+        "counts": {},
+        "reports": {},
+        "notes": {},
+    }
+    error_rows = [
+        {
+            "run_id": "run-1",
+            "row_number": index,
+            "stage": "mapping",
+            "output_name": "users_out",
+            "field": "id",
+            "rule": "transform_error",
+            "message": "boom",
+            "row_json": "{}",
+        }
+        for index in range(1, 26)
+    ]
+    skipped_rows = [
+        {
+            "run_id": "run-1",
+            "row_number": index,
+            "reason": "filtered",
+            "row_json": "{}",
+        }
+        for index in range(1, 26)
+    ]
+
+    html = build_html_report(payload, error_rows=error_rows, skipped_rows=skipped_rows)
+
+    assert "Showing 20 of 25 rows." in html
+    assert "<td>20</td>" in html
+    assert "<td>21</td>" not in html
 
 
 def _config_with_tmp_reports(config, tmp_path: Path):

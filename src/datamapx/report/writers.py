@@ -11,6 +11,7 @@ import pandas as pd
 
 from datamapx.config import DatamapxConfig
 from datamapx.report.errors import ReportWriteError
+from datamapx.report.html import write_html_report
 from datamapx.report.summary import (
     ReportPaths,
     build_summary_payload,
@@ -91,10 +92,17 @@ def write_dry_run_reports(
     config: DatamapxConfig,
     config_path: Path,
     reports_dir: Path | None = None,
+    *,
+    html_report: bool = False,
 ) -> ReportPaths:
-    """Write errors.csv, skipped.csv, and summary.json for a dry-run."""
+    """Write report files for a dry-run."""
 
-    report_paths = resolve_report_paths(config, config_path, reports_dir)
+    report_paths = resolve_report_paths(
+        config,
+        config_path,
+        reports_dir,
+        html_report=html_report,
+    )
     try:
         if reports_dir is not None:
             reports_dir.mkdir(parents=True, exist_ok=True)
@@ -102,6 +110,8 @@ def write_dry_run_reports(
             report_paths.errors_csv.parent.mkdir(parents=True, exist_ok=True)
             report_paths.skipped_csv.parent.mkdir(parents=True, exist_ok=True)
             report_paths.summary_json.parent.mkdir(parents=True, exist_ok=True)
+            if report_paths.html_report is not None:
+                report_paths.html_report.parent.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         raise ReportWriteError(
             f"{reports_dir or config_path}: cannot create report directory: {exc}"
@@ -110,6 +120,37 @@ def write_dry_run_reports(
     write_errors_csv(report_paths.errors_csv, result)
     write_skipped_csv(report_paths.skipped_csv, result)
     write_summary_json(report_paths.summary_json, result, config, config_path, report_paths)
+    if report_paths.html_report is not None:
+        html_payload = dict(build_summary_payload(result, config, config_path, report_paths))
+        reports = dict(html_payload.get("reports", {}))
+        reports["html_report"] = str(report_paths.html_report)
+        html_payload["reports"] = reports
+        write_html_report(
+            report_paths.html_report,
+            html_payload,
+            error_rows=[
+                {
+                    "run_id": result.run_id,
+                    "row_number": row.row_number,
+                    "stage": row.stage,
+                    "output_name": row.output_name,
+                    "field": row.field,
+                    "rule": row.rule,
+                    "message": row.message,
+                    "row_json": _json_dumps(row.output_row or row.normalized_row or {}),
+                }
+                for row in result.error_rows
+            ],
+            skipped_rows=[
+                {
+                    "run_id": result.run_id,
+                    "row_number": row.row_number,
+                    "reason": row.reason,
+                    "row_json": _json_dumps(row.normalized_row),
+                }
+                for row in result.skipped_rows
+            ],
+        )
     return report_paths
 
 
@@ -118,10 +159,18 @@ def write_run_reports(
     config: DatamapxConfig,
     config_path: Path,
     reports_dir: Path | None = None,
+    *,
+    html_report: bool = False,
 ) -> ReportPaths:
-    """Write errors.csv, skipped.csv, and summary.json for a run."""
+    """Write report files for a run."""
 
-    return write_dry_run_reports(result, config, config_path, reports_dir)
+    return write_dry_run_reports(
+        result,
+        config,
+        config_path,
+        reports_dir,
+        html_report=html_report,
+    )
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]], columns: list[str]) -> None:

@@ -17,20 +17,25 @@ class ReportPaths:
     errors_csv: Path
     skipped_csv: Path
     summary_json: Path
+    html_report: Path | None = None
 
 
 def resolve_report_paths(
     config: DatamapxConfig,
     config_path: Path,
     reports_dir: Path | None = None,
+    *,
+    html_report: bool = False,
 ) -> ReportPaths:
     """Resolve report output paths for dry-run report writing."""
 
     if reports_dir is not None:
+        html_path = reports_dir / "report.html" if html_report else None
         return ReportPaths(
             errors_csv=reports_dir / "errors.csv",
             skipped_csv=reports_dir / "skipped.csv",
             summary_json=reports_dir / "summary.json",
+            html_report=html_path,
         )
 
     base_path = config_path.parent
@@ -41,7 +46,13 @@ def resolve_report_paths(
         if config.runtime.summary_output
         else errors_csv.with_name("summary.json")
     )
-    return ReportPaths(errors_csv=errors_csv, skipped_csv=skipped_csv, summary_json=summary_json)
+    html_path = summary_json.with_name("report.html") if html_report else None
+    return ReportPaths(
+        errors_csv=errors_csv,
+        skipped_csv=skipped_csv,
+        summary_json=summary_json,
+        html_report=html_path,
+    )
 
 
 def build_summary_payload(
