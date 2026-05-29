@@ -753,12 +753,13 @@ Unsupported condition examples:
 - `round(users.amount) > 100`
 - `users.a == users.b`
 - `users.name.startswith("A")`
-- `(users.status == "active")`
 
 Supported logical combinations:
 
 - `users.active and users.amount > 100`
 - `users.status == "active" or users.status == "pending"`
+- `(users.active or users.status == "pending") and users.amount > 100`
+- `users.active or (users.status == "pending" and users.amount > 100)`
 - `users.deleted_at is null`
 - `users.deleted_at is not null`
 - `users.active`
@@ -776,8 +777,8 @@ Phase 1 uses a dedicated safe arithmetic evaluator with a strict allowlist.
 The current Phase 1 configuration validation step does not execute expressions. It validates field references in `expression`, `when.if`, `when.then`, `when.default`, `filters.include[].if`, and `filters.exclude[].if`. It validates `checks[].rule` against the reserved summary variables listed above.
 
 `when` mapping execution uses a limited parser instead of Python `eval`.
-Supported condition forms are direct comparisons, `in`, `not in`, logical `and` / `or`, `is null`, `is not null`, and bare boolean field references against `users.*` or `derived.*`.
-General arithmetic expressions, function calls, field-to-field comparisons, and grouped parenthesized expressions are unsupported during execution.
+Supported condition forms are direct comparisons, `in`, `not in`, logical `and` / `or`, `is null`, `is not null`, bare boolean field references against `users.*` or `derived.*`, and parenthesized grouping of those supported forms.
+General arithmetic expressions, function calls, and field-to-field comparisons are unsupported during execution.
 
 `when` mapping execution uses a dedicated limited parser. It does not use Python `eval` and does not use the planned general-purpose expression evaluator.
 

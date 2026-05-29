@@ -17,6 +17,7 @@ Current release: v0.3.1.
 - `normalize` では `trim` / `zenkaku_to_hankaku` / `remove_commas` / `remove_currency_symbol` を使えます。
 - `type: date` の列では `date_format` を使って、既知の日時文字列を厳密に解析できます。
 - `runtime.max_input_rows` と `runtime.max_reference_rows` を設定すると、`profile-input` / `dry-run` / `run` の前に migration 入力・reference CSV の行数を確認して、上限超過を防げます。
+- `when` と `filters` の条件式では、括弧で論理条件をグルーピングできます。
 - `validate-design` で標準の Excel 設計書を検証でき、必要なら `design-summary.json` と `design-errors.csv` を出力できます。
 - 変換、lookup、条件分岐、計算、検証、run-level check、レポート出力までを CLI で実行できます。
 
@@ -31,6 +32,7 @@ Current release: v0.3.1.
 - 入力・出力 validation
 - `errors.csv` / `skipped.csv` / `summary.json`
 - `validate-config` / `validate-design` / `inspect` / `profile-input` / `dry-run` / `run`（`profile-input` は `--limit` と `--format json` に対応）
+- `when` / `filters` の条件式で括弧による論理グルーピング
 - `generate-config` による YAML ひな形生成
 
 ## 3. 現時点でできること

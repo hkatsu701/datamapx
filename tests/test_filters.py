@@ -77,6 +77,24 @@ def test_include_then_exclude_order_is_applied() -> None:
     ]
 
 
+def test_include_parenthesized_logical_conditions_work() -> None:
+    config = load_config(FIXTURES / "filters_config_include.yml")
+    config.filters.include = [
+        {
+            "if": '(users.active == true or users.status == "pending") and users.amount > 0',
+            "reason": "active or pending with amount",
+        }
+    ]
+
+    result = run_dry_run(config, FIXTURES)
+
+    assert result.output_preview_df["id"].tolist() == ["u001", "u003"]
+    assert [row.reason for row in result.skipped_rows] == [
+        "No include condition matched",
+        "No include condition matched",
+    ]
+
+
 def test_filter_condition_can_reference_derived() -> None:
     config = load_config(FIXTURES / "filters_config_derived.yml")
 
@@ -93,13 +111,19 @@ def test_filter_condition_can_reference_derived() -> None:
 def test_filter_logical_conditions_with_derived_work() -> None:
     config = load_config(FIXTURES / "filters_config_derived.yml")
     config.filters.exclude = [
-        {"if": 'derived.total_amount > 80 and users.active == true', "reason": "high and active"}
+        {
+            "if": (
+                '(derived.total_amount > 80 and users.active == true) '
+                'or users.status == "pending"'
+            ),
+            "reason": "high and active",
+        }
     ]
 
     result = run_dry_run(config, FIXTURES)
 
-    assert result.output_preview_df["id"].tolist() == ["u002", "u003", "u004"]
-    assert [row.reason for row in result.skipped_rows] == ["high and active"]
+    assert result.output_preview_df["id"].tolist() == ["u002", "u004"]
+    assert [row.reason for row in result.skipped_rows] == ["high and active", "high and active"]
 
 
 def test_filtered_output_dataframe_row_count_is_correct() -> None:

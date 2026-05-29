@@ -117,7 +117,31 @@ def test_when_mapping_logical_conditions_work() -> None:
     rule = MappingRule.model_construct(
         when=[
             {
-                "if": 'users.active or users.status == "pending" and users.amount > 100',
+                "if": '(users.active or users.status == "pending") and users.amount > 100',
+                "then": "hit",
+            }
+        ],
+        default="fallback",
+        _fields_set={"when", "default"},
+    )
+
+    result = apply_mapping_rule(rule, input_df, "users", "label", {}, {}, {})
+
+    assert result.tolist() == ["fallback", "hit", "fallback"]
+
+
+def test_when_mapping_nested_parentheses_work() -> None:
+    input_df = pd.DataFrame(
+        {
+            "active": [True, False, False],
+            "amount": [50, 150, 50],
+            "status": ["other", "pending", "pending"],
+        }
+    )
+    rule = MappingRule.model_construct(
+        when=[
+            {
+                "if": 'users.active or (users.status == "pending" and users.amount > 100)',
                 "then": "hit",
             }
         ],

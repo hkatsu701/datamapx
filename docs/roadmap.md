@@ -91,6 +91,7 @@ Future candidates:
 - Input and output validations
 - Normalize functions
 - Source, value, concat, map, when, lookup, and expression mappings
+- Parenthesized logical grouping in `when` and `filters` conditions
 - Derived fields
 - Filters
 - `errors.csv`

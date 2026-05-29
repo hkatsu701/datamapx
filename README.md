@@ -19,6 +19,7 @@ Current release: v0.3.1.
 - `normalize` supports `trim`, `zenkaku_to_hankaku`, `remove_commas`, and `remove_currency_symbol`.
 - Use `date_format` on `type: date` fields when you need strict parsing of known date strings.
 - Set `runtime.max_input_rows` and `runtime.max_reference_rows` to guard migration input and reference CSV loads before `profile-input`, `dry-run`, or `run` reads them.
+- Use parentheses in `when` and `filters` conditions to group supported boolean logic.
 - Validate a standard Excel design workbook with `validate-design`, which can optionally write `design-summary.json` and `design-errors.csv`.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
 - Apply filters, validations, and run-level checks before writing the final output.
@@ -99,6 +100,7 @@ datamapx generate-config \
 - `union` appends same-format CSV inputs into a single CSV while enforcing required keys and duplicate-key checks.
 - `merge-wizard` interactively generates a merge YAML scaffold with numbered selections, fixed steps, rename confirmation, optional purpose-based templates, retry prompts for invalid input, a natural-language final review, and a limited back step from the final review. Input previews and numbered choices use the same ordering, and long labels wrap for readability.
 - `validate-config` validates YAML structure, references, and Phase 1 constraints.
+- `when` and `filters` conditions can use parentheses for boolean grouping.
 - `validate-design` validates a standard Excel design workbook and can optionally write `design-summary.json` and `design-errors.csv`.
 - `inspect` prints a human-readable summary of the configuration.
 - `profile-input` shows an enhanced profile for the normalized input dataframe, with optional `--limit` sampling and `--format json` output.

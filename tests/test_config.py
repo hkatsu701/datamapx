@@ -185,6 +185,15 @@ def test_when_logical_condition_unknown_input_field_fails() -> None:
     _assert_invalid(data, "unknown input field 'users.unknown_active'")
 
 
+def test_when_parenthesized_logical_condition_unknown_input_field_fails() -> None:
+    data = _valid_data()
+    data["mappings"]["users_out"]["status"]["when"][0]["if"] = (
+        '(users.active or users.unknown_active == true) and users.amount > 100'
+    )
+
+    _assert_invalid(data, "unknown input field 'users.unknown_active'")
+
+
 def test_when_logical_condition_unknown_derived_field_fails() -> None:
     data = _valid_data()
     data["mappings"]["users_out"]["status"]["when"][0]["if"] = (

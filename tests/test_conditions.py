@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from datamapx.transform.conditions import evaluate_condition
-from datamapx.transform.errors import MappingError
 
 
 def test_logical_and_or_precedence_works() -> None:
@@ -43,8 +41,37 @@ def test_null_comparisons_work() -> None:
     assert is_not_null.tolist() == [False, True, False]
 
 
-def test_parentheses_are_unsupported() -> None:
-    input_df = pd.DataFrame({"active": [True]})
+def test_parentheses_grouping_works() -> None:
+    input_df = pd.DataFrame(
+        {
+            "active": [True, False, False],
+            "amount": [50, 150, 50],
+            "status": ["other", "pending", "pending"],
+        }
+    )
 
-    with pytest.raises(MappingError, match="Unsupported condition expression"):
-        evaluate_condition("(users.active)", input_df, "users")
+    result = evaluate_condition(
+        '(users.active or users.status == "pending") and users.amount > 100',
+        input_df,
+        "users",
+    )
+
+    assert result.tolist() == [False, True, False]
+
+
+def test_nested_parentheses_grouping_works() -> None:
+    input_df = pd.DataFrame(
+        {
+            "active": [True, False, False],
+            "amount": [50, 150, 50],
+            "status": ["other", "pending", "pending"],
+        }
+    )
+
+    result = evaluate_condition(
+        'users.active or (users.status == "pending" and users.amount > 100)',
+        input_df,
+        "users",
+    )
+
+    assert result.tolist() == [True, True, False]

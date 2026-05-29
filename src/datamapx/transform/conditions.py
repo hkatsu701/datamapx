@@ -38,8 +38,6 @@ def evaluate_condition(
     """Evaluate one supported when condition against the input dataframe."""
 
     derived_values = derived_values or {}
-    if "(" in condition or ")" in condition:
-        raise MappingError(f"Unsupported condition expression: {condition}")
     try:
         tree = ast.parse(_rewrite_condition_literals(condition), mode="eval")
     except SyntaxError as exc:
