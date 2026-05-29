@@ -248,12 +248,16 @@ def run(
 def profile_input(
     config_path: Path,
     limit: Annotated[int, typer.Option("--limit")] = None,
+    chunk_size: Annotated[int, typer.Option("--chunk-size")] = None,
     format: Annotated[str, typer.Option("--format")] = "text",
 ) -> None:
     """Profile the configured input CSV after schema normalization."""
 
     if limit is not None and limit < 1:
         typer.echo("--limit must be a positive integer", err=True)
+        raise typer.Exit(2)
+    if chunk_size is not None and chunk_size < 1:
+        typer.echo("--chunk-size must be a positive integer", err=True)
         raise typer.Exit(2)
     if format not in {"text", "json"}:
         typer.echo("--format must be 'text' or 'json'", err=True)
@@ -267,6 +271,7 @@ def profile_input(
             input_config,
             config_path.parent,
             limit=limit,
+            chunk_size=chunk_size,
             max_rows=config.runtime.max_input_rows,
         )
     except (ConfigError, CsvReadError) as exc:

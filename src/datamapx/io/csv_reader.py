@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -187,31 +188,112 @@ def profile_input_csv(
     input_config: InputConfig,
     base_path: Path | None = None,
     limit: int | None = None,
+    chunk_size: int | None = None,
     max_rows: int | None = None,
 ) -> InputProfile:
     """Return a profile for the configured input CSV."""
 
-    df = read_input_csv(
-        input_name,
-        input_config,
-        base_path,
-        limit=limit,
-        max_rows=max_rows,
-    )
-    columns = [
-        _profile_column(field_name, field_config, df[field_name])
-        for field_name, field_config in input_config.fields_schema.items()
-        if field_name in df.columns
-    ]
+    if chunk_size is None:
+        df = read_input_csv(
+            input_name,
+            input_config,
+            base_path,
+            limit=limit,
+            max_rows=max_rows,
+        )
+        columns = [
+            _profile_column(field_name, field_config, df[field_name])
+            for field_name, field_config in input_config.fields_schema.items()
+            if field_name in df.columns
+        ]
+        profiled_rows = len(df)
+    else:
+        columns, profiled_rows = _profile_input_csv_chunked(
+            input_name,
+            input_config,
+            base_path,
+            limit=limit,
+            chunk_size=chunk_size,
+            max_rows=max_rows,
+        )
+
     return InputProfile(
         input_name=input_name,
         path=input_config.path,
         encoding=input_config.encoding,
         delimiter=input_config.delimiter,
-        profiled_rows=len(df),
+        profiled_rows=profiled_rows,
         limit=limit,
         columns=columns,
     )
+
+
+def _profile_input_csv_chunked(
+    input_name: str,
+    input_config: InputConfig,
+    base_path: Path | None,
+    *,
+    limit: int | None,
+    chunk_size: int,
+    max_rows: int | None,
+) -> tuple[list[ColumnProfile], int]:
+    if max_rows is not None:
+        csv_path = _resolve_path(input_config.path, base_path)
+        row_count = _count_csv_data_rows(csv_path, input_config.encoding, input_config.delimiter)
+        if row_count > max_rows:
+            raise CsvReadError(
+                f"inputs.{input_name}: row count {row_count} exceeds "
+                f"runtime.max_input_rows {max_rows}"
+            )
+
+    raw_df = None
+    profiled_rows = 0
+    accumulators = {
+        field_name: _ChunkedColumnProfileAccumulator(field_name, field_config)
+        for field_name, field_config in input_config.fields_schema.items()
+    }
+
+    for raw_chunk in _read_raw_csv_chunks(
+        input_config.path,
+        input_config.encoding,
+        input_config.delimiter,
+        input_config.header,
+        base_path,
+        nrows=limit,
+        chunksize=chunk_size,
+    ):
+        raw_df = raw_chunk
+        normalized_chunk = apply_schema(
+            raw_chunk,
+            input_config.fields_schema,
+            f"inputs.{input_name}",
+        )
+        profiled_rows += len(normalized_chunk)
+        for field_name, field_config in input_config.fields_schema.items():
+            if field_name in normalized_chunk.columns:
+                accumulators[field_name].update(normalized_chunk[field_name], field_config.type)
+
+    if raw_df is None:
+        empty_raw_df = _read_raw_csv(
+            input_config.path,
+            input_config.encoding,
+            input_config.delimiter,
+            input_config.header,
+            base_path,
+            nrows=0 if limit is None else limit,
+        )
+        empty_df = apply_schema(empty_raw_df, input_config.fields_schema, f"inputs.{input_name}")
+        return [
+            _profile_column(field_name, field_config, empty_df[field_name])
+            for field_name, field_config in input_config.fields_schema.items()
+            if field_name in empty_df.columns
+        ], len(empty_df)
+
+    return [
+        accumulators[field_name].finalize(field_config)
+        for field_name, field_config in input_config.fields_schema.items()
+        if field_name in accumulators
+    ], profiled_rows
 
 
 def apply_schema(
@@ -272,6 +354,40 @@ def _read_raw_csv(
         raise CsvReadError(f"{csv_path}: cannot parse CSV: {exc}") from exc
 
 
+def _read_raw_csv_chunks(
+    path: str,
+    encoding: str,
+    delimiter: str,
+    header: bool,
+    base_path: Path | None,
+    nrows: int | None,
+    chunksize: int,
+):
+    if not header:
+        raise CsvReadError("header: false is not supported in Phase 1 CSV reader")
+
+    csv_path = _resolve_path(path, base_path)
+    try:
+        reader = pd.read_csv(
+            csv_path,
+            encoding=encoding,
+            sep=delimiter,
+            dtype=object,
+            nrows=nrows,
+            chunksize=chunksize,
+        )
+        yield from reader
+    except pd.errors.EmptyDataError:
+        return
+    except FileNotFoundError as exc:
+        raise CsvReadError(f"{csv_path}: CSV file not found") from exc
+    except UnicodeError as exc:
+        message = f"{csv_path}: cannot decode CSV with encoding '{encoding}': {exc}"
+        raise CsvReadError(message) from exc
+    except OSError as exc:
+        raise CsvReadError(f"{csv_path}: cannot read CSV: {exc}") from exc
+    except pd.errors.ParserError as exc:
+        raise CsvReadError(f"{csv_path}: cannot parse CSV: {exc}") from exc
 def _count_csv_data_rows(csv_path: Path, encoding: str, delimiter: str) -> int:
     try:
         with csv_path.open("r", encoding=encoding, newline="") as file:
@@ -386,6 +502,101 @@ def _profile_column(
         max=max_value,
         mean=mean_value,
     )
+
+
+class _ChunkedColumnProfileAccumulator:
+    """Accumulate exact column profile statistics from chunked data."""
+
+    def __init__(self, field_name: str, field_config: SchemaFieldConfig) -> None:
+        self.field_name = field_name
+        self.field_config = field_config
+        self.dtype: str | None = None
+        self.missing_count = 0
+        self.non_null_count = 0
+        self.samples: list[Any] = []
+        self.values: Counter[Any] = Counter()
+        self.min_length: int | None = None
+        self.max_length: int | None = None
+        self.min_value: float | int | None = None
+        self.max_value: float | int | None = None
+        self.mean_total = 0.0
+        self.mean_count = 0
+
+    def update(self, series: pd.Series, schema_type: str) -> None:
+        if self.dtype is None:
+            self.dtype = str(series.dtype)
+
+        self.missing_count += int(series.isna().sum())
+        non_null = series.dropna()
+        self.non_null_count += int(len(non_null))
+
+        for value in non_null.tolist():
+            if len(self.samples) < 3:
+                self.samples.append(value)
+            self.values[value] += 1
+
+        if schema_type == "string":
+            lengths = non_null.astype(str).map(len)
+            if not lengths.empty:
+                chunk_min = int(lengths.min())
+                chunk_max = int(lengths.max())
+                self.min_length = (
+                    chunk_min
+                    if self.min_length is None
+                    else min(self.min_length, chunk_min)
+                )
+                self.max_length = (
+                    chunk_max
+                    if self.max_length is None
+                    else max(self.max_length, chunk_max)
+                )
+        elif schema_type in {"integer", "decimal"}:
+            numeric = pd.to_numeric(non_null, errors="coerce").dropna()
+            if not numeric.empty:
+                chunk_min = numeric.min()
+                chunk_max = numeric.max()
+                self.min_value = (
+                    chunk_min if self.min_value is None else min(self.min_value, chunk_min)
+                )
+                self.max_value = (
+                    chunk_max if self.max_value is None else max(self.max_value, chunk_max)
+                )
+                self.mean_total += float(numeric.sum())
+                self.mean_count += int(len(numeric))
+
+    def finalize(self, field_config: SchemaFieldConfig) -> ColumnProfile:
+        profiled_rows = self.missing_count + self.non_null_count
+        unique_count = int(len(self.values))
+        duplicate_count = int(self.non_null_count - unique_count)
+        missing_rate = float(self.missing_count / profiled_rows) if profiled_rows else 0.0
+        top_values: list[dict[str, Any]] = []
+        if field_config.type == "string":
+            top_values = [
+                {"value": _json_safe(value), "count": int(count)}
+                for value, count in self.values.most_common(5)
+            ]
+
+        mean_value = None
+        if field_config.type in {"integer", "decimal"} and self.mean_count:
+            mean_value = self.mean_total / self.mean_count
+
+        return ColumnProfile(
+            name=self.field_name,
+            schema_type=field_config.type,
+            dtype=self.dtype or "object",
+            missing_count=self.missing_count,
+            missing_rate=missing_rate,
+            non_null_count=self.non_null_count,
+            unique_count=unique_count,
+            duplicate_count=duplicate_count,
+            sample_values=[_json_safe(value) for value in self.samples],
+            top_values=top_values,
+            min_length=self.min_length,
+            max_length=self.max_length,
+            min=_json_safe(self.min_value) if self.min_value is not None else None,
+            max=_json_safe(self.max_value) if self.max_value is not None else None,
+            mean=mean_value,
+        )
 
 
 def _json_safe(value: Any) -> Any:

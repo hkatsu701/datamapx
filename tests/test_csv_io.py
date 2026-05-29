@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from datamapx.config import load_config
-from datamapx.io.csv_reader import read_input_csv, read_reference_csv
+from datamapx.io.csv_reader import profile_input_csv, read_input_csv, read_reference_csv
 from datamapx.io.errors import CsvReadError
 
 FIXTURES = Path(__file__).parent / "fixtures" / "csv_io"
@@ -204,6 +204,54 @@ def test_zenkaku_to_hankaku_reference_normalization() -> None:
 
     assert df.loc[0, "display_name"] == "営業部"
     assert df.loc[1, "display_name"] == "支援部"
+
+
+def test_profile_input_chunk_size_matches_full_profile() -> None:
+    config = load_config(FIXTURES / "csv_io_config.yml")
+
+    full_profile = profile_input_csv("users", config.inputs["users"], FIXTURES)
+    chunked_profile = profile_input_csv(
+        "users",
+        config.inputs["users"],
+        FIXTURES,
+        chunk_size=2,
+    )
+
+    assert chunked_profile.to_dict() == full_profile.to_dict()
+
+
+def test_profile_input_chunk_size_uses_chunksize(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = load_config(FIXTURES / "csv_io_config.yml")
+    calls: list[dict[str, object]] = []
+
+    def fake_read_csv(*_args: object, **kwargs: object) -> object:
+        calls.append(dict(kwargs))
+        assert kwargs["chunksize"] == 2
+        assert kwargs["dtype"] is object
+        return iter(
+            [
+                pd.DataFrame(
+                    {
+                        "user_id": ["u001", "u002"],
+                        "name": ["Alice", "Bob"],
+                        "nickname": [pd.NA, pd.NA],
+                        "age": ["42", "35"],
+                        "amount": ["1234.50", "2000"],
+                        "active": ["true", "false"],
+                        "joined": ["2024-01-01", "2024-01-02"],
+                        "department_code": ["D001", "D002"],
+                    }
+                )
+            ]
+        )
+
+    monkeypatch.setattr("datamapx.io.csv_reader.pd.read_csv", fake_read_csv)
+
+    profile = profile_input_csv("users", config.inputs["users"], FIXTURES, chunk_size=2)
+
+    assert calls
+    assert profile.profiled_rows == 2
+    assert profile.columns[0].sample_values == ["u001", "u002"]
 
 
 def test_input_row_count_limit_allows_small_files(tmp_path: Path) -> None:

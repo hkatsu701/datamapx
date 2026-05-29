@@ -110,6 +110,7 @@ Completed:
 - Multiple outputs
 - [examples/10_multiple_outputs/](../examples/10_multiple_outputs/README.md)
 - Enhanced `profile-input`
+- Chunked `profile-input`
 - Date format conversion
 - `zenkaku_to_hankaku` normalize
 - HTML report

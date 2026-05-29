@@ -105,7 +105,7 @@ datamapx generate-config \
 - `when` and `filters` conditions can use parentheses for boolean grouping.
 - `validate-design` validates a standard Excel design workbook and can optionally write `design-summary.json` and `design-errors.csv`.
 - `inspect` prints a human-readable summary of the configuration.
-- `profile-input` shows an enhanced profile for the normalized input dataframe, with optional `--limit` sampling and `--format json` output.
+- `profile-input` shows an enhanced profile for the normalized input dataframe, with optional `--limit` sampling, `--chunk-size` chunked profiling, and `--format json` output.
 - `dry-run` executes the pipeline in memory and shows previews.
 - `run` writes the main output CSV plus `errors.csv`, `skipped.csv`, and `summary.json`.
 

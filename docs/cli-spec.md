@@ -631,13 +631,15 @@ If `runtime.max_input_rows` is configured, the input file is counted before load
 ```bash
 datamapx profile-input migration.yml
 datamapx profile-input migration.yml --limit 100
+datamapx profile-input migration.yml --chunk-size 500
 datamapx profile-input migration.yml --format json
-datamapx profile-input migration.yml --limit 100 --format json
+datamapx profile-input migration.yml --limit 100 --chunk-size 500 --format json
 ```
 
 ### Options
 
 - `--limit N`: profile only the first `N` normalized input rows. `N` must be a positive integer.
+- `--chunk-size N`: profile the input by reading it in chunks of `N` rows. `N` must be a positive integer. When omitted, the command keeps the existing whole-file behavior.
 - `--format text|json`: output format. Default: `text`.
 
 ### Expected output
@@ -657,6 +659,7 @@ Text output keeps the existing heading labels and adds per-column metrics:
 - per-column `missing_rate`, `non_null_count`, `unique_count`, `duplicate_count`, `top_values`, and numeric/string metrics
 
 When `--limit` is used, the output makes it clear that the metrics are based on the limited sample.
+When `--chunk-size` is used, the command reads the CSV with `pandas.read_csv(..., chunksize=N)` and still returns the same `InputProfile` / `ColumnProfile` structure as the non-chunked path.
 JSON output returns a machine-readable object with `input_name`, `path`, `encoding`, `delimiter`, `profiled_rows`, `limit`, and a `columns` array containing the per-field metrics.
 
 The profile is based on the normalized dataframe, not the raw CSV column names.

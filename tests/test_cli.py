@@ -931,6 +931,69 @@ def test_profile_input_json_limit_reports_limit_and_metrics() -> None:
     assert payload["columns"][0]["missing_count"] == 0
 
 
+def test_profile_input_chunk_size_json_matches_non_chunked_output() -> None:
+    baseline = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(PROFILE_FIXTURES / "profile_input_config.yml"),
+            "--format",
+            "json",
+        ],
+    )
+    chunked = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(PROFILE_FIXTURES / "profile_input_config.yml"),
+            "--chunk-size",
+            "2",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert baseline.exit_code == 0
+    assert chunked.exit_code == 0
+    assert json.loads(chunked.output) == json.loads(baseline.output)
+
+
+def test_profile_input_limit_and_chunk_size_can_be_combined() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(PROFILE_FIXTURES / "profile_input_config.yml"),
+            "--limit",
+            "1",
+            "--chunk-size",
+            "2",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["profiled_rows"] == 1
+    assert payload["limit"] == 1
+
+
+def test_profile_input_invalid_chunk_size_exits_2() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "profile-input",
+            str(FIXTURES / "csv_io" / "csv_io_config.yml"),
+            "--chunk-size",
+            "0",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "--chunk-size must be a positive integer" in result.output
+
+
 def test_profile_input_metrics_are_reported() -> None:
     result = CliRunner().invoke(
         app,

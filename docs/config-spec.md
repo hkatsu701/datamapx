@@ -844,7 +844,8 @@ Generation rules:
 ## 22. Profile-input enhanced
 
 `profile-input` inspects the normalized input dataframe without writing any output files or reports.
-It supports a `--limit N` option to profile only the first `N` normalized rows and a `--format text|json` option.
+It supports a `--limit N` option to profile only the first `N` normalized rows, a `--chunk-size N` option to read the CSV with `pandas.read_csv(..., chunksize=N)`, and a `--format text|json` option.
+`--limit` and `--chunk-size` can be combined.
 
 Text output keeps the existing headings:
 
@@ -878,6 +879,9 @@ Each column entry includes:
 - `top_values` for string fields
 - `min_length` and `max_length` for string fields
 - `min`, `max`, and `mean` for integer and decimal fields
+
+Chunked profiling keeps the same `InputProfile` / `ColumnProfile` structure as the whole-file path.
+Because the command still reports exact `unique_count` and `top_values`, high-cardinality columns may use additional in-memory aggregation state while chunks are processed.
 
 ## Open Questions
 

@@ -33,7 +33,7 @@ Current release: v0.3.1.
 - フィルタによる行除外
 - 入力・出力 validation
 - `errors.csv` / `skipped.csv` / `summary.json`
-- `validate-config` / `validate-design` / `inspect` / `profile-input` / `dry-run` / `run`（`profile-input` は `--limit` と `--format json` に対応）
+- `validate-config` / `validate-design` / `inspect` / `profile-input` / `dry-run` / `run`（`profile-input` は `--limit`、`--chunk-size`、`--format json` に対応）
 - `when` / `filters` の条件式で括弧による論理グルーピング
 - `generate-config` による YAML ひな形生成
 
