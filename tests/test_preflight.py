@@ -45,8 +45,7 @@ def test_preflight_migration_required_column_missing_fails(tmp_path: Path) -> No
     config_path = _copy_tree(FIXTURES / "runner", tmp_path / "runner") / "runner_config.yml"
     input_path = config_path.parent / "input_users.csv"
     input_path.write_text(
-        "name,status_code,amount,department_code\n"
-        "Alice,A,100,engineering\n",
+        "name,status_code,amount,department_code\nAlice,A,100,engineering\n",
         encoding="utf-8",
     )
 
@@ -119,8 +118,7 @@ def test_preflight_merge_key_column_missing_fails(tmp_path: Path) -> None:
     config_path = _copy_tree(FIXTURES / "merge", tmp_path / "merge") / "merge_config.yml"
     input_path = config_path.parent / "input_users.csv"
     input_path.write_text(
-        "name,amount\n"
-        "Alice,100\n",
+        "name,amount\nAlice,100\n",
         encoding="utf-8",
     )
 
@@ -147,8 +145,7 @@ def test_preflight_union_key_column_missing_fails(tmp_path: Path) -> None:
     config_path = _copy_tree(FIXTURES / "union", tmp_path / "union") / "union_config.yml"
     input_path = config_path.parent / "input_union_a.csv"
     input_path.write_text(
-        "name,amount\n"
-        "Alpha,10\n",
+        "name,amount\nAlpha,10\n",
         encoding="utf-8",
     )
 
@@ -172,10 +169,27 @@ def test_preflight_unpivot_success(tmp_path: Path) -> None:
     assert not (config_path.parent / "logs").exists()
 
 
+def test_preflight_aggregate_success(tmp_path: Path) -> None:
+    config_path = (
+        _copy_tree(FIXTURES / "aggregate", tmp_path / "aggregate") / "aggregate_config.yml"
+    )
+
+    result = CliRunner().invoke(app, ["preflight", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Preflight completed: aggregate" in result.output
+    assert "- input: header readable" in result.output
+    assert "- output: output directory is available" in result.output
+    assert not (config_path.parent / "output").exists()
+    assert not (config_path.parent / "reports").exists()
+    assert not (config_path.parent / "logs").exists()
+
+
 def test_preflight_run_all_success(tmp_path: Path) -> None:
     run_config = _copy_tree(FIXTURES / "run", tmp_path / "run")
     merge_config = _copy_tree(FIXTURES / "merge", tmp_path / "merge")
     union_config = _copy_tree(FIXTURES / "union", tmp_path / "union")
+    aggregate_config = _copy_tree(FIXTURES / "aggregate", tmp_path / "aggregate")
     config_path = tmp_path / "run-all.yml"
     _write_run_all_config(
         config_path,
@@ -198,6 +212,12 @@ def test_preflight_run_all_success(tmp_path: Path) -> None:
                 "config": "./union/union_config.yml",
                 "reports_dir": "./union_reports",
             },
+            {
+                "name": "aggregate_stage",
+                "type": "aggregate",
+                "config": "./aggregate/aggregate_config.yml",
+                "reports_dir": "./aggregate_reports",
+            },
         ],
     )
 
@@ -205,14 +225,17 @@ def test_preflight_run_all_success(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert "Preflight completed: run-all" in result.output
-    assert "job 1/3: migration [run]" in result.output
-    assert "job 2/3: merge_stage [merge]" in result.output
-    assert "job 3/3: union_stage [union]" in result.output
+    assert "job 1/4: migration [run]" in result.output
+    assert "job 2/4: merge_stage [merge]" in result.output
+    assert "job 3/4: union_stage [union]" in result.output
+    assert "job 4/4: aggregate_stage [aggregate]" in result.output
     assert not (run_config / "output").exists()
     assert not (merge_config / "output").exists()
     assert not (union_config / "output").exists()
+    assert not (aggregate_config / "output").exists()
     assert not (tmp_path / "merge_reports").exists()
     assert not (tmp_path / "union_reports").exists()
+    assert not (tmp_path / "aggregate_reports").exists()
 
 
 def test_preflight_run_all_stops_after_first_failure(tmp_path: Path) -> None:

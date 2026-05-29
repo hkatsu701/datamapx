@@ -1,0 +1,74 @@
+version: 1
+
+project:
+  name: aggregate_sample
+
+input:
+  path: ./input_payment_lines.csv
+  encoding: utf-8-sig
+  delimiter: ","
+  header: true
+  schema:
+    customer_id:
+      type: string
+      required: true
+      normalize: [trim]
+    amount:
+      type: decimal
+      normalize: [trim]
+    paid_on:
+      type: date
+      date_format: "%Y-%m-%d"
+    note:
+      type: string
+      normalize: [trim]
+
+aggregate:
+  group_by:
+    - customer_id
+  columns:
+    customer_id:
+      group_key: customer_id
+    total_amount:
+      sum: amount
+    payment_count:
+      count:
+    first_paid_on:
+      min: paid_on
+    last_paid_on:
+      max: paid_on
+    first_note:
+      first: note
+    last_note:
+      last: note
+
+output:
+  path: ./output/payment_summary.csv
+  encoding: utf-8-sig
+  delimiter: ","
+  header: true
+  newline: "\n"
+  if_exists: overwrite
+  columns:
+    - customer_id
+    - total_amount
+    - payment_count
+    - first_paid_on
+    - last_paid_on
+    - first_note
+    - last_note
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./reports/summary.json

@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 import yaml
 
+from datamapx.aggregate.config import AggregateConfig, load_aggregate_config
 from datamapx.config import DatamapxConfig, OutputConfig, SchemaFieldConfig, load_config
 from datamapx.exceptions import ConfigError
 from datamapx.io.errors import CsvReadError, CsvWriteError
@@ -18,7 +19,7 @@ from datamapx.run_all import RunAllConfig, load_run_all_config, resolve_run_all_
 from datamapx.union.config import UnionConfig, load_union_config
 from datamapx.unpivot.config import UnpivotConfig, load_unpivot_config
 
-PreflightKind = Literal["migration", "merge", "union", "unpivot", "run-all"]
+PreflightKind = Literal["migration", "merge", "union", "unpivot", "aggregate", "run-all"]
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,10 @@ def run_preflight(config_path: str | Path) -> PreflightReport:
     if kind == "unpivot":
         config = load_unpivot_config(path)
         lines = _preflight_unpivot(config, path)
+        return PreflightReport(config_type=kind, config_path=path, lines=lines)
+    if kind == "aggregate":
+        config = load_aggregate_config(path)
+        lines = _preflight_aggregate(config, path)
         return PreflightReport(config_type=kind, config_path=path, lines=lines)
 
     config = load_config(path)
@@ -204,6 +209,34 @@ def _preflight_unpivot(config: UnpivotConfig, config_path: Path) -> list[str]:
     return lines
 
 
+def _preflight_aggregate(config: AggregateConfig, config_path: Path) -> list[str]:
+    base_path = config_path.parent
+    lines = ["Checks:", "- config validation: ok"]
+
+    lines.extend(
+        _preflight_csv_resource(
+            target="input",
+            path=config.input_.path,
+            encoding=config.input_.encoding,
+            delimiter=config.input_.delimiter,
+            header=config.input_.header,
+            base_path=base_path,
+            schema=config.input_.fields_schema,
+            key_fields=None,
+            row_limit=config.runtime.max_input_rows,
+            row_limit_name="runtime.max_input_rows",
+        )
+    )
+    lines.extend(
+        _preflight_output_resource(
+            target="output",
+            output_config=config.output,
+            base_path=base_path,
+        )
+    )
+    return lines
+
+
 def _preflight_run_all(config: RunAllConfig, config_path: Path) -> list[str]:
     base_path = config_path.parent
     total_jobs = len(config.jobs)
@@ -211,9 +244,7 @@ def _preflight_run_all(config: RunAllConfig, config_path: Path) -> list[str]:
 
     for index, job in enumerate(config.jobs, start=1):
         job_config_path = resolve_run_all_path(job.config, base_path)
-        lines.append(
-            f"- job {index}/{total_jobs}: {job.name} [{job.type}] ({job_config_path})"
-        )
+        lines.append(f"- job {index}/{total_jobs}: {job.name} [{job.type}] ({job_config_path})")
         try:
             job_report = run_preflight(job_config_path)
         except (ConfigError, CsvReadError, CsvWriteError) as exc:
@@ -265,9 +296,7 @@ def _preflight_csv_resource(
             raise CsvReadError(
                 f"{target}: row count {row_count} exceeds {row_limit_name} {row_limit}"
             )
-        lines.append(
-            f"- {target}: row count {row_count} within {row_limit_name} {row_limit}"
-        )
+        lines.append(f"- {target}: row count {row_count} within {row_limit_name} {row_limit}")
 
     return lines
 
@@ -427,6 +456,8 @@ def _detect_config_kind(path: Path) -> PreflightKind:
         return "union"
     if {"input", "unpivot", "output"}.issubset(raw_config):
         return "unpivot"
+    if {"input", "aggregate", "output"}.issubset(raw_config):
+        return "aggregate"
     if {"inputs", "outputs", "mappings"}.issubset(raw_config):
         return "migration"
 

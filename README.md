@@ -14,6 +14,7 @@ Current release: v0.3.1.
 - Merge multiple CSVs into one staging CSV before conversion.
 - Union same-format CSVs into one output CSV by appending rows in input order.
 - Unpivot one normalized wide CSV into a long CSV.
+- Aggregate one normalized CSV into grouped summary rows.
 - Run several existing YAML jobs in sequence with a `run-all.yml` file.
 - Run `preflight` to inspect migration, merge, union, unpivot, and run-all configs in read-only mode.
 - Create a migration YAML scaffold interactively with `migration-wizard` using prompts for paths, output column count and names, input column read settings, and optional advanced authoring for reference column read settings, references, derived fields, mapping rules, validations, filters, checks, output settings, error handling, runtime settings, and a final natural-language review before saving.
@@ -175,7 +176,7 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - `summary.json`: run summary, counts, and resolved report paths
 - `report.html`: optional self-contained HTML summary when `--html-report` is used
 - Report files are written atomically through temporary files and then renamed into place.
-- `runtime.max_output_rows`: optional guardrail that stops `run`, `dry-run`, `merge`, `union`, or `unpivot` when any output exceeds the configured row count.
+- `runtime.max_output_rows`: optional guardrail that stops `run`, `dry-run`, `merge`, `union`, `unpivot`, or `aggregate` when any output exceeds the configured row count.
 
 ## Phase 1 Limitations
 

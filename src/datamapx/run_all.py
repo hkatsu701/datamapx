@@ -16,7 +16,7 @@ class RunAllJobConfig(StrictModel):
     """One job entry in a run-all YAML file."""
 
     name: str
-    type: Literal["run", "merge", "union", "unpivot"]
+    type: Literal["run", "merge", "union", "unpivot", "aggregate"]
     config: str
     reports_dir: str | None = None
     html_report: bool = False

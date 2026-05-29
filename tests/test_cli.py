@@ -369,8 +369,7 @@ def test_dry_run_rejects_reference_row_limit_exceeded(tmp_path: Path) -> None:
 
     assert result.exit_code == 1
     assert (
-        "references.departments: row count 3 exceeds runtime.max_reference_rows 1"
-        in result.output
+        "references.departments: row count 3 exceeds runtime.max_reference_rows 1" in result.output
     )
 
 
@@ -398,8 +397,7 @@ def test_dry_run_rejects_output_row_limit_exceeded(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert (
         "Execution stopped (max_output_rows_exceeded): "
-        "outputs.users_out: output row count 3 exceeded runtime.max_output_rows 2"
-        in result.output
+        "outputs.users_out: output row count 3 exceeded runtime.max_output_rows 2" in result.output
     )
     summary = json.loads((reports_dir / "summary.json").read_text(encoding="utf-8"))
     assert summary["notes"]["fatal_error"] is True
@@ -604,6 +602,26 @@ def test_run_all_runs_unpivot_job(tmp_path: Path) -> None:
     assert (tmp_path / "unpivot_reports" / "report.html").exists()
 
 
+def test_run_all_runs_aggregate_job(tmp_path: Path) -> None:
+    config_path = _prepare_run_all_with_aggregate_config(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-all",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Run-all job 1/2: migration [run]" in result.output
+    assert "Run-all job 2/2: aggregate_stage [aggregate]" in result.output
+    assert "Run-all completed" in result.output
+    assert (tmp_path / "run" / "output" / "users_out.csv").exists()
+    assert (tmp_path / "aggregate" / "output" / "payment_summary.csv").exists()
+    assert (tmp_path / "aggregate_reports" / "report.html").exists()
+
+
 def test_run_all_stops_after_first_failure(tmp_path: Path) -> None:
     config_path = _prepare_run_all_config(
         tmp_path,
@@ -656,8 +674,7 @@ def test_run_rejects_reference_row_limit_exceeded(tmp_path: Path) -> None:
 
     assert result.exit_code == 1
     assert (
-        "references.departments: row count 3 exceeds runtime.max_reference_rows 1"
-        in result.output
+        "references.departments: row count 3 exceeds runtime.max_reference_rows 1" in result.output
     )
 
 
@@ -675,8 +692,7 @@ def test_run_rejects_output_row_limit_exceeded(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert (
         "Execution stopped (max_output_rows_exceeded): "
-        "outputs.users_out: output row count 3 exceeded runtime.max_output_rows 2"
-        in result.output
+        "outputs.users_out: output row count 3 exceeded runtime.max_output_rows 2" in result.output
     )
     assert not (tmp_path / "output" / "users_out.csv").exists()
 
@@ -751,9 +767,7 @@ def test_dry_run_lookup_missing_stop_fails(tmp_path: Path) -> None:
 
     config_path = tmp_path / "lookup_stop.yml"
     data = yaml.safe_load(
-        (tmp_path / "mapping_config_lookup_missing_error.yml").read_text(
-            encoding="utf-8"
-        )
+        (tmp_path / "mapping_config_lookup_missing_error.yml").read_text(encoding="utf-8")
     )
     data["error_handling"] = {
         "error_output": "./output/errors.csv",
@@ -1230,6 +1244,36 @@ def _prepare_run_all_with_unpivot_config(tmp_path: Path) -> Path:
     return config_path
 
 
+def _prepare_run_all_with_aggregate_config(tmp_path: Path) -> Path:
+    for fixture_name in ("run", "aggregate"):
+        shutil.copytree(FIXTURES / fixture_name, tmp_path / fixture_name)
+
+    config_path = tmp_path / "run-all.yml"
+    config = {
+        "version": 1,
+        "project": {"name": "run_all_sample"},
+        "jobs": [
+            {
+                "name": "migration",
+                "type": "run",
+                "config": "./run/run_config.yml",
+                "reports_dir": "./run_reports",
+                "html_report": True,
+            },
+            {
+                "name": "aggregate_stage",
+                "type": "aggregate",
+                "config": "./aggregate/aggregate_config.yml",
+                "reports_dir": "./aggregate_reports",
+                "html_report": True,
+            },
+        ],
+    }
+    rendered = yaml.safe_dump(config, sort_keys=False, allow_unicode=True)
+    config_path.write_text(rendered, encoding="utf-8")
+    return config_path
+
+
 def _prepare_design_fixture(tmp_path: Path) -> Path:
     target = tmp_path / "design.xlsx"
     shutil.copy2(EXAMPLES / "08_excel_design" / "datamapx_design_template.xlsx", target)
@@ -1256,8 +1300,7 @@ def _prepare_expression_error_fixture(tmp_path: Path) -> Path:
     input_dir.mkdir()
     output_dir.mkdir()
     (input_dir / "expression_error.csv").write_text(
-        "user_id,billingitemamount_c1,servicereception_r_isunpaid_c1\n"
-        "u001,1000,true\n",
+        "user_id,billingitemamount_c1,servicereception_r_isunpaid_c1\nu001,1000,true\n",
         encoding="utf-8",
     )
     config_path = tmp_path / "expression_error.yml"
@@ -1285,8 +1328,7 @@ def _prepare_expression_error_fixture(tmp_path: Path) -> Path:
                 "id": {"source": "users.user_id"},
                 "result": {
                     "expression": (
-                        "users.billingitemamount_c1 * "
-                        "users.servicereception_r_isunpaid_c1"
+                        "users.billingitemamount_c1 * users.servicereception_r_isunpaid_c1"
                     )
                 },
             }

@@ -10,6 +10,9 @@ from typing import Annotated
 import pandas as pd
 import typer
 
+from datamapx.aggregate import AggregateResult, load_aggregate_config, run_aggregate_pipeline
+from datamapx.aggregate.errors import AggregateError
+from datamapx.aggregate.reports import write_aggregate_reports
 from datamapx.config import DatamapxConfig, load_config
 from datamapx.config_generator import generate_basic_config
 from datamapx.excel_design import (
@@ -64,6 +67,7 @@ class RunAllJobResult:
     config_path: Path
     summary: str
     succeeded: bool
+
 
 GENERATE_CONFIG_INPUT_OPTION = typer.Option(..., "--input")
 GENERATE_CONFIG_OUTPUT_OPTION = typer.Option(..., "--output")
@@ -371,6 +375,29 @@ def unpivot(
         raise typer.Exit(1)
 
 
+@app.command("aggregate")
+def aggregate(
+    config_path: Path,
+    reports_dir: Annotated[Path, typer.Option("--reports-dir")] = None,
+    html_report: Annotated[bool, typer.Option("--html-report")] = False,
+) -> None:
+    """Aggregate a single normalized CSV into grouped summary rows."""
+
+    try:
+        result, report_paths = _execute_aggregate_job(
+            config_path,
+            reports_dir=reports_dir,
+            html_report=html_report,
+        )
+    except (AggregateError, ConfigError, CsvReadError, CsvWriteError, ReportWriteError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(format_aggregate_result(result, report_paths))
+    if result.status != "completed":
+        raise typer.Exit(1)
+
+
 @app.command("run-all")
 def run_all(config_path: Path) -> None:
     """Run jobs defined in a run-all YAML sequentially."""
@@ -384,6 +411,7 @@ def run_all(config_path: Path) -> None:
         MappingError,
         MergeError,
         ReportWriteError,
+        AggregateError,
         UnpivotError,
         UnionError,
         ValidationError,
@@ -402,6 +430,7 @@ def run_all(config_path: Path) -> None:
             MappingError,
             MergeError,
             ReportWriteError,
+            AggregateError,
             UnpivotError,
             UnionError,
             ValidationError,
@@ -541,6 +570,31 @@ def _execute_unpivot_job(
     return result, report_paths
 
 
+def _execute_aggregate_job(
+    config_path: Path,
+    reports_dir: Path | None = None,
+    *,
+    html_report: bool = False,
+) -> tuple[AggregateResult, ReportPaths]:
+    config = load_aggregate_config(config_path)
+    result = run_aggregate_pipeline(config, config_path)
+    if result.status == "completed":
+        output_path = write_output_csv(result.output_df, config.output, config_path.parent)
+        result = replace(
+            result,
+            output_file_written=True,
+            output_path=str(output_path),
+        )
+    report_paths = write_aggregate_reports(
+        result,
+        config,
+        config_path,
+        reports_dir=reports_dir,
+        html_report=html_report,
+    )
+    return result, report_paths
+
+
 def _execute_run_all_job(job: RunAllJobConfig, base_path: Path) -> RunAllJobResult:
     job_config_path = resolve_run_all_path(job.config, base_path)
     reports_dir = (
@@ -583,6 +637,19 @@ def _execute_run_all_job(job: RunAllJobConfig, base_path: Path) -> RunAllJobResu
             job_type=job.type,
             config_path=job_config_path,
             summary=format_unpivot_result(result, report_paths),
+            succeeded=result.status == "completed",
+        )
+    if job.type == "aggregate":
+        result, report_paths = _execute_aggregate_job(
+            job_config_path,
+            reports_dir=reports_dir,
+            html_report=job.html_report,
+        )
+        return RunAllJobResult(
+            name=job.name,
+            job_type=job.type,
+            config_path=job_config_path,
+            summary=format_aggregate_result(result, report_paths),
             succeeded=result.status == "completed",
         )
 
@@ -822,6 +889,49 @@ def format_unpivot_result(result: UnpivotResult, report_paths: ReportPaths) -> s
 
     lines = [
         "Unpivot completed" if result.status == "completed" else "Unpivot failed",
+        "",
+        f"Run ID: {result.run_id}",
+        f"Project: {result.project_name}",
+        "",
+        "Output:",
+        f"- path: {result.output_path}",
+        f"- rows written: {result.output_rows}",
+        "",
+        "Reports:",
+        f"- errors: {report_paths.errors_csv}",
+        f"- skipped: {report_paths.skipped_csv}",
+        f"- summary: {report_paths.summary_json}",
+    ]
+    if report_paths.html_report is not None:
+        lines.append(f"- html: {report_paths.html_report}")
+    lines.extend(
+        [
+            "",
+            "Counts:",
+            f"- input rows: {result.input_rows}",
+            f"- output rows: {result.output_rows}",
+            f"- skipped rows: {result.skipped_count}",
+            f"- error rows: {result.error_count}",
+            f"Status: {result.status}",
+        ]
+    )
+    if result.stop_reason is not None or result.stop_message is not None:
+        lines.extend(
+            [
+                "",
+                "Stop:",
+                f"- reason: {result.stop_reason or ''}",
+                f"- message: {result.stop_message or ''}",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def format_aggregate_result(result: AggregateResult, report_paths: ReportPaths) -> str:
+    """Return a human-readable aggregate summary."""
+
+    lines = [
+        "Aggregate completed" if result.status == "completed" else "Aggregate failed",
         "",
         f"Run ID: {result.run_id}",
         f"Project: {result.project_name}",
@@ -1131,7 +1241,6 @@ def format_report_written(report_paths: ReportPaths) -> str:
     if report_paths.html_report is not None:
         lines.append(f"- html: {report_paths.html_report}")
     return "\n".join(lines)
-
 
 
 def _format_stop_message(reason: str | None, message: str | None) -> str:

@@ -12,6 +12,7 @@ Current release: v0.3.1.
 - 必要なら複数CSVを `merge` で1つの staging CSV にまとめられます。
 - 同一フォーマットのCSVを `union` で縦結合できます。
 - 1つの正規化済みwide CSVを `unpivot` でlong CSVに展開できます。
+- 1つの正規化済みCSVを `aggregate` でグループ別の要約行に集約できます。
 - `run-all.yml` で複数の既存 YAML ジョブを順番に実行できます。
 - `migration-wizard` で migration.yml のひな形を対話的に作れます。入力先・出力先・入力名・出力名に加えて、出力列数と列名を入力し、その後に各 output 列の rule を割り当てます。詳細設定では入力列と参照列の読み込み設定、reference CSV、derived、lookup、validations、filters、checks、output 設定、error_handling、runtime なども対話式で追加できます。保存前には自然文のレビュー画面が出て、出力列と rule をやり直すこともできます。
 - `merge-wizard` で merge.yml のひな形を対話的に作れます。入力列・出力列・出力列名の確認・ルールを番号で選び、必要なら推奨ルールをまとめて使えます。入力を間違えても日本語の案内でやり直せます。最後の確認画面では自然文で内容を確認でき、そこから列ルールだけ戻ってやり直せます。入力プレビューと番号は同じ並びで表示され、長い項目名は折り返して見やすくしています。
@@ -138,7 +139,7 @@ main output CSV と以下のレポートを出力します。
 - `summary.json`: 件数、状態、出力先パスのサマリ
 - `report.html`: `--html-report` 指定時に書き出される自己完結型の HTML サマリ
 - report ファイルは一時ファイル経由で atomic に書き込み、最後に置き換えます。
-- `runtime.max_output_rows`: `run` / `dry-run` / `merge` / `union` / `unpivot` で、出力行数が上限を超えたら停止するガードレールです。
+- `runtime.max_output_rows`: `run` / `dry-run` / `merge` / `union` / `unpivot` / `aggregate` で、出力行数が上限を超えたら停止するガードレールです。
 
 ## 12. YAML設定の最小例
 

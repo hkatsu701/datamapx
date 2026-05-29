@@ -121,6 +121,7 @@ Completed:
 - Atomic report writes
 - CSV column pruning
 - `unpivot` v1
+- `aggregate` v1
 - `preflight` v1
 
 Future candidates:

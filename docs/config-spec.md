@@ -530,7 +530,7 @@ runtime:
 When dry-run is executed with `--write-reports --reports-dir`, that directory overrides the configured report paths. When `run` is executed, report files are always written and use the same path resolution rules. If the CLI is invoked with `--html-report`, a browser-readable `report.html` is written beside the other reports without changing the CSV or JSON report structures.
 All report files (`errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html`) are written atomically through a temporary file in the target directory. If a report write fails, the previous final file is left untouched and the temporary file is removed when possible.
 `max_input_rows` and `max_reference_rows` are optional positive integers. When set, datamapx counts CSV data rows before loading the migration input or reference CSV with pandas and raises a CSV read error if the file exceeds the configured limit. These limits are used by `profile-input`, `dry-run`, and `run`, and are not applied by `merge` or `union`.
-`max_output_rows` is an optional positive integer. When set, datamapx checks the number of output rows produced by `run`, `dry-run`, `merge`, and `union`. If any output exceeds the limit, execution stops with exit code `1`. For `run`, the stop message identifies the specific `outputs.<name>` target. For `merge` and `union`, the CLI stop message includes the output row count and configured limit. `run`, `merge`, and `union` do not write the output CSV when the limit is exceeded.
+`max_output_rows` is an optional positive integer. When set, datamapx checks the number of output rows produced by `run`, `dry-run`, `merge`, `union`, and `aggregate`. If any output exceeds the limit, execution stops with exit code `1`. For `run`, the stop message identifies the specific `outputs.<name>` target. For `merge`, `union`, and `aggregate`, the CLI stop message includes the output row count and configured limit. `run`, `merge`, `union`, and `aggregate` do not write the output CSV when the limit is exceeded.
 
 ## 15. union
 
@@ -602,6 +602,61 @@ Rules:
 - `drop_null_values: true` drops rows whose unpivoted value is null or blank.
 - `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html` are written for the unpivot command.
 - `runtime.max_output_rows` stops the command with exit code `1` when the expanded output exceeds the configured limit.
+- `if_exists: error` prevents overwriting an existing output CSV.
+- `--reports-dir` and `--html-report` follow the same path-resolution rules as `merge` and `union`.
+
+## 15.2. aggregate
+
+`aggregate` summarizes a single normalized input CSV by `group_by` keys.
+
+```yaml
+input:
+  path: ./input/payment_lines.csv
+  encoding: utf-8-sig
+  delimiter: ","
+  header: true
+  schema:
+    customer_id:
+      type: string
+      required: true
+    amount:
+      type: decimal
+    paid_on:
+      type: date
+      date_format: "%Y-%m-%d"
+
+aggregate:
+  group_by: [customer_id]
+  columns:
+    customer_id:
+      group_key: customer_id
+    total_amount:
+      sum: amount
+    payment_count:
+      count:
+    first_paid_on:
+      min: paid_on
+    last_paid_on:
+      max: paid_on
+
+output:
+  path: ./output/payment_summary.csv
+  columns: [customer_id, total_amount, payment_count, first_paid_on, last_paid_on]
+```
+
+Execution status: supported.
+
+Rules:
+
+- Exactly one input CSV is supported.
+- The input schema must be defined so the normalized dataframe can be pruned and validated before aggregation.
+- `output.columns` must match the keys of `aggregate.columns` exactly and in the same order.
+- `group_key` copies a grouped key column into the output.
+- `sum`, `min`, and `max` require numeric-compatible values for non-date inputs.
+- `first` and `last` use the first/last non-null value in each group.
+- `count` counts non-null values when a source is set; otherwise it counts the rows in the group.
+- `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html` are written for the aggregate command.
+- `runtime.max_output_rows` stops the command with exit code `1` when the aggregated output exceeds the configured limit.
 - `if_exists: error` prevents overwriting an existing output CSV.
 - `--reports-dir` and `--html-report` follow the same path-resolution rules as `merge` and `union`.
 
@@ -938,7 +993,7 @@ Because the command still reports exact `unique_count` and `top_values`, high-ca
 
 ## 23. Preflight
 
-`preflight` is a read-only lightweight inspection command for migration, merge, union, unpivot, and run-all configs.
+`preflight` is a read-only lightweight inspection command for migration, merge, union, unpivot, aggregate, and run-all configs.
 It validates the loaded config first, then checks the configured CSV files without loading full dataframes.
 
 Phase 2 preflight checks:
@@ -952,6 +1007,7 @@ Phase 2 preflight checks:
 - `source_columns` candidates are all considered raw-column candidates
 - key columns in merge/union inputs and migration references must resolve
 - unpivot input schema and output column layout must resolve
+- aggregate input schema and output column layout must resolve
 - output path parent directories must already exist or be creatable
 - `if_exists: error` must fail when the final output file already exists
 - `runtime.max_input_rows` and `runtime.max_reference_rows`, when configured, must be enforced using row counting without loading the full dataframe

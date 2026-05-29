@@ -44,7 +44,7 @@ On failure, print configuration errors with section and field context.
 ### Purpose
 
 Run a read-only preflight check before execution. `preflight` does not write output CSVs, reports, or logs.
-It supports migration, merge, union, unpivot, and run-all configs. For migration, merge, union, and unpivot configs it checks:
+It supports migration, merge, union, unpivot, aggregate, and run-all configs. For migration, merge, union, unpivot, and aggregate configs it checks:
 
 - config validation
 - CSV path existence
@@ -53,6 +53,7 @@ It supports migration, merge, union, unpivot, and run-all configs. For migration
 - schema `required` / `source_columns` resolution
 - key column resolution for merge and union inputs, and reference keys in migration configs
 - unpivot input schema/output consistency for unpivot configs
+- aggregate input schema/output consistency for aggregate configs
 - output path parent directory writability or creatability
 - `if_exists: error` output conflicts
 - `runtime.max_input_rows` / `runtime.max_reference_rows` guardrails when configured
@@ -66,6 +67,7 @@ datamapx preflight migration.yml
 datamapx preflight merge.yml
 datamapx preflight union.yml
 datamapx preflight unpivot.yml
+datamapx preflight aggregate.yml
 datamapx preflight run-all.yml
 ```
 
@@ -410,12 +412,77 @@ output:
 - `if_exists: error` prevents overwriting an existing output CSV.
 - `--reports-dir` and `--html-report` work the same way as `merge` and `union`.
 
+## datamapx aggregate aggregate.yml
+
+### Purpose
+
+Aggregate a single normalized input CSV by `group_by` keys and summarize rows into one output row per group.
+
+`aggregate` reads one input CSV, applies the configured schema, and groups the normalized dataframe by the configured key columns.
+
+### Usage
+
+```bash
+datamapx aggregate aggregate.yml
+datamapx aggregate aggregate.yml --reports-dir ./reports
+datamapx aggregate aggregate.yml --reports-dir ./reports --html-report
+```
+
+### Configuration
+
+```yaml
+input:
+  path: ./input/payment_lines.csv
+  header: true
+  schema:
+    customer_id:
+      type: string
+      required: true
+    amount:
+      type: decimal
+    paid_on:
+      type: date
+      date_format: "%Y-%m-%d"
+
+aggregate:
+  group_by: [customer_id]
+  columns:
+    customer_id:
+      group_key: customer_id
+    total_amount:
+      sum: amount
+    payment_count:
+      count:
+    first_paid_on:
+      min: paid_on
+    last_paid_on:
+      max: paid_on
+
+output:
+  path: ./output/payment_summary.csv
+  columns: [customer_id, total_amount, payment_count, first_paid_on, last_paid_on]
+```
+
+### Rules
+
+- Exactly one input CSV is supported.
+- The input schema must be defined so the normalized dataframe can be pruned and validated before aggregation.
+- `output.columns` must match the keys of `aggregate.columns` exactly and in the same order.
+- `group_key` copies a grouped key column into the output.
+- `sum`, `min`, and `max` require numeric-compatible values for non-date inputs.
+- `first` and `last` use the first/last non-null value in each group.
+- `count` counts non-null values when a source is set; otherwise it counts the rows in the group.
+- `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html` are written for the aggregate command.
+- `runtime.max_output_rows` stops the command with exit code `1` when the aggregated output exceeds the configured limit.
+- `if_exists: error` prevents overwriting an existing output CSV.
+- `--reports-dir` and `--html-report` work the same way as `merge` and `union`.
+
 ## datamapx run-all run-all.yml
 
 ### Purpose
 
 Run multiple existing YAML jobs sequentially with fail-fast behavior.
-`run-all` is a thin orchestrator over the existing `run`, `merge`, `union`, and `unpivot` execution paths.
+`run-all` is a thin orchestrator over the existing `run`, `merge`, `union`, `unpivot`, and `aggregate` execution paths.
 It reads a `run-all.yml` file that declares a project and a `jobs` list, then executes jobs in the order listed.
 If any job fails, the command stops immediately and exits with code `1`.
 
@@ -456,12 +523,17 @@ jobs:
     config: ./unpivot.yml
     reports_dir: ./reports/unpivot
     html_report: false
+  - name: aggregate_job
+    type: aggregate
+    config: ./aggregate.yml
+    reports_dir: ./reports/aggregate
+    html_report: false
 ```
 
 Job fields:
 
 - `name`: unique job name used in run-all progress output.
-- `type`: one of `run`, `merge`, `union`, or `unpivot`.
+- `type`: one of `run`, `merge`, `union`, `unpivot`, or `aggregate`.
 - `config`: path to the existing YAML config for that job, resolved relative to `run-all.yml`.
 - `reports_dir`: optional report directory, also resolved relative to `run-all.yml`.
 - `html_report`: optional boolean. When `true`, the job writes `report.html` beside `errors.csv`, `skipped.csv`, and `summary.json`.

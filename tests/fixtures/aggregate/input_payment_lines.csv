@@ -1,0 +1,5 @@
+customer_id,amount,paid_on,note
+C001,100,2024-01-05,first
+C002,200,2024-01-03,alpha
+C001,150,2024-01-01,beta
+C003,50,2024-01-04,gamma
