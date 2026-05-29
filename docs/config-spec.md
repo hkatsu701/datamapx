@@ -520,6 +520,7 @@ runtime:
   summary_output: ./output/summary.json
   max_input_rows: 100000
   max_reference_rows: 500000
+  max_output_rows: 100000
 ```
 
 `run_id: auto` means datamapx generates a run identifier.
@@ -527,6 +528,7 @@ runtime:
 When dry-run is executed with `--write-reports --reports-dir`, that directory overrides the configured report paths. When `run` is executed, report files are always written and use the same path resolution rules. If the CLI is invoked with `--html-report`, a browser-readable `report.html` is written beside the other reports without changing the CSV or JSON report structures.
 All report files (`errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html`) are written atomically through a temporary file in the target directory. If a report write fails, the previous final file is left untouched and the temporary file is removed when possible.
 `max_input_rows` and `max_reference_rows` are optional positive integers. When set, datamapx counts CSV data rows before loading the migration input or reference CSV with pandas and raises a CSV read error if the file exceeds the configured limit. These limits are used by `profile-input`, `dry-run`, and `run`, and are not applied by `merge` or `union`.
+`max_output_rows` is an optional positive integer. When set, datamapx checks the number of output rows produced by `run`, `dry-run`, `merge`, and `union`. If any output exceeds the limit, execution stops with exit code `1`. For `run`, the stop message identifies the specific `outputs.<name>` target. For `merge` and `union`, the CLI stop message includes the output row count and configured limit. `run`, `merge`, and `union` do not write the output CSV when the limit is exceeded.
 
 ## 15. union
 

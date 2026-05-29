@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from datamapx.cli import app
@@ -126,6 +127,30 @@ def test_merge_cli_html_report_writes_file(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "- html:" in result.output
     assert (reports_dir / "report.html").exists()
+
+
+def test_merge_cli_max_output_rows_skips_output(tmp_path: Path) -> None:
+    config_path = _copy_fixture_tree(tmp_path, "merge_config.yml")
+    data = _load_yaml(config_path)
+    data["runtime"]["max_output_rows"] = 2
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["merge", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "Merge failed" in result.output
+    assert "Stop:" in result.output
+    assert (
+        "output row count 3 exceeded runtime.max_output_rows 2" in result.output
+    )
+    assert not (config_path.parent / "output" / "merged.csv").exists()
+    summary_path = config_path.parent / "reports" / "summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["status"] == "failed"
+    assert summary["notes"]["output_file_written"] is False
 
 
 def test_merge_reports_are_atomic_on_write_failure(
@@ -386,6 +411,10 @@ def _copy_example_tree(tmp_path: Path, name: str) -> Path:
     target_dir = tmp_path / "examples"
     shutil.copytree(EXAMPLES, target_dir)
     return target_dir / name
+
+
+def _load_yaml(path: Path) -> dict[str, object]:
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def _raise_os_error(*_args, **_kwargs) -> None:

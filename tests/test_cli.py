@@ -374,6 +374,39 @@ def test_dry_run_rejects_reference_row_limit_exceeded(tmp_path: Path) -> None:
     )
 
 
+def test_dry_run_rejects_output_row_limit_exceeded(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["runtime"]["max_output_rows"] = 2
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    reports_dir = tmp_path / "reports"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "dry-run",
+            str(config_path),
+            "--write-reports",
+            "--reports-dir",
+            str(reports_dir),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert (
+        "Execution stopped (max_output_rows_exceeded): "
+        "outputs.users_out: output row count 3 exceeded runtime.max_output_rows 2"
+        in result.output
+    )
+    summary = json.loads((reports_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["notes"]["fatal_error"] is True
+    assert summary["notes"]["stop_reason"] == "max_output_rows_exceeded"
+    assert summary["notes"]["final_outcome"] == "failed"
+
+
 def test_dry_run_check_failure_exits_nonzero(tmp_path: Path) -> None:
     config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
     _set_checks(config_path, [{"name": "row_count_check", "rule": "input_rows == 0"}])
@@ -605,6 +638,31 @@ def test_run_rejects_reference_row_limit_exceeded(tmp_path: Path) -> None:
         "references.departments: row count 3 exceeds runtime.max_reference_rows 1"
         in result.output
     )
+
+
+def test_run_rejects_output_row_limit_exceeded(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["runtime"]["max_output_rows"] = 2
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 1
+    assert (
+        "Execution stopped (max_output_rows_exceeded): "
+        "outputs.users_out: output row count 3 exceeded runtime.max_output_rows 2"
+        in result.output
+    )
+    assert not (tmp_path / "output" / "users_out.csv").exists()
+
+    summary = json.loads((tmp_path / "reports" / "summary.json").read_text(encoding="utf-8"))
+    assert summary["notes"]["fatal_error"] is True
+    assert summary["notes"]["stop_reason"] == "max_output_rows_exceeded"
+    assert summary["notes"]["final_outcome"] == "failed"
 
 
 def test_dry_run_without_write_reports_does_not_write_files(tmp_path: Path) -> None:

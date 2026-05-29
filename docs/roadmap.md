@@ -115,6 +115,7 @@ Completed:
 - `zenkaku_to_hankaku` normalize
 - HTML report
 - Large CSV guardrails
+- `max_output_rows` guardrail
 - `run-all` v1
 - Atomic output CSV writes
 - Atomic report writes

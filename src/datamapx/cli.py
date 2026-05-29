@@ -304,7 +304,7 @@ def merge(
         raise typer.Exit(1) from exc
 
     typer.echo(format_merge_result(result, report_paths))
-    if result.error_count > 0:
+    if result.status != "completed":
         raise typer.Exit(1)
 
 
@@ -327,7 +327,7 @@ def union(
         raise typer.Exit(1) from exc
 
     typer.echo(format_union_result(result, report_paths))
-    if result.error_count > 0:
+    if result.status != "completed":
         raise typer.Exit(1)
 
 
@@ -432,7 +432,7 @@ def _execute_merge_job(
 ) -> tuple[MergeResult, ReportPaths]:
     config = load_merge_config(config_path)
     result = run_merge_pipeline(config, config_path)
-    if result.error_count == 0:
+    if result.status == "completed":
         output_path = write_output_csv(result.output_df, config.output, config_path.parent)
         result = replace(
             result,
@@ -457,7 +457,7 @@ def _execute_union_job(
 ) -> tuple[UnionResult, ReportPaths]:
     config = load_union_config(config_path)
     result = run_union_pipeline(config, config_path)
-    if result.error_count == 0:
+    if result.status == "completed":
         output_path = write_output_csv(result.output_df, config.output, config_path.parent)
         result = replace(
             result,
@@ -490,7 +490,7 @@ def _execute_run_all_job(job: RunAllJobConfig, base_path: Path) -> RunAllJobResu
             job_type=job.type,
             config_path=job_config_path,
             summary=format_merge_result(result, report_paths),
-            succeeded=result.error_count == 0,
+            succeeded=result.status == "completed",
         )
     if job.type == "union":
         result, report_paths = _execute_union_job(
@@ -503,7 +503,7 @@ def _execute_run_all_job(job: RunAllJobConfig, base_path: Path) -> RunAllJobResu
             job_type=job.type,
             config_path=job_config_path,
             summary=format_union_result(result, report_paths),
-            succeeded=result.error_count == 0,
+            succeeded=result.status == "completed",
         )
 
     result, report_paths = _execute_run_job(
@@ -682,6 +682,15 @@ def format_merge_result(result: MergeResult, report_paths: ReportPaths) -> str:
             f"Status: {result.status}",
         ]
     )
+    if result.stop_reason is not None or result.stop_message is not None:
+        lines.extend(
+            [
+                "",
+                "Stop:",
+                f"- reason: {result.stop_reason or ''}",
+                f"- message: {result.stop_message or ''}",
+            ]
+        )
     return "\n".join(lines)
 
 
@@ -716,6 +725,15 @@ def format_union_result(result: UnionResult, report_paths: ReportPaths) -> str:
             f"Status: {result.status}",
         ]
     )
+    if result.stop_reason is not None or result.stop_message is not None:
+        lines.extend(
+            [
+                "",
+                "Stop:",
+                f"- reason: {result.stop_reason or ''}",
+                f"- message: {result.stop_message or ''}",
+            ]
+        )
     return "\n".join(lines)
 
 

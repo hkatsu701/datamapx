@@ -106,15 +106,17 @@ def test_runtime_row_limits_load() -> None:
         "log_level": "INFO",
         "max_input_rows": 100,
         "max_reference_rows": 200,
+        "max_output_rows": 300,
     }
 
     config = DatamapxConfig.model_validate(data)
 
     assert config.runtime.max_input_rows == 100
     assert config.runtime.max_reference_rows == 200
+    assert config.runtime.max_output_rows == 300
 
 
-@pytest.mark.parametrize("field", ["max_input_rows", "max_reference_rows"])
+@pytest.mark.parametrize("field", ["max_input_rows", "max_reference_rows", "max_output_rows"])
 def test_runtime_row_limits_must_be_positive(field: str) -> None:
     data = _valid_data()
     data["runtime"] = {

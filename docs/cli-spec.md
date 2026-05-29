@@ -243,7 +243,9 @@ On success:
 - `report.html` is written when `--html-report` is set
 - report files are written atomically through temporary files and then renamed into place
 - the configured output CSV is written atomically through a temporary file and then renamed into place
+- `runtime.max_output_rows` can stop the command before the output CSV is written if any output exceeds the limit
 - a merge summary is printed to the console
+- when `runtime.max_output_rows` is exceeded, the CLI prints the output row count and configured limit in the stop message
 
 ### Limitations
 
@@ -289,7 +291,9 @@ On success:
 - `report.html` is written when `--html-report` is set
 - report files are written atomically through temporary files and then renamed into place
 - the configured output CSV is written atomically through a temporary file and then renamed into place
+- `runtime.max_output_rows` can stop the command before the output CSV is written if any output exceeds the limit
 - a union summary is printed to the console
+- when `runtime.max_output_rows` is exceeded, the CLI prints the output row count and configured limit in the stop message
 
 ### Limitations
 
@@ -553,6 +557,8 @@ When `--write-reports` is set, dry-run writes the internal error rows, skipped r
 When `--html-report` is also set, dry-run writes a browser-readable `report.html` beside the other reports and includes it in the same `Reports written:` block.
 If `--html-report` is used without `--write-reports`, the command fails as CLI usage with exit code `2`.
 Report files are written atomically through temporary files and then renamed into place when they are produced.
+`runtime.max_output_rows` can stop dry-run with exit code `1` if any output exceeds the limit.
+For `run`, the stop message identifies the specific `outputs.<name>` target; for `merge` and `union`, the CLI stop message includes the output row count and configured limit.
 
 The summary file includes row-category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors, plus `notes.final_outcome` for the overall result label.
 
@@ -612,6 +618,8 @@ Print run summary:
 The main output CSV is written atomically through a temporary file and then renamed into place. If the write fails, the previous final file is left unchanged and the temporary file is cleaned up when possible.
 When `--html-report` is enabled, `run` also writes `report.html` beside the other reports and prints its path in the `Reports:` block.
 Report files are written atomically through temporary files and then renamed into place when they are produced.
+`runtime.max_output_rows` can stop `run` before the output CSV is written if any output exceeds the limit.
+The stop message identifies the specific `outputs.<name>` target and includes the output row count and configured limit.
 
 The summary file includes row-category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors, plus `notes.final_outcome` for the overall result label.
 

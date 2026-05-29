@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from datamapx.cli import app
@@ -140,6 +141,28 @@ def test_union_cli_html_report_writes_file(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "- html:" in result.output
     assert (reports_dir / "report.html").exists()
+
+
+def test_union_cli_max_output_rows_skips_output(tmp_path: Path) -> None:
+    example_dir = _copy_tree(EXAMPLES / "09_union", tmp_path / "example")
+    config_path = example_dir / "union.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["runtime"]["max_output_rows"] = 2
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["union", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "Union failed" in result.output
+    assert "Stop:" in result.output
+    assert "output row count 4 exceeded runtime.max_output_rows 2" in result.output
+    assert not (example_dir / "output" / "unioned.csv").exists()
+    summary = json.loads((example_dir / "reports" / "summary.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "failed"
+    assert summary["notes"]["output_file_written"] is False
 
 
 def test_union_reports_are_atomic_on_write_failure(

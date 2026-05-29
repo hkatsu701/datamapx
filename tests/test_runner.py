@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from datamapx.config import load_config
+from datamapx.config import ValidationRule, load_config
 from datamapx.io.errors import CsvReadError
 from datamapx.runner import run_dry_run, run_load_phase
 
@@ -95,6 +95,57 @@ def test_dry_run_limit_also_limits_output_preview_rows() -> None:
     assert result.load_result.input_rows == 2
     assert result.output_rows == 2
     assert len(result.output_preview_df) == 2
+
+
+def test_dry_run_max_output_rows_stops_execution() -> None:
+    config = load_config(FIXTURES / "runner_config.yml")
+    config = config.model_copy(
+        update={"runtime": config.runtime.model_copy(update={"max_output_rows": 2})}
+    )
+
+    result = run_dry_run(config, FIXTURES)
+
+    assert result.fatal_error is True
+    assert result.stop_reason == "max_output_rows_exceeded"
+    assert (
+        result.stop_message
+        == "outputs.users_out: output row count 3 exceeded runtime.max_output_rows 2"
+    )
+    assert result.output_rows == 3
+
+
+def test_dry_run_max_output_rows_checks_each_output() -> None:
+    run_fixtures = Path(__file__).parent / "fixtures" / "run"
+    config = load_config(run_fixtures / "run_config_multi_output.yml")
+    config = config.model_copy(
+        update={
+            "runtime": config.runtime.model_copy(update={"max_output_rows": 2}),
+            "validations": config.validations.model_copy(
+                update={
+                    "output": [
+                        ValidationRule(
+                            field="status",
+                            output="users_out",
+                            rule="enum",
+                            values=["active", "inactive"],
+                        )
+                    ]
+                }
+            ),
+        }
+    )
+
+    result = run_dry_run(config, run_fixtures)
+
+    assert result.fatal_error is True
+    assert result.stop_reason == "max_output_rows_exceeded"
+    assert (
+        result.stop_message
+        == "outputs.users_out_copy: output row count 3 exceeded runtime.max_output_rows 2"
+    )
+    assert [output.name for output in result.output_results] == ["users_out", "users_out_copy"]
+    assert result.output_results[0].rows == 2
+    assert result.output_results[1].rows == 3
 
 
 def test_dry_run_builds_lookup_output_preview_dataframe() -> None:

@@ -49,6 +49,24 @@ def evaluate_max_errors(
     return None
 
 
+def evaluate_max_output_rows(
+    target: str,
+    max_output_rows: int | None,
+    output_rows: int,
+) -> StopInfo | None:
+    """Return a stop reason when the configured output row threshold is exceeded."""
+
+    if max_output_rows is not None and output_rows > max_output_rows:
+        return StopInfo(
+            reason="max_output_rows_exceeded",
+            message=(
+                f"{target}: output row count {output_rows} exceeded "
+                f"runtime.max_output_rows {max_output_rows}"
+            ),
+        )
+    return None
+
+
 def classify_mapping_error(exc: MappingError) -> StopInfo:
     """Classify a mapping exception into lookup or transform failure."""
 

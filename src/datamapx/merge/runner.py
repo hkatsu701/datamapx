@@ -49,6 +49,8 @@ class MergeResult:
     error_count: int
     skipped_count: int
     output_file_written: bool = False
+    stop_reason: str | None = None
+    stop_message: str | None = None
 
 
 def run_merge_pipeline(
@@ -132,6 +134,12 @@ def run_merge_pipeline(
 
     finished_at = _utc_now()
     status = "completed" if not error_rows else "failed"
+    if (
+        status == "completed"
+        and config.runtime.max_output_rows is not None
+        and len(output_df) > config.runtime.max_output_rows
+    ):
+        status = "failed"
     return MergeResult(
         run_id=run_id,
         project_name=config.project.name,
@@ -150,6 +158,21 @@ def run_merge_pipeline(
         error_count=len(error_rows),
         skipped_count=len(skipped_rows),
         output_file_written=output_written,
+        stop_reason=(
+            "max_output_rows_exceeded"
+            if status == "failed"
+            and config.runtime.max_output_rows is not None
+            and len(output_df) > config.runtime.max_output_rows
+            else None
+        ),
+        stop_message=(
+            f"output row count {len(output_df)} exceeded runtime.max_output_rows "
+            f"{config.runtime.max_output_rows}"
+            if status == "failed"
+            and config.runtime.max_output_rows is not None
+            and len(output_df) > config.runtime.max_output_rows
+            else None
+        ),
     )
 
 

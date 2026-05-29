@@ -132,6 +132,7 @@ main output CSV と以下のレポートを出力します。
 - `summary.json`: 件数、状態、出力先パスのサマリ
 - `report.html`: `--html-report` 指定時に書き出される自己完結型の HTML サマリ
 - report ファイルは一時ファイル経由で atomic に書き込み、最後に置き換えます。
+- `runtime.max_output_rows`: `run` / `dry-run` / `merge` / `union` で、出力行数が上限を超えたら停止するガードレールです。
 
 ## 12. YAML設定の最小例
 

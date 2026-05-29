@@ -170,6 +170,7 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - `summary.json`: run summary, counts, and resolved report paths
 - `report.html`: optional self-contained HTML summary when `--html-report` is used
 - Report files are written atomically through temporary files and then renamed into place.
+- `runtime.max_output_rows`: optional guardrail that stops `run`, `dry-run`, `merge`, or `union` when any output exceeds the configured row count.
 
 ## Phase 1 Limitations
 

@@ -180,8 +180,9 @@ class RuntimeConfig(StrictModel):
     summary_output: str | None = None
     max_input_rows: int | None = None
     max_reference_rows: int | None = None
+    max_output_rows: int | None = None
 
-    @field_validator("max_input_rows", "max_reference_rows")
+    @field_validator("max_input_rows", "max_reference_rows", "max_output_rows")
     @classmethod
     def validate_positive_limit(cls, value: int | None) -> int | None:
         if value is not None and value < 1:

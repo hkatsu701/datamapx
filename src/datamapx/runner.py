@@ -15,6 +15,7 @@ from datamapx.transform.checks import CheckResult, evaluate_checks
 from datamapx.transform.error_policy import (
     StopInfo,
     evaluate_max_errors,
+    evaluate_max_output_rows,
     evaluate_validation_stop_policy,
 )
 from datamapx.transform.filters import SkippedRow
@@ -499,6 +500,34 @@ def _execute_pipeline(
         output_results.append(output_result)
         last_output_preview_df = output_validation_result.dataframe
         last_output_name = output_name
+
+        output_limit_stop = evaluate_max_output_rows(
+            f"outputs.{output_name}",
+            config.runtime.max_output_rows,
+            len(output_validation_result.dataframe),
+        )
+        if output_limit_stop is not None:
+            finished_at = _timestamp(datetime.now())
+            return _build_failed_execution_result(
+                config=config,
+                run_id=run_id,
+                started_at=started_at,
+                finished_at=finished_at,
+                load_result=load_result,
+                output_results=output_results,
+                input_validation_result=input_validation_result,
+                input_rows_before_filter=row_preparation.input_rows_before_filter,
+                input_rows_after_filter=row_preparation.input_rows_after_filter,
+                skipped_rows=row_preparation.skipped_rows,
+                output_rows=output_results[0].rows if output_results else 0,
+                output_name=last_output_name,
+                output_preview_df=last_output_preview_df,
+                base_path=base_path,
+                stop_info=output_limit_stop,
+                check_results=[],
+                mapping_error_rows=row_preparation.mapping_error_rows + output_error_rows,
+                output_validation_result=output_validation_result,
+            )
 
         error_rows = (
             input_validation_result.error_rows
