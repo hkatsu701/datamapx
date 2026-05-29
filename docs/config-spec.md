@@ -235,6 +235,7 @@ Phase 1 CSV reader behavior:
 - Missing `required: true` columns fail.
 - Missing optional columns are created with missing values.
 - CSV columns not defined in `schema` are ignored in Phase 1.
+- When `schema` is defined, datamapx reads only the columns needed to resolve that schema. All `source_columns` candidates are included in the read set, and fields without `source_columns` read the canonical schema field name. This pruning applies only when schema exists; schema-free reference CSVs still read all columns.
 - An internal `__row_number` column is added. Data rows are numbered from 1; the header row is not counted.
 
 Normalize functions run before type conversion.
@@ -282,7 +283,8 @@ Reference CSV reader behavior:
 - `header: true` is supported.
 - `header: false` is not implemented and fails with a clear CSV read error.
 - If a reference defines `schema`, schema application follows the same source column and type conversion rules as inputs.
-- If a reference does not define `schema`, CSV column names are used as-is.
+- If a reference defines `schema`, datamapx prunes the read to the schema-required columns using the same source column resolution rules as inputs.
+- If a reference does not define `schema`, CSV column names are used as-is and the CSV is read without pruning.
 - `key` may be a string or list of strings.
 - Missing key columns fail.
 - Missing key values fail.

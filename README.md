@@ -19,6 +19,7 @@ Current release: v0.3.1.
 - Normalize and type-convert input fields from schema definitions.
 - `normalize` supports `trim`, `zenkaku_to_hankaku`, `remove_commas`, and `remove_currency_symbol`.
 - Use `date_format` on `type: date` fields when you need strict parsing of known date strings.
+- When `schema` is defined, datamapx prunes CSV reads to the columns needed for that schema and keeps every `source_columns` candidate in the read set.
 - Set `runtime.max_input_rows` and `runtime.max_reference_rows` to guard migration input and reference CSV loads before `profile-input`, `dry-run`, or `run` reads them.
 - Use parentheses in `when` and `filters` conditions to group supported boolean logic.
 - Validate a standard Excel design workbook with `validate-design`, which can optionally write `design-summary.json` and `design-errors.csv`.

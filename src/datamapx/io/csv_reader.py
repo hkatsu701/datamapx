@@ -100,10 +100,12 @@ def read_csv_frame(
     header: bool,
     base_path: Path | None = None,
     nrows: int | None = None,
+    schema: Mapping[str, SchemaFieldConfig] | None = None,
 ) -> pd.DataFrame:
     """Read a CSV into a dataframe with consistent error handling."""
 
-    return _read_raw_csv(path, encoding, delimiter, header, base_path, nrows)
+    usecols = _resolve_schema_usecols(path, encoding, delimiter, header, base_path, schema)
+    return _read_raw_csv(path, encoding, delimiter, header, base_path, nrows, usecols)
 
 
 def read_input_csv(
@@ -134,6 +136,14 @@ def read_input_csv(
         input_config.header,
         base_path,
         nrows=limit,
+        usecols=_resolve_schema_usecols(
+            input_config.path,
+            input_config.encoding,
+            input_config.delimiter,
+            input_config.header,
+            base_path,
+            input_config.fields_schema,
+        ),
     )
     return apply_schema(raw_df, input_config.fields_schema, f"inputs.{input_name}")
 
@@ -169,6 +179,14 @@ def read_reference_csv(
         reference_config.header,
         base_path,
         nrows=None,
+        usecols=_resolve_schema_usecols(
+            reference_config.path,
+            reference_config.encoding,
+            reference_config.delimiter,
+            reference_config.header,
+            base_path,
+            reference_config.fields_schema,
+        ),
     )
     if reference_config.fields_schema:
         df = apply_schema(raw_df, reference_config.fields_schema, f"references.{reference_name}")
@@ -261,6 +279,14 @@ def _profile_input_csv_chunked(
         base_path,
         nrows=limit,
         chunksize=chunk_size,
+        usecols=_resolve_schema_usecols(
+            input_config.path,
+            input_config.encoding,
+            input_config.delimiter,
+            input_config.header,
+            base_path,
+            input_config.fields_schema,
+        ),
     ):
         raw_df = raw_chunk
         normalized_chunk = apply_schema(
@@ -281,6 +307,14 @@ def _profile_input_csv_chunked(
             input_config.header,
             base_path,
             nrows=0 if limit is None else limit,
+            usecols=_resolve_schema_usecols(
+                input_config.path,
+                input_config.encoding,
+                input_config.delimiter,
+                input_config.header,
+                base_path,
+                input_config.fields_schema,
+            ),
         )
         empty_df = apply_schema(empty_raw_df, input_config.fields_schema, f"inputs.{input_name}")
         return [
@@ -336,13 +370,21 @@ def _read_raw_csv(
     header: bool,
     base_path: Path | None,
     nrows: int | None,
+    usecols: list[str] | None = None,
 ) -> pd.DataFrame:
     if not header:
         raise CsvReadError("header: false is not supported in Phase 1 CSV reader")
 
     csv_path = _resolve_path(path, base_path)
     try:
-        return pd.read_csv(csv_path, encoding=encoding, sep=delimiter, dtype=object, nrows=nrows)
+        return pd.read_csv(
+            csv_path,
+            encoding=encoding,
+            sep=delimiter,
+            dtype=object,
+            nrows=nrows,
+            usecols=usecols,
+        )
     except FileNotFoundError as exc:
         raise CsvReadError(f"{csv_path}: CSV file not found") from exc
     except UnicodeError as exc:
@@ -362,6 +404,7 @@ def _read_raw_csv_chunks(
     base_path: Path | None,
     nrows: int | None,
     chunksize: int,
+    usecols: list[str] | None = None,
 ):
     if not header:
         raise CsvReadError("header: false is not supported in Phase 1 CSV reader")
@@ -375,6 +418,7 @@ def _read_raw_csv_chunks(
             dtype=object,
             nrows=nrows,
             chunksize=chunksize,
+            usecols=usecols,
         )
         yield from reader
     except pd.errors.EmptyDataError:
@@ -410,6 +454,45 @@ def _resolve_path(path: str, base_path: Path | None) -> Path:
     if csv_path.is_absolute() or base_path is None:
         return csv_path
     return base_path / csv_path
+
+
+def _resolve_schema_usecols(
+    path: str,
+    encoding: str,
+    delimiter: str,
+    header: bool,
+    base_path: Path | None,
+    schema: Mapping[str, SchemaFieldConfig] | None,
+) -> list[str] | None:
+    if not schema or not header:
+        return None
+
+    csv_path = _resolve_path(path, base_path)
+    try:
+        with csv_path.open("r", encoding=encoding, newline="") as file:
+            reader = csv.reader(file, delimiter=delimiter)
+            header_row = next(reader, None)
+    except FileNotFoundError as exc:
+        raise CsvReadError(f"{csv_path}: CSV file not found") from exc
+    except UnicodeError as exc:
+        message = f"{csv_path}: cannot decode CSV with encoding '{encoding}': {exc}"
+        raise CsvReadError(message) from exc
+    except OSError as exc:
+        raise CsvReadError(f"{csv_path}: cannot read CSV: {exc}") from exc
+    except csv.Error as exc:
+        raise CsvReadError(f"{csv_path}: cannot parse CSV: {exc}") from exc
+
+    if header_row is None:
+        return None
+
+    available_columns = set(header_row)
+    usecols: list[str] = []
+    for field_name, field_config in schema.items():
+        candidates = field_config.source_columns or [field_name]
+        for candidate in candidates:
+            if candidate in available_columns and candidate not in usecols:
+                usecols.append(candidate)
+    return usecols or None
 
 
 def _resolve_source_column(

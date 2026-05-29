@@ -187,6 +187,7 @@ def _load_merge_input(
         input_config.delimiter,
         input_config.header,
         base_path,
+        schema=input_config.fields_schema,
     )
     if input_config.fields_schema:
         df = apply_schema(raw_df, input_config.fields_schema, f"inputs.{input_name}")

@@ -143,6 +143,29 @@ def test_union_cli_html_report_writes_file(tmp_path: Path) -> None:
     assert (reports_dir / "report.html").exists()
 
 
+def test_union_pipeline_uses_pruned_usecols(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    example_dir = _copy_tree(EXAMPLES / "09_union", tmp_path / "example")
+    config_path = example_dir / "union.yml"
+    config = load_union_config(config_path)
+    calls: list[dict[str, object]] = []
+    original_read_csv = pd.read_csv
+
+    def fake_read_csv(*args: object, **kwargs: object):
+        calls.append(dict(kwargs))
+        return original_read_csv(*args, **kwargs)
+
+    monkeypatch.setattr("datamapx.io.csv_reader.pd.read_csv", fake_read_csv)
+
+    result = run_union_pipeline(config, config_path)
+
+    assert result.status == "completed"
+    assert calls
+    assert all(call.get("usecols") is not None for call in calls)
+
+
 def test_union_cli_max_output_rows_skips_output(tmp_path: Path) -> None:
     example_dir = _copy_tree(EXAMPLES / "09_union", tmp_path / "example")
     config_path = example_dir / "union.yml"

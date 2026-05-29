@@ -44,6 +44,31 @@ def test_source_columns_alias_is_converted_to_schema_field_name() -> None:
     assert df.loc[0, "user_id"] == "A001"
 
 
+def test_schema_defined_input_uses_pruned_usecols(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = _config()
+    input_config = config.inputs["users"].model_copy(update={"path": "./input_users_alias.csv"})
+    calls: list[dict[str, object]] = []
+    original_read_csv = pd.read_csv
+
+    def fake_read_csv(*args: object, **kwargs: object):
+        calls.append(dict(kwargs))
+        return original_read_csv(*args, **kwargs)
+
+    monkeypatch.setattr("datamapx.io.csv_reader.pd.read_csv", fake_read_csv)
+
+    read_input_csv("users", input_config, FIXTURES)
+
+    assert calls[0]["usecols"] == [
+        "顧客ID",
+        "name",
+        "age",
+        "amount",
+        "active",
+        "joined",
+        "department_code",
+    ]
+
+
 def test_missing_required_column_fails() -> None:
     config = _config()
     input_config = config.inputs["users"].model_copy(
@@ -206,6 +231,23 @@ def test_zenkaku_to_hankaku_reference_normalization() -> None:
     assert df.loc[1, "display_name"] == "支援部"
 
 
+def test_schema_free_reference_reads_all_columns(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = _config()
+    calls: list[dict[str, object]] = []
+    original_read_csv = pd.read_csv
+
+    def fake_read_csv(*args: object, **kwargs: object):
+        calls.append(dict(kwargs))
+        return original_read_csv(*args, **kwargs)
+
+    monkeypatch.setattr("datamapx.io.csv_reader.pd.read_csv", fake_read_csv)
+
+    df = read_reference_csv("departments", config.references["departments"], FIXTURES)
+
+    assert calls[0].get("usecols") is None
+    assert "region" in df.columns
+
+
 def test_profile_input_chunk_size_matches_full_profile() -> None:
     config = load_config(FIXTURES / "csv_io_config.yml")
 
@@ -223,11 +265,21 @@ def test_profile_input_chunk_size_matches_full_profile() -> None:
 def test_profile_input_chunk_size_uses_chunksize(monkeypatch: pytest.MonkeyPatch) -> None:
     config = load_config(FIXTURES / "csv_io_config.yml")
     calls: list[dict[str, object]] = []
+    expected_usecols = [
+        "user_id",
+        "name",
+        "age",
+        "amount",
+        "active",
+        "joined",
+        "department_code",
+    ]
 
     def fake_read_csv(*_args: object, **kwargs: object) -> object:
         calls.append(dict(kwargs))
         assert kwargs["chunksize"] == 2
         assert kwargs["dtype"] is object
+        assert kwargs["usecols"] == expected_usecols
         return iter(
             [
                 pd.DataFrame(

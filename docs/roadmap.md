@@ -119,6 +119,7 @@ Completed:
 - `run-all` v1
 - Atomic output CSV writes
 - Atomic report writes
+- CSV column pruning
 
 Future candidates:
 
