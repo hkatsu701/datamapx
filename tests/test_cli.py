@@ -523,6 +523,57 @@ def test_run_html_report_writes_file(tmp_path: Path) -> None:
     assert (reports_dir / "report.html").exists()
 
 
+def test_run_all_runs_jobs_sequentially(tmp_path: Path) -> None:
+    config_path = _prepare_run_all_config(
+        tmp_path,
+        merge_fixture_name="merge_config.yml",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-all",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Run-all job 1/3: migration [run]" in result.output
+    assert "Run-all job 2/3: merge_stage [merge]" in result.output
+    assert "Run-all job 3/3: union_stage [union]" in result.output
+    assert "Run-all completed" in result.output
+    assert (tmp_path / "run" / "output" / "users_out.csv").exists()
+    assert (tmp_path / "merge" / "output" / "merged.csv").exists()
+    assert (tmp_path / "union" / "output" / "unioned.csv").exists()
+    assert (tmp_path / "run_reports" / "report.html").exists()
+    assert (tmp_path / "merge_reports" / "errors.csv").exists()
+    assert (tmp_path / "union_reports" / "summary.json").exists()
+
+
+def test_run_all_stops_after_first_failure(tmp_path: Path) -> None:
+    config_path = _prepare_run_all_config(
+        tmp_path,
+        merge_fixture_name="merge_config_duplicate.yml",
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-all",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Run-all job 1/3: migration [run]" in result.output
+    assert "Run-all job 2/3: merge_stage [merge]" in result.output
+    assert "Run-all job 3/3: union_stage [union]" not in result.output
+    assert (tmp_path / "run" / "output" / "users_out.csv").exists()
+    assert not (tmp_path / "merge" / "output" / "merged.csv").exists()
+    assert not (tmp_path / "union" / "output" / "unioned.csv").exists()
+    assert (tmp_path / "run_reports" / "report.html").exists()
+
+
 def test_run_rejects_input_row_limit_exceeded(tmp_path: Path) -> None:
     config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
     data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
@@ -964,6 +1015,47 @@ def _prepare_run_fixture(tmp_path: Path, fixture_name: str) -> Path:
         else:
             shutil.copy2(path, target)
     return tmp_path / fixture_name
+
+
+def _prepare_run_all_config(
+    tmp_path: Path,
+    *,
+    merge_fixture_name: str,
+) -> Path:
+    for fixture_name in ("run", "merge", "union"):
+        shutil.copytree(FIXTURES / fixture_name, tmp_path / fixture_name)
+
+    config_path = tmp_path / "run-all.yml"
+    config = {
+        "version": 1,
+        "project": {"name": "run_all_sample"},
+        "jobs": [
+            {
+                "name": "migration",
+                "type": "run",
+                "config": "./run/run_config.yml",
+                "reports_dir": "./run_reports",
+                "html_report": True,
+            },
+            {
+                "name": "merge_stage",
+                "type": "merge",
+                "config": f"./merge/{merge_fixture_name}",
+                "reports_dir": "./merge_reports",
+                "html_report": False,
+            },
+            {
+                "name": "union_stage",
+                "type": "union",
+                "config": "./union/union_config.yml",
+                "reports_dir": "./union_reports",
+                "html_report": False,
+            },
+        ],
+    }
+    rendered = yaml.safe_dump(config, sort_keys=False, allow_unicode=True)
+    config_path.write_text(rendered, encoding="utf-8")
+    return config_path
 
 
 def _prepare_design_fixture(tmp_path: Path) -> Path:

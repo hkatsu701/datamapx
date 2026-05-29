@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Annotated
 
@@ -39,6 +39,7 @@ from datamapx.report import (
     write_dry_run_reports,
     write_run_reports,
 )
+from datamapx.run_all import RunAllJobConfig, load_run_all_config, resolve_run_all_path
 from datamapx.runner import DryRunResult, RunResult, run_dry_run, run_pipeline
 from datamapx.transform.errors import MappingError
 from datamapx.union import UnionResult, load_union_config, run_union_pipeline
@@ -48,6 +49,17 @@ from datamapx.validation import ValidationError
 from datamapx.validation.errors import ValidationErrorRow
 
 app = typer.Typer(help="YAML-driven CSV migration and transformation tool.")
+
+
+@dataclass(frozen=True)
+class RunAllJobResult:
+    """Result for one run-all job."""
+
+    name: str
+    job_type: str
+    config_path: Path
+    summary: str
+    succeeded: bool
 
 GENERATE_CONFIG_INPUT_OPTION = typer.Option(..., "--input")
 GENERATE_CONFIG_OUTPUT_OPTION = typer.Option(..., "--output")
@@ -207,40 +219,11 @@ def run(
     """Run the full pipeline and write output plus reports."""
 
     try:
-        config = load_config(config_path)
-        result = run_pipeline(config, config_path.parent)
-        if result.fatal_error:
-            report_paths = write_run_reports(
-                result,
-                config,
-                config_path,
-                reports_dir=reports_dir,
-                html_report=html_report,
-            )
-        else:
-            _precheck_output_writes(result, config)
-            for output_result in result.output_results:
-                output_config = config.outputs[output_result.name]
-                write_output_csv(
-                    output_result.preview_df,
-                    output_config,
-                    config_path.parent,
-                )
-            result = replace(
-                result,
-                output_file_written=True,
-                output_results=[
-                    replace(output_result, file_written=True)
-                    for output_result in result.output_results
-                ],
-            )
-            report_paths = write_run_reports(
-                result,
-                config,
-                config_path,
-                reports_dir=reports_dir,
-                html_report=html_report,
-            )
+        result, report_paths = _execute_run_job(
+            config_path,
+            reports_dir=reports_dir,
+            html_report=html_report,
+        )
     except (
         ConfigError,
         CsvReadError,
@@ -306,18 +289,7 @@ def merge(
     """Merge multiple CSV inputs into a single staging CSV."""
 
     try:
-        config = load_merge_config(config_path)
-        result = run_merge_pipeline(config, config_path)
-        if result.error_count == 0:
-            output_path = write_output_csv(result.output_df, config.output, config_path.parent)
-            result = replace(
-                result,
-                output_file_written=True,
-                output_path=str(output_path),
-            )
-        report_paths = write_merge_reports(
-            result,
-            config,
+        result, report_paths = _execute_merge_job(
             config_path,
             reports_dir=reports_dir,
             html_report=html_report,
@@ -340,18 +312,7 @@ def union(
     """Append same-format CSV inputs into a single union CSV."""
 
     try:
-        config = load_union_config(config_path)
-        result = run_union_pipeline(config, config_path)
-        if result.error_count == 0:
-            output_path = write_output_csv(result.output_df, config.output, config_path.parent)
-            result = replace(
-                result,
-                output_file_written=True,
-                output_path=str(output_path),
-            )
-        report_paths = write_union_reports(
-            result,
-            config,
+        result, report_paths = _execute_union_job(
             config_path,
             reports_dir=reports_dir,
             html_report=html_report,
@@ -363,6 +324,195 @@ def union(
     typer.echo(format_union_result(result, report_paths))
     if result.error_count > 0:
         raise typer.Exit(1)
+
+
+@app.command("run-all")
+def run_all(config_path: Path) -> None:
+    """Run jobs defined in a run-all YAML sequentially."""
+
+    try:
+        run_all_config = load_run_all_config(config_path)
+    except (
+        ConfigError,
+        CsvReadError,
+        CsvWriteError,
+        MappingError,
+        MergeError,
+        ReportWriteError,
+        UnionError,
+        ValidationError,
+    ) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    total = len(run_all_config.jobs)
+    for index, job in enumerate(run_all_config.jobs, start=1):
+        try:
+            job_result = _execute_run_all_job(job, config_path.parent)
+        except (
+            ConfigError,
+            CsvReadError,
+            CsvWriteError,
+            MappingError,
+            MergeError,
+            ReportWriteError,
+            UnionError,
+            ValidationError,
+        ) as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1) from exc
+
+        typer.echo(
+            f"Run-all job {index}/{total}: {job_result.name} [{job_result.job_type}] "
+            f"({job_result.config_path})"
+        )
+        typer.echo(job_result.summary)
+        if not job_result.succeeded:
+            raise typer.Exit(1)
+        if index < total:
+            typer.echo("")
+
+    typer.echo("")
+    typer.echo("Run-all completed")
+
+
+def _execute_run_job(
+    config_path: Path,
+    reports_dir: Path | None = None,
+    *,
+    html_report: bool = False,
+) -> tuple[RunResult, ReportPaths]:
+    config = load_config(config_path)
+    result = run_pipeline(config, config_path.parent)
+    if result.fatal_error:
+        report_paths = write_run_reports(
+            result,
+            config,
+            config_path,
+            reports_dir=reports_dir,
+            html_report=html_report,
+        )
+        return result, report_paths
+
+    _precheck_output_writes(result, config)
+    for output_result in result.output_results:
+        output_config = config.outputs[output_result.name]
+        write_output_csv(
+            output_result.preview_df,
+            output_config,
+            config_path.parent,
+        )
+    result = replace(
+        result,
+        output_file_written=True,
+        output_results=[
+            replace(output_result, file_written=True) for output_result in result.output_results
+        ],
+    )
+    report_paths = write_run_reports(
+        result,
+        config,
+        config_path,
+        reports_dir=reports_dir,
+        html_report=html_report,
+    )
+    return result, report_paths
+
+
+def _execute_merge_job(
+    config_path: Path,
+    reports_dir: Path | None = None,
+    *,
+    html_report: bool = False,
+) -> tuple[MergeResult, ReportPaths]:
+    config = load_merge_config(config_path)
+    result = run_merge_pipeline(config, config_path)
+    if result.error_count == 0:
+        output_path = write_output_csv(result.output_df, config.output, config_path.parent)
+        result = replace(
+            result,
+            output_file_written=True,
+            output_path=str(output_path),
+        )
+    report_paths = write_merge_reports(
+        result,
+        config,
+        config_path,
+        reports_dir=reports_dir,
+        html_report=html_report,
+    )
+    return result, report_paths
+
+
+def _execute_union_job(
+    config_path: Path,
+    reports_dir: Path | None = None,
+    *,
+    html_report: bool = False,
+) -> tuple[UnionResult, ReportPaths]:
+    config = load_union_config(config_path)
+    result = run_union_pipeline(config, config_path)
+    if result.error_count == 0:
+        output_path = write_output_csv(result.output_df, config.output, config_path.parent)
+        result = replace(
+            result,
+            output_file_written=True,
+            output_path=str(output_path),
+        )
+    report_paths = write_union_reports(
+        result,
+        config,
+        config_path,
+        reports_dir=reports_dir,
+        html_report=html_report,
+    )
+    return result, report_paths
+
+
+def _execute_run_all_job(job: RunAllJobConfig, base_path: Path) -> RunAllJobResult:
+    job_config_path = resolve_run_all_path(job.config, base_path)
+    reports_dir = (
+        resolve_run_all_path(job.reports_dir, base_path) if job.reports_dir is not None else None
+    )
+    if job.type == "merge":
+        result, report_paths = _execute_merge_job(
+            job_config_path,
+            reports_dir=reports_dir,
+            html_report=job.html_report,
+        )
+        return RunAllJobResult(
+            name=job.name,
+            job_type=job.type,
+            config_path=job_config_path,
+            summary=format_merge_result(result, report_paths),
+            succeeded=result.error_count == 0,
+        )
+    if job.type == "union":
+        result, report_paths = _execute_union_job(
+            job_config_path,
+            reports_dir=reports_dir,
+            html_report=job.html_report,
+        )
+        return RunAllJobResult(
+            name=job.name,
+            job_type=job.type,
+            config_path=job_config_path,
+            summary=format_union_result(result, report_paths),
+            succeeded=result.error_count == 0,
+        )
+
+    result, report_paths = _execute_run_job(
+        job_config_path,
+        reports_dir=reports_dir,
+        html_report=job.html_report,
+    )
+    return RunAllJobResult(
+        name=job.name,
+        job_type=job.type,
+        config_path=job_config_path,
+        summary=format_run_result(result, report_paths),
+        succeeded=not result.fatal_error and not result.has_check_failures,
+    )
 
 
 @app.command("merge-wizard")

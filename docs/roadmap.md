@@ -114,6 +114,7 @@ Completed:
 - `zenkaku_to_hankaku` normalize
 - HTML report
 - Large CSV guardrails
+- `run-all` v1
 
 Future candidates:
 

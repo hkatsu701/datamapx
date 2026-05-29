@@ -301,6 +301,83 @@ On success:
 - `1`: config error, CSV read error, key validation error, output write error, or report write error
 - `2`: invalid CLI usage
 
+## datamapx run-all run-all.yml
+
+### Purpose
+
+Run multiple existing YAML jobs sequentially with fail-fast behavior.
+`run-all` is a thin orchestrator over the existing `run`, `merge`, and `union` execution paths.
+It reads a `run-all.yml` file that declares a project and a `jobs` list, then executes jobs in the order listed.
+If any job fails, the command stops immediately and exits with code `1`.
+
+### Usage
+
+```bash
+datamapx run-all run-all.yml
+```
+
+### Options
+
+No extra options are required.
+
+### Configuration
+
+`run-all.yml` uses the following top-level structure:
+
+```yaml
+version: 1
+project:
+  name: example_run_all
+jobs:
+  - name: migration_job
+    type: run
+    config: ./migration.yml
+    reports_dir: ./reports/migration
+    html_report: true
+  - name: merge_job
+    type: merge
+    config: ./merge.yml
+    reports_dir: ./reports/merge
+    html_report: false
+  - name: union_job
+    type: union
+    config: ./union.yml
+```
+
+Job fields:
+
+- `name`: unique job name used in run-all progress output.
+- `type`: one of `run`, `merge`, or `union`.
+- `config`: path to the existing YAML config for that job, resolved relative to `run-all.yml`.
+- `reports_dir`: optional report directory, also resolved relative to `run-all.yml`.
+- `html_report`: optional boolean. When `true`, the job writes `report.html` beside `errors.csv`, `skipped.csv`, and `summary.json`.
+
+### Expected output
+
+On success, each job prints its usual summary in order, followed by:
+
+```text
+Run-all completed
+```
+
+If a job fails, `run-all` prints that job's normal failure summary and stops before running later jobs.
+
+### Limitations
+
+- Sequential execution only
+- No parallel execution
+- No branching or retries
+- No job-to-job variable expansion
+- No manifest generation
+- No batch/script generation
+- No dry-run batch execution
+
+### Exit code policy
+
+- `0`: all jobs completed successfully
+- `1`: any job failed or reported a runtime/configuration error
+- `2`: invalid CLI usage
+
 ## datamapx merge-wizard
 
 ### Purpose
