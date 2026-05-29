@@ -120,6 +120,7 @@ Completed:
 - Atomic output CSV writes
 - Atomic report writes
 - CSV column pruning
+- `unpivot` v1
 - `preflight` v1
 
 Future candidates:

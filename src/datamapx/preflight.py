@@ -16,8 +16,9 @@ from datamapx.io.errors import CsvReadError, CsvWriteError
 from datamapx.merge.config import MergeConfig, load_merge_config
 from datamapx.run_all import RunAllConfig, load_run_all_config, resolve_run_all_path
 from datamapx.union.config import UnionConfig, load_union_config
+from datamapx.unpivot.config import UnpivotConfig, load_unpivot_config
 
-PreflightKind = Literal["migration", "merge", "union", "run-all"]
+PreflightKind = Literal["migration", "merge", "union", "unpivot", "run-all"]
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,10 @@ def run_preflight(config_path: str | Path) -> PreflightReport:
     if kind == "union":
         config = load_union_config(path)
         lines = _preflight_union(config, path)
+        return PreflightReport(config_type=kind, config_path=path, lines=lines)
+    if kind == "unpivot":
+        config = load_unpivot_config(path)
+        lines = _preflight_unpivot(config, path)
         return PreflightReport(config_type=kind, config_path=path, lines=lines)
 
     config = load_config(path)
@@ -161,6 +166,34 @@ def _preflight_union(config: UnionConfig, config_path: Path) -> list[str]:
             )
         )
 
+    lines.extend(
+        _preflight_output_resource(
+            target="output",
+            output_config=config.output,
+            base_path=base_path,
+        )
+    )
+    return lines
+
+
+def _preflight_unpivot(config: UnpivotConfig, config_path: Path) -> list[str]:
+    base_path = config_path.parent
+    lines = ["Checks:", "- config validation: ok"]
+
+    lines.extend(
+        _preflight_csv_resource(
+            target="input",
+            path=config.input_.path,
+            encoding=config.input_.encoding,
+            delimiter=config.input_.delimiter,
+            header=config.input_.header,
+            base_path=base_path,
+            schema=config.input_.fields_schema,
+            key_fields=None,
+            row_limit=config.runtime.max_input_rows,
+            row_limit_name="runtime.max_input_rows",
+        )
+    )
     lines.extend(
         _preflight_output_resource(
             target="output",
@@ -392,6 +425,8 @@ def _detect_config_kind(path: Path) -> PreflightKind:
         return "merge"
     if "union" in raw_config:
         return "union"
+    if {"input", "unpivot", "output"}.issubset(raw_config):
+        return "unpivot"
     if {"inputs", "outputs", "mappings"}.issubset(raw_config):
         return "migration"
 

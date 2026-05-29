@@ -44,7 +44,7 @@ On failure, print configuration errors with section and field context.
 ### Purpose
 
 Run a read-only preflight check before execution. `preflight` does not write output CSVs, reports, or logs.
-It supports migration, merge, union, and run-all configs. For migration, merge, and union configs it checks:
+It supports migration, merge, union, unpivot, and run-all configs. For migration, merge, union, and unpivot configs it checks:
 
 - config validation
 - CSV path existence
@@ -52,6 +52,7 @@ It supports migration, merge, union, and run-all configs. For migration, merge, 
 - readable CSV headers
 - schema `required` / `source_columns` resolution
 - key column resolution for merge and union inputs, and reference keys in migration configs
+- unpivot input schema/output consistency for unpivot configs
 - output path parent directory writability or creatability
 - `if_exists: error` output conflicts
 - `runtime.max_input_rows` / `runtime.max_reference_rows` guardrails when configured
@@ -64,6 +65,7 @@ For `run-all.yml`, `preflight` loads each job config in order and stops at the f
 datamapx preflight migration.yml
 datamapx preflight merge.yml
 datamapx preflight union.yml
+datamapx preflight unpivot.yml
 datamapx preflight run-all.yml
 ```
 
@@ -353,12 +355,67 @@ On success:
 - `1`: config error, CSV read error, key validation error, output write error, or report write error
 - `2`: invalid CLI usage
 
+## datamapx unpivot unpivot.yml
+
+### Purpose
+
+Expand a single normalized input CSV from wide form to long form without transformation rules.
+
+`unpivot` reads one input CSV, applies the configured schema, and emits rows in the exact order `[id_columns..., variable_column, value_column]`.
+
+### Usage
+
+```bash
+datamapx unpivot unpivot.yml
+datamapx unpivot unpivot.yml --reports-dir ./reports
+datamapx unpivot unpivot.yml --reports-dir ./reports --html-report
+```
+
+### Configuration
+
+```yaml
+input:
+  path: ./input/payments_wide.csv
+  header: true
+  schema:
+    customer_id:
+      type: string
+      required: true
+    amount_2023:
+      type: decimal
+    amount_2024:
+      type: decimal
+
+unpivot:
+  id_columns: [customer_id]
+  variable_column: year
+  value_column: amount
+  value_columns:
+    amount_2023: "2023"
+    amount_2024: "2024"
+  drop_null_values: true
+
+output:
+  columns: [customer_id, year, amount]
+```
+
+### Rules
+
+- Exactly one input CSV is supported.
+- The input schema must be defined so the normalized dataframe can be pruned and validated before unpivoting.
+- `output.columns` must match `[id_columns..., variable_column, value_column]` exactly.
+- `drop_null_values: true` drops rows whose unpivoted value is null or blank.
+- `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html` are written for the unpivot command.
+- `runtime.max_output_rows` stops the command with exit code `1` when the expanded output exceeds the configured limit.
+- `if_exists: error` prevents overwriting an existing output CSV.
+- `--reports-dir` and `--html-report` work the same way as `merge` and `union`.
+
 ## datamapx run-all run-all.yml
 
 ### Purpose
 
 Run multiple existing YAML jobs sequentially with fail-fast behavior.
-`run-all` is a thin orchestrator over the existing `run`, `merge`, and `union` execution paths.
+`run-all` is a thin orchestrator over the existing `run`, `merge`, `union`, and `unpivot` execution paths.
 It reads a `run-all.yml` file that declares a project and a `jobs` list, then executes jobs in the order listed.
 If any job fails, the command stops immediately and exits with code `1`.
 
@@ -394,12 +451,17 @@ jobs:
   - name: union_job
     type: union
     config: ./union.yml
+  - name: unpivot_job
+    type: unpivot
+    config: ./unpivot.yml
+    reports_dir: ./reports/unpivot
+    html_report: false
 ```
 
 Job fields:
 
 - `name`: unique job name used in run-all progress output.
-- `type`: one of `run`, `merge`, or `union`.
+- `type`: one of `run`, `merge`, `union`, or `unpivot`.
 - `config`: path to the existing YAML config for that job, resolved relative to `run-all.yml`.
 - `reports_dir`: optional report directory, also resolved relative to `run-all.yml`.
 - `html_report`: optional boolean. When `true`, the job writes `report.html` beside `errors.csv`, `skipped.csv`, and `summary.json`.

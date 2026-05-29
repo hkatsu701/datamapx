@@ -158,6 +158,20 @@ def test_preflight_union_key_column_missing_fails(tmp_path: Path) -> None:
     assert "inputs.file_a.key: missing key column 'id'" in result.output
 
 
+def test_preflight_unpivot_success(tmp_path: Path) -> None:
+    config_path = _copy_tree(FIXTURES / "unpivot", tmp_path / "unpivot") / "unpivot_config.yml"
+
+    result = CliRunner().invoke(app, ["preflight", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Preflight completed: unpivot" in result.output
+    assert "- input: header readable" in result.output
+    assert "- output: output directory is available" in result.output
+    assert not (config_path.parent / "output").exists()
+    assert not (config_path.parent / "reports").exists()
+    assert not (config_path.parent / "logs").exists()
+
+
 def test_preflight_run_all_success(tmp_path: Path) -> None:
     run_config = _copy_tree(FIXTURES / "run", tmp_path / "run")
     merge_config = _copy_tree(FIXTURES / "merge", tmp_path / "merge")

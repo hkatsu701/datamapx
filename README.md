@@ -13,8 +13,9 @@ Current release: v0.3.1.
 - Read one input CSV and multiple reference CSVs.
 - Merge multiple CSVs into one staging CSV before conversion.
 - Union same-format CSVs into one output CSV by appending rows in input order.
+- Unpivot one normalized wide CSV into a long CSV.
 - Run several existing YAML jobs in sequence with a `run-all.yml` file.
-- Run `preflight` to inspect migration, merge, union, and run-all configs in read-only mode.
+- Run `preflight` to inspect migration, merge, union, unpivot, and run-all configs in read-only mode.
 - Create a migration YAML scaffold interactively with `migration-wizard` using prompts for paths, output column count and names, input column read settings, and optional advanced authoring for reference column read settings, references, derived fields, mapping rules, validations, filters, checks, output settings, error handling, runtime settings, and a final natural-language review before saving.
 - Create a merge YAML scaffold interactively with `merge-wizard` using numbered selections for inputs, output columns, renames, and rules, with optional purpose-based templates, Japanese retry prompts for invalid input, a natural-language final review, and a limited back step from the final review. Input previews and numbered choices are shown in the same order, and long labels wrap for readability.
 - Normalize and type-convert input fields from schema definitions.
@@ -28,7 +29,7 @@ Current release: v0.3.1.
 - Apply filters, validations, and run-level checks before writing the final output.
 - Write `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html`.
 - Write output CSVs atomically so a failed output write does not overwrite the previous file.
-- Run `generate-config`, `merge`, `union`, `merge-wizard`, `validate-config`, `preflight`, `validate-design`, `inspect`, `profile-input`, `dry-run`, and `run`.
+- Run `generate-config`, `merge`, `union`, `unpivot`, `merge-wizard`, `validate-config`, `preflight`, `validate-design`, `inspect`, `profile-input`, `dry-run`, and `run`.
 
 ## What It Does Not Do in Phase 1
 
@@ -102,6 +103,7 @@ datamapx generate-config \
 - `migration-wizard` interactively generates a migration YAML scaffold with explicit output column count and names, input column read settings, reference column read settings, advanced support for `lookup`, `derived`, `validations`, `filters`, `checks`, output settings, error handling, runtime settings, and a final review screen with limited redo.
 - `merge` combines multiple CSV inputs into a staging CSV.
 - `union` appends same-format CSV inputs into a single CSV while enforcing required keys and duplicate-key checks.
+- `unpivot` expands one schema-normalized CSV from wide form to long form.
 - `run-all` runs multiple existing YAML jobs sequentially and stops at the first failure.
 - `preflight` checks config files in read-only mode before execution and does not write outputs, reports, or logs.
 - `merge-wizard` interactively generates a merge YAML scaffold with numbered selections, fixed steps, rename confirmation, optional purpose-based templates, retry prompts for invalid input, a natural-language final review, and a limited back step from the final review. Input previews and numbered choices use the same ordering, and long labels wrap for readability.
@@ -173,7 +175,7 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - `summary.json`: run summary, counts, and resolved report paths
 - `report.html`: optional self-contained HTML summary when `--html-report` is used
 - Report files are written atomically through temporary files and then renamed into place.
-- `runtime.max_output_rows`: optional guardrail that stops `run`, `dry-run`, `merge`, or `union` when any output exceeds the configured row count.
+- `runtime.max_output_rows`: optional guardrail that stops `run`, `dry-run`, `merge`, `union`, or `unpivot` when any output exceeds the configured row count.
 
 ## Phase 1 Limitations
 

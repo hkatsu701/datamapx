@@ -583,6 +583,27 @@ def test_run_all_runs_jobs_sequentially(tmp_path: Path) -> None:
     assert (tmp_path / "union_reports" / "summary.json").exists()
 
 
+def test_run_all_runs_unpivot_job(tmp_path: Path) -> None:
+    config_path = _prepare_run_all_with_unpivot_config(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-all",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Run-all job 1/2: migration [run]" in result.output
+    assert "Run-all job 2/2: unpivot_stage [unpivot]" in result.output
+    assert "Run-all completed" in result.output
+    assert (tmp_path / "run" / "output" / "users_out.csv").exists()
+    assert (tmp_path / "unpivot" / "output" / "payments_long.csv").exists()
+    assert (tmp_path / "run_reports" / "report.html").exists()
+    assert (tmp_path / "unpivot_reports" / "report.html").exists()
+
+
 def test_run_all_stops_after_first_failure(tmp_path: Path) -> None:
     config_path = _prepare_run_all_config(
         tmp_path,
@@ -1171,6 +1192,36 @@ def _prepare_run_all_config(
                 "config": "./union/union_config.yml",
                 "reports_dir": "./union_reports",
                 "html_report": False,
+            },
+        ],
+    }
+    rendered = yaml.safe_dump(config, sort_keys=False, allow_unicode=True)
+    config_path.write_text(rendered, encoding="utf-8")
+    return config_path
+
+
+def _prepare_run_all_with_unpivot_config(tmp_path: Path) -> Path:
+    for fixture_name in ("run", "unpivot"):
+        shutil.copytree(FIXTURES / fixture_name, tmp_path / fixture_name)
+
+    config_path = tmp_path / "run-all.yml"
+    config = {
+        "version": 1,
+        "project": {"name": "run_all_sample"},
+        "jobs": [
+            {
+                "name": "migration",
+                "type": "run",
+                "config": "./run/run_config.yml",
+                "reports_dir": "./run_reports",
+                "html_report": True,
+            },
+            {
+                "name": "unpivot_stage",
+                "type": "unpivot",
+                "config": "./unpivot/unpivot_config.yml",
+                "reports_dir": "./unpivot_reports",
+                "html_report": True,
             },
         ],
     }

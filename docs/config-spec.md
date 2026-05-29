@@ -557,6 +557,54 @@ Rules:
 - `errors.csv`, `skipped.csv`, and `summary.json` are written for the union command.
 When `--html-report` is used with `run`, `dry-run --write-reports`, `merge`, or `union`, a self-contained `report.html` is written beside the other report files.
 
+## 15.1. unpivot
+
+`unpivot` expands a single normalized input CSV from wide form to long form without transformation rules.
+
+```yaml
+input:
+  path: ./input/payments_wide.csv
+  encoding: utf-8-sig
+  delimiter: ","
+  header: true
+  schema:
+    customer_id:
+      type: string
+      required: true
+    amount_2023:
+      type: decimal
+    amount_2024:
+      type: decimal
+
+unpivot:
+  id_columns: [customer_id]
+  variable_column: year
+  value_column: amount
+  value_columns:
+    amount_2023: "2023"
+    amount_2024: "2024"
+  drop_null_values: true
+
+output:
+  path: ./output/payments_long.csv
+  columns: [customer_id, year, amount]
+```
+
+Execution status: supported.
+
+Rules:
+
+- Exactly one input CSV is supported.
+- The input schema must be defined so the normalized dataframe can be pruned and validated before unpivoting.
+- `id_columns` are preserved as-is in the output.
+- `value_columns` maps raw wide-column names to the label written into `variable_column`.
+- `output.columns` must match `[id_columns..., variable_column, value_column]` exactly.
+- `drop_null_values: true` drops rows whose unpivoted value is null or blank.
+- `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html` are written for the unpivot command.
+- `runtime.max_output_rows` stops the command with exit code `1` when the expanded output exceeds the configured limit.
+- `if_exists: error` prevents overwriting an existing output CSV.
+- `--reports-dir` and `--html-report` follow the same path-resolution rules as `merge` and `union`.
+
 ## 16. Mapping rule types
 
 ### source
@@ -890,7 +938,7 @@ Because the command still reports exact `unique_count` and `top_values`, high-ca
 
 ## 23. Preflight
 
-`preflight` is a read-only lightweight inspection command for migration, merge, union, and run-all configs.
+`preflight` is a read-only lightweight inspection command for migration, merge, union, unpivot, and run-all configs.
 It validates the loaded config first, then checks the configured CSV files without loading full dataframes.
 
 Phase 2 preflight checks:
@@ -903,6 +951,7 @@ Phase 2 preflight checks:
 - `required` schema fields must resolve to at least one raw column
 - `source_columns` candidates are all considered raw-column candidates
 - key columns in merge/union inputs and migration references must resolve
+- unpivot input schema and output column layout must resolve
 - output path parent directories must already exist or be creatable
 - `if_exists: error` must fail when the final output file already exists
 - `runtime.max_input_rows` and `runtime.max_reference_rows`, when configured, must be enforced using row counting without loading the full dataframe

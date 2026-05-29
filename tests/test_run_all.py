@@ -20,6 +20,27 @@ def test_load_run_all_config_success(tmp_path: Path) -> None:
     assert config.jobs[0].html_report is True
 
 
+def test_load_run_all_config_accepts_unpivot_job(tmp_path: Path) -> None:
+    config_path = _write_run_all_config(
+        tmp_path,
+        jobs=[
+            {
+                "name": "unpivot_stage",
+                "type": "unpivot",
+                "config": "./unpivot.yml",
+                "reports_dir": "./reports/unpivot",
+                "html_report": True,
+            }
+        ],
+    )
+
+    config = load_run_all_config(config_path)
+
+    assert [job.name for job in config.jobs] == ["unpivot_stage"]
+    assert [job.type for job in config.jobs] == ["unpivot"]
+    assert config.jobs[0].reports_dir == "./reports/unpivot"
+
+
 def test_load_run_all_config_rejects_empty_jobs(tmp_path: Path) -> None:
     config_path = _write_run_all_config(tmp_path, jobs=[])
 
