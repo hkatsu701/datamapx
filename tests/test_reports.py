@@ -6,13 +6,18 @@ from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from datamapx.config import CheckConfig, ErrorHandlingConfig, load_config
 from datamapx.report import build_html_report
+from datamapx.report.errors import ReportWriteError
+from datamapx.report.html import write_html_report
+from datamapx.report.summary import ReportPaths
 from datamapx.report.writers import (
     write_dry_run_reports,
     write_errors_csv,
     write_skipped_csv,
+    write_summary_json,
 )
 from datamapx.runner import (
     DryRunResult,
@@ -286,6 +291,76 @@ def test_html_report_is_written_and_escaped(tmp_path: Path) -> None:
     assert "Skipped preview" in html
 
 
+def test_errors_csv_failure_keeps_existing_file_and_cleans_temp(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = load_config(FIXTURES / "validation" / "validation_config_output_errors.yml")
+    result = run_dry_run(config, FIXTURES / "validation")
+    errors_csv = tmp_path / "errors.csv"
+    errors_csv.write_text("old errors\n", encoding="utf-8")
+
+    monkeypatch.setattr("pandas.DataFrame.to_csv", _raise_os_error)
+
+    with pytest.raises(ReportWriteError, match="cannot write report CSV"):
+        write_errors_csv(errors_csv, result)
+
+    assert errors_csv.read_text(encoding="utf-8") == "old errors\n"
+    assert not list(tmp_path.glob(".errors.csv.*.tmp"))
+
+
+def test_summary_json_failure_keeps_existing_file_and_cleans_temp(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = load_config(FIXTURES / "validation" / "validation_config.yml")
+    result = run_dry_run(config, FIXTURES / "validation")
+    summary_json = tmp_path / "summary.json"
+    summary_json.write_text("old summary\n", encoding="utf-8")
+    report_paths = ReportPaths(
+        errors_csv=tmp_path / "errors.csv",
+        skipped_csv=tmp_path / "skipped.csv",
+        summary_json=summary_json,
+    )
+
+    monkeypatch.setattr("datamapx.report.atomic.os.replace", _raise_os_error)
+
+    with pytest.raises(ReportWriteError, match="cannot write summary.json"):
+        write_summary_json(summary_json, result, config, FIXTURES / "validation", report_paths)
+
+    assert summary_json.read_text(encoding="utf-8") == "old summary\n"
+    assert not list(tmp_path.glob(".summary.json.*.tmp"))
+
+
+def test_html_report_failure_keeps_existing_file_and_cleans_temp(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    html_path = tmp_path / "report.html"
+    html_path.write_text("old html\n", encoding="utf-8")
+
+    monkeypatch.setattr("datamapx.report.atomic.os.replace", _raise_os_error)
+
+    with pytest.raises(ReportWriteError, match="cannot write HTML report"):
+        write_html_report(
+            html_path,
+            {
+                "project_name": "demo",
+                "status": "completed",
+                "run_id": "run-1",
+                "started_at": "2024-01-01T00:00:00Z",
+                "finished_at": "2024-01-01T00:00:01Z",
+                "config_path": "./migration.yml",
+                "counts": {},
+                "reports": {},
+                "notes": {},
+            },
+        )
+
+    assert html_path.read_text(encoding="utf-8") == "old html\n"
+    assert not list(tmp_path.glob(".report.html.*.tmp"))
+
+
 def test_html_report_limits_previews_to_20_rows() -> None:
     payload = {
         "project_name": "demo",
@@ -423,6 +498,10 @@ def _summary_from_result(tmp_path: Path, result: DryRunResult) -> dict[str, obje
     config = load_config(FIXTURES / "validation" / "validation_config.yml")
     report_paths = write_dry_run_reports(result, config, FIXTURES / "validation", tmp_path)
     return json.loads(report_paths.summary_json.read_text(encoding="utf-8"))
+
+
+def _raise_os_error(*_args, **_kwargs) -> None:
+    raise OSError("boom")
 
 
 def test_summary_json_includes_multiple_outputs(tmp_path: Path) -> None:

@@ -131,6 +131,7 @@ main output CSV と以下のレポートを出力します。
 - `skipped.csv`: filter で除外された行
 - `summary.json`: 件数、状態、出力先パスのサマリ
 - `report.html`: `--html-report` 指定時に書き出される自己完結型の HTML サマリ
+- report ファイルは一時ファイル経由で atomic に書き込み、最後に置き換えます。
 
 ## 12. YAML設定の最小例
 

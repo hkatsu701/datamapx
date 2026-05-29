@@ -14,6 +14,7 @@ from datamapx.io.errors import CsvWriteError
 from datamapx.merge.config import MergeConfig
 from datamapx.merge.errors import MergeErrorRow, MergeSkippedRow
 from datamapx.merge.runner import MergeResult
+from datamapx.report.atomic import atomic_write
 from datamapx.report.html import write_html_report
 from datamapx.report.summary import ReportPaths
 
@@ -173,7 +174,13 @@ def _build_summary_payload(
 
 def _write_summary_json(path: Path, payload: dict[str, Any]) -> None:
     try:
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        atomic_write(
+            path,
+            lambda temp_path: temp_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            ),
+        )
     except OSError as exc:
         raise CsvWriteError(f"{path}: cannot write summary.json: {exc}") from exc
 
@@ -202,12 +209,14 @@ def _skipped_row_payload(row: MergeSkippedRow, run_id: str) -> dict[str, Any]:
 
 def _write_csv(path: Path, rows: list[dict[str, Any]], columns: list[str]) -> None:
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame(rows, columns=columns).to_csv(
+        atomic_write(
             path,
-            index=False,
-            encoding="utf-8",
-            quoting=csv.QUOTE_MINIMAL,
+            lambda temp_path: pd.DataFrame(rows, columns=columns).to_csv(
+                temp_path,
+                index=False,
+                encoding="utf-8",
+                quoting=csv.QUOTE_MINIMAL,
+            ),
         )
     except OSError as exc:
         raise CsvWriteError(f"{path}: cannot write report CSV: {exc}") from exc

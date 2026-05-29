@@ -9,7 +9,9 @@ import pytest
 from typer.testing import CliRunner
 
 from datamapx.cli import app
+from datamapx.io.errors import CsvWriteError
 from datamapx.merge import load_merge_config, run_merge_pipeline, run_merge_wizard
+from datamapx.merge.reports import write_merge_reports
 
 FIXTURES = Path(__file__).parent / "fixtures" / "merge"
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
@@ -124,6 +126,26 @@ def test_merge_cli_html_report_writes_file(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "- html:" in result.output
     assert (reports_dir / "report.html").exists()
+
+
+def test_merge_reports_are_atomic_on_write_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = _copy_fixture_tree(tmp_path, "merge_config.yml")
+    config = load_merge_config(config_path)
+    result = run_merge_pipeline(config, config_path)
+    errors_csv = config_path.parent / "reports" / "errors.csv"
+    errors_csv.parent.mkdir(parents=True, exist_ok=True)
+    errors_csv.write_text("old errors\n", encoding="utf-8")
+
+    monkeypatch.setattr("datamapx.report.atomic.os.replace", _raise_os_error)
+
+    with pytest.raises(CsvWriteError, match="cannot write report CSV"):
+        write_merge_reports(result, config, config_path)
+
+    assert errors_csv.read_text(encoding="utf-8") == "old errors\n"
+    assert not list(errors_csv.parent.glob(".errors.csv.*.tmp"))
 
 
 def test_merge_summary_json_contains_counts(tmp_path: Path) -> None:
@@ -364,3 +386,7 @@ def _copy_example_tree(tmp_path: Path, name: str) -> Path:
     target_dir = tmp_path / "examples"
     shutil.copytree(EXAMPLES, target_dir)
     return target_dir / name
+
+
+def _raise_os_error(*_args, **_kwargs) -> None:
+    raise OSError("boom")

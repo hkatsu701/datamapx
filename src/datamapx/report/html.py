@@ -8,6 +8,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from datamapx.report.atomic import atomic_write
 from datamapx.report.errors import ReportWriteError
 
 HTML_PREVIEW_LIMIT = 20
@@ -23,14 +24,16 @@ def write_html_report(
     """Write a browser-readable HTML report."""
 
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            build_html_report(
-                payload,
-                error_rows=error_rows or [],
-                skipped_rows=skipped_rows or [],
+        atomic_write(
+            path,
+            lambda temp_path: temp_path.write_text(
+                build_html_report(
+                    payload,
+                    error_rows=error_rows or [],
+                    skipped_rows=skipped_rows or [],
+                ),
+                encoding="utf-8",
             ),
-            encoding="utf-8",
         )
     except OSError as exc:
         raise ReportWriteError(f"{path}: cannot write HTML report: {exc}") from exc

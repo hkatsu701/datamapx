@@ -241,6 +241,7 @@ On success:
 - a staging CSV is written to the configured `output.path`
 - `errors.csv`, `skipped.csv`, and `summary.json` are written
 - `report.html` is written when `--html-report` is set
+- report files are written atomically through temporary files and then renamed into place
 - the configured output CSV is written atomically through a temporary file and then renamed into place
 - a merge summary is printed to the console
 
@@ -286,6 +287,7 @@ On success:
 - the output CSV is written to the configured `output.path`
 - `errors.csv`, `skipped.csv`, and `summary.json` are written
 - `report.html` is written when `--html-report` is set
+- report files are written atomically through temporary files and then renamed into place
 - the configured output CSV is written atomically through a temporary file and then renamed into place
 - a union summary is printed to the console
 
@@ -550,6 +552,7 @@ Output files are not written during `dry-run`.
 When `--write-reports` is set, dry-run writes the internal error rows, skipped rows, and summary data to report files. In that mode, the CLI prints a `Reports written:` block with the resolved paths.
 When `--html-report` is also set, dry-run writes a browser-readable `report.html` beside the other reports and includes it in the same `Reports written:` block.
 If `--html-report` is used without `--write-reports`, the command fails as CLI usage with exit code `2`.
+Report files are written atomically through temporary files and then renamed into place when they are produced.
 
 The summary file includes row-category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors, plus `notes.final_outcome` for the overall result label.
 
@@ -608,6 +611,7 @@ Print run summary:
 `run` always writes the main output CSV and the report files when execution completes successfully. Validation error rows do not make the command fail if the configured policy is `output_error`.
 The main output CSV is written atomically through a temporary file and then renamed into place. If the write fails, the previous final file is left unchanged and the temporary file is cleaned up when possible.
 When `--html-report` is enabled, `run` also writes `report.html` beside the other reports and prints its path in the `Reports:` block.
+Report files are written atomically through temporary files and then renamed into place when they are produced.
 
 The summary file includes row-category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors, plus `notes.final_outcome` for the overall result label.
 

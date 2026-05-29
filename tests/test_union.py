@@ -10,8 +10,9 @@ from typer.testing import CliRunner
 
 from datamapx.cli import app
 from datamapx.exceptions import ConfigError
-from datamapx.io.errors import CsvReadError
+from datamapx.io.errors import CsvReadError, CsvWriteError
 from datamapx.union import load_union_config, run_union_pipeline
+from datamapx.union.reports import write_union_reports
 
 FIXTURES = Path(__file__).parent / "fixtures" / "union"
 EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
@@ -141,6 +142,27 @@ def test_union_cli_html_report_writes_file(tmp_path: Path) -> None:
     assert (reports_dir / "report.html").exists()
 
 
+def test_union_reports_are_atomic_on_write_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    example_dir = _copy_tree(EXAMPLES / "09_union", tmp_path / "example")
+    config_path = example_dir / "union.yml"
+    config = load_union_config(config_path)
+    result = run_union_pipeline(config, config_path)
+    errors_csv = config_path.parent / "reports" / "errors.csv"
+    errors_csv.parent.mkdir(parents=True, exist_ok=True)
+    errors_csv.write_text("old errors\n", encoding="utf-8")
+
+    monkeypatch.setattr("datamapx.report.atomic.os.replace", _raise_os_error)
+
+    with pytest.raises(CsvWriteError, match="cannot write report CSV"):
+        write_union_reports(result, config, config_path)
+
+    assert errors_csv.read_text(encoding="utf-8") == "old errors\n"
+    assert not list(errors_csv.parent.glob(".errors.csv.*.tmp"))
+
+
 def test_union_cli_duplicate_key_fails(tmp_path: Path) -> None:
     config_path = _copy_tree(FIXTURES, tmp_path / "fixture") / "union_config_duplicate_within.yml"
 
@@ -169,3 +191,7 @@ def test_union_cli_if_exists_error_does_not_overwrite(tmp_path: Path) -> None:
 def _copy_tree(source: Path, destination: Path) -> Path:
     shutil.copytree(source, destination)
     return destination
+
+
+def _raise_os_error(*_args, **_kwargs) -> None:
+    raise OSError("boom")

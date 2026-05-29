@@ -169,6 +169,7 @@ Each example contains a runnable `migration.yml`, input files, and expected arti
 - `skipped.csv`: rows excluded by filters
 - `summary.json`: run summary, counts, and resolved report paths
 - `report.html`: optional self-contained HTML summary when `--html-report` is used
+- Report files are written atomically through temporary files and then renamed into place.
 
 ## Phase 1 Limitations
 

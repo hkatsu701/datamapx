@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 
 from datamapx.config import DatamapxConfig
+from datamapx.report.atomic import atomic_write
 from datamapx.report.errors import ReportWriteError
 from datamapx.report.html import write_html_report
 from datamapx.report.summary import (
@@ -80,8 +81,13 @@ def write_summary_json(
 
     payload = build_summary_payload(result, config, config_path, report_paths)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        atomic_write(
+            path,
+            lambda temp_path: temp_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            ),
+        )
     except OSError as exc:
         raise ReportWriteError(f"{path}: cannot write summary.json: {exc}") from exc
     return path
@@ -175,12 +181,14 @@ def write_run_reports(
 
 def _write_csv(path: Path, rows: list[dict[str, Any]], columns: list[str]) -> None:
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame(rows, columns=columns).to_csv(
+        atomic_write(
             path,
-            index=False,
-            encoding="utf-8",
-            quoting=csv.QUOTE_MINIMAL,
+            lambda temp_path: pd.DataFrame(rows, columns=columns).to_csv(
+                temp_path,
+                index=False,
+                encoding="utf-8",
+                quoting=csv.QUOTE_MINIMAL,
+            ),
         )
     except OSError as exc:
         raise ReportWriteError(f"{path}: cannot write report CSV: {exc}") from exc
