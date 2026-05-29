@@ -25,6 +25,7 @@ Current release: v0.3.1.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
 - Apply filters, validations, and run-level checks before writing the final output.
 - Write `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html`.
+- Write output CSVs atomically so a failed output write does not overwrite the previous file.
 - Run `generate-config`, `merge`, `union`, `merge-wizard`, `validate-config`, `validate-design`, `inspect`, `profile-input`, `dry-run`, and `run`.
 
 ## What It Does Not Do in Phase 1

@@ -116,6 +116,7 @@ Completed:
 - HTML report
 - Large CSV guardrails
 - `run-all` v1
+- Atomic output CSV writes
 
 Future candidates:
 

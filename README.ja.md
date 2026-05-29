@@ -21,6 +21,7 @@ Current release: v0.3.1.
 - `when` と `filters` の条件式では、括弧で論理条件をグルーピングできます。
 - `validate-design` で標準の Excel 設計書を検証でき、必要なら `design-summary.json` と `design-errors.csv` を出力できます。
 - 変換、lookup、条件分岐、計算、検証、run-level check、レポート出力までを CLI で実行できます。
+- 出力CSVは一時ファイル経由で atomically に書き込まれるため、書き込み失敗で既存ファイルが壊れません。
 
 ## 2. 主な機能
 

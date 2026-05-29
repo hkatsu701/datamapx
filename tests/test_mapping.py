@@ -682,3 +682,30 @@ def test_output_csv_writer_if_exists_error(tmp_path: Path) -> None:
             output_config.model_copy(update={"if_exists": "error"}),
             tmp_path,
         )
+
+
+def test_output_csv_writer_cleans_temporary_file_on_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = load_config(FIXTURES / "mapping_config.yml")
+    _, output_config = next(iter(config.outputs.items()))
+    output_path = tmp_path / output_config.path
+    output_path.parent.mkdir(parents=True)
+    output_path.write_text("existing", encoding="utf-8")
+
+    def fail_to_csv(self: pd.DataFrame, path: object, *args: object, **kwargs: object) -> None:
+        raise OSError("simulated write failure")
+
+    monkeypatch.setattr(pd.DataFrame, "to_csv", fail_to_csv)
+
+    with pytest.raises(CsvWriteError, match="cannot write output CSV"):
+        write_output_csv(
+            _output_df(),
+            output_config.model_copy(update={"if_exists": "overwrite"}),
+            tmp_path,
+    )
+
+    assert output_path.read_text(encoding="utf-8") == "existing"
+    temp_prefix = f".{output_path.name}."
+    assert not any(child.name.startswith(temp_prefix) for child in output_path.parent.iterdir())

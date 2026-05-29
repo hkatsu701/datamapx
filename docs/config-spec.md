@@ -380,7 +380,7 @@ outputs:
 - `error`
 - `overwrite`
 
-During `run`, `if_exists` controls each configured output CSV. `error` stops when an output file already exists, and `overwrite` replaces it. Report files are handled separately from output CSVs.
+During `run`, `if_exists` controls each configured output CSV. `error` stops when an output file already exists, and `overwrite` replaces it. Output CSVs are written atomically through a temporary file and then renamed into place so a failed write does not corrupt the previous final file. Report files are handled separately from output CSVs.
 
 ## 10. mappings
 

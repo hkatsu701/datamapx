@@ -241,6 +241,7 @@ On success:
 - a staging CSV is written to the configured `output.path`
 - `errors.csv`, `skipped.csv`, and `summary.json` are written
 - `report.html` is written when `--html-report` is set
+- the configured output CSV is written atomically through a temporary file and then renamed into place
 - a merge summary is printed to the console
 
 ### Limitations
@@ -285,6 +286,7 @@ On success:
 - the output CSV is written to the configured `output.path`
 - `errors.csv`, `skipped.csv`, and `summary.json` are written
 - `report.html` is written when `--html-report` is set
+- the configured output CSV is written atomically through a temporary file and then renamed into place
 - a union summary is printed to the console
 
 ### Limitations
@@ -604,6 +606,7 @@ Print run summary:
 - error details
 
 `run` always writes the main output CSV and the report files when execution completes successfully. Validation error rows do not make the command fail if the configured policy is `output_error`.
+The main output CSV is written atomically through a temporary file and then renamed into place. If the write fails, the previous final file is left unchanged and the temporary file is cleaned up when possible.
 When `--html-report` is enabled, `run` also writes `report.html` beside the other reports and prints its path in the `Reports:` block.
 
 The summary file includes row-category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors, plus `notes.final_outcome` for the overall result label.

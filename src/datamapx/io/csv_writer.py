@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -33,15 +35,33 @@ def write_output_csv(
         raise CsvWriteError("outputs.header: false is not supported in Phase 1 CSV writer")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path: Path | None = None
     try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding=output_config.encoding,
+            newline="",
+            dir=output_path.parent,
+            prefix=f".{output_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
         output_df.to_csv(
-            output_path,
+            temp_path,
             encoding=output_config.encoding,
             sep=output_config.delimiter,
             header=output_config.header,
             index=False,
             lineterminator=output_config.newline,
         )
+        os.replace(temp_path, output_path)
     except OSError as exc:
         raise CsvWriteError(f"{output_path}: cannot write output CSV: {exc}") from exc
+    finally:
+        if temp_path is not None and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
     return output_path
