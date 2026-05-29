@@ -33,6 +33,7 @@ from datamapx.merge import (
 from datamapx.merge.errors import MergeError
 from datamapx.merge.reports import write_merge_reports
 from datamapx.migration_wizard import MigrationWizardResult, run_migration_wizard
+from datamapx.preflight import format_preflight_report, run_preflight
 from datamapx.report import (
     ReportPaths,
     ReportWriteError,
@@ -126,6 +127,19 @@ def validate_config(config_path: Path) -> None:
         raise typer.Exit(1) from exc
 
     typer.echo(f"Config is valid: {config_path}")
+
+
+@app.command("preflight")
+def preflight(config_path: Path) -> None:
+    """Run a read-only preflight check on a datamapx configuration file."""
+
+    try:
+        report = run_preflight(config_path)
+    except (ConfigError, CsvReadError, CsvWriteError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(format_preflight_report(report))
 
 
 @app.command("validate-design")

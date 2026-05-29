@@ -888,6 +888,28 @@ Each column entry includes:
 Chunked profiling keeps the same `InputProfile` / `ColumnProfile` structure as the whole-file path.
 Because the command still reports exact `unique_count` and `top_values`, high-cardinality columns may use additional in-memory aggregation state while chunks are processed.
 
+## 23. Preflight
+
+`preflight` is a read-only lightweight inspection command for migration, merge, union, and run-all configs.
+It validates the loaded config first, then checks the configured CSV files without loading full dataframes.
+
+Phase 2 preflight checks:
+
+- config validation through the existing loaders
+- CSV file existence
+- `header: true`
+- readable CSV header rows
+- `schema` field resolution against raw header columns
+- `required` schema fields must resolve to at least one raw column
+- `source_columns` candidates are all considered raw-column candidates
+- key columns in merge/union inputs and migration references must resolve
+- output path parent directories must already exist or be creatable
+- `if_exists: error` must fail when the final output file already exists
+- `runtime.max_input_rows` and `runtime.max_reference_rows`, when configured, must be enforced using row counting without loading the full dataframe
+
+For `run-all.yml`, the command resolves each job in order and stops at the first failing job.
+Preflight does not create output CSVs, reports, or logs.
+
 ## Open Questions
 
 - Column naming rules when `header: false`.

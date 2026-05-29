@@ -39,6 +39,50 @@ On failure, print configuration errors with section and field context.
 - `1`: invalid YAML, invalid config, unsupported setting, or unresolved reference
 - `2`: invalid CLI usage
 
+## datamapx preflight config.yml
+
+### Purpose
+
+Run a read-only preflight check before execution. `preflight` does not write output CSVs, reports, or logs.
+It supports migration, merge, union, and run-all configs. For migration, merge, and union configs it checks:
+
+- config validation
+- CSV path existence
+- `header: true`
+- readable CSV headers
+- schema `required` / `source_columns` resolution
+- key column resolution for merge and union inputs, and reference keys in migration configs
+- output path parent directory writability or creatability
+- `if_exists: error` output conflicts
+- `runtime.max_input_rows` / `runtime.max_reference_rows` guardrails when configured
+
+For `run-all.yml`, `preflight` loads each job config in order and stops at the first failing job.
+
+### Usage
+
+```bash
+datamapx preflight migration.yml
+datamapx preflight merge.yml
+datamapx preflight union.yml
+datamapx preflight run-all.yml
+```
+
+### Options
+
+No extra options are required.
+
+### Expected output
+
+On success, `preflight` prints the config type, config path, and a readable list of checks that passed.
+
+On failure, it prints the first preflight error with its target context and exits with code `1`.
+
+### Exit code policy
+
+- `0`: preflight succeeded
+- `1`: configuration error, CSV path/header error, key/source column resolution error, output conflict, or row guardrail failure
+- `2`: invalid CLI usage
+
 ## datamapx validate-design design.xlsx
 
 ### Purpose
