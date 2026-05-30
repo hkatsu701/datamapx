@@ -113,6 +113,7 @@ Completed:
 - Chunked `profile-input`
 - Date format conversion
 - `zenkaku_to_hankaku` normalize
+- `generate_id` mapping
 - HTML report
 - Large CSV guardrails
 - `max_output_rows` guardrail

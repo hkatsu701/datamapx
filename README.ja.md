@@ -24,12 +24,12 @@ Current release: v0.3.1.
 - `schema` がある CSV は必要な列だけを読み込み、`source_columns` に候補がある場合はその候補をすべて読み込み対象に含めます。`schema` がない reference CSV は従来どおり全列を読み込みます。
 - `when` と `filters` の条件式では、括弧で論理条件をグルーピングできます。
 - `validate-design` で標準の Excel 設計書を検証でき、必要なら `design-summary.json` と `design-errors.csv` を出力できます。
-- 変換、lookup、条件分岐、計算、検証、run-level check、レポート出力までを CLI で実行できます。
+- 変換、lookup、generate_id、条件分岐、計算、検証、run-level check、レポート出力までを CLI で実行できます。
 - 出力CSVは一時ファイル経由で atomically に書き込まれるため、書き込み失敗で既存ファイルが壊れません。
 
 ## 2. 主な機能
 
-- `source` / `value` / `concat` / `map` / `lookup` / `when` / `expression` / `derived`
+- `source` / `value` / `concat` / `map` / `lookup` / `generate_id` / `when` / `expression` / `derived`
 - `merge` による複数CSVの staging 化
 - `union` による同一フォーマットCSVの縦結合
 - `unpivot` による wide CSV から long CSV への展開

@@ -26,7 +26,7 @@ Current release: v0.3.1.
 - Set `runtime.max_input_rows` and `runtime.max_reference_rows` to guard migration input and reference CSV loads before `profile-input`, `dry-run`, or `run` reads them.
 - Use parentheses in `when` and `filters` conditions to group supported boolean logic.
 - Validate a standard Excel design workbook with `validate-design`, which can optionally write `design-summary.json` and `design-errors.csv`.
-- Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `when`, `expression`, and `derived`.
+- Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `generate_id`, `when`, `expression`, and `derived`.
 - Apply filters, validations, and run-level checks before writing the final output.
 - Write `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html`.
 - Write output CSVs atomically so a failed output write does not overwrite the previous file.

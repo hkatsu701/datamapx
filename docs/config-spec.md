@@ -334,7 +334,7 @@ derived:
         - users.first_name
 ```
 
-Derived fields may use the same mapping rule types as output mappings.
+Derived fields may use the same mapping rule types as output mappings, including `generate_id`.
 
 Execution status: supported.
 
@@ -343,7 +343,7 @@ Phase 1 derived fields:
 - are computed before output mappings
 - produce one Series with the same row count as the input
 - are referenced as `derived.<field_name>`
-- may use `source`, `value`, `concat`, `map`, `lookup`, `when`, and `expression`
+- may use `source`, `value`, `concat`, `map`, `lookup`, `generate_id`, `when`, and `expression`
 - may reference other derived fields
 - are dependency-sorted before execution
 - fail with a mapping error when a circular dependency is detected
@@ -397,7 +397,7 @@ mappings:
 
 Every output column must have a mapping. A mapping for an unknown output column is a configuration error.
 
-Field references in mappings are validated by `validate-config`.
+Field references in mappings are validated by `validate-config`. `generate_id.fields` references are validated using the same rules as other mapping field references.
 
 Phase 1 supports only these field reference forms:
 
@@ -747,6 +747,36 @@ Phase 1 `then` and `default` values support literal strings, numbers, booleans, 
 `then` and `default` also support field references such as `then: users.status` and
 `default: derived.active_state`.
 
+### generate_id
+
+Generates a deterministic string ID from one or more input or derived field values.
+
+```yaml
+id:
+  generate_id:
+    prefix: ACC-
+    fields:
+      - users.customer_code
+      - users.branch_code
+    separator: "::"
+    length: 20
+```
+
+Execution status: supported.
+
+Rules:
+
+- `fields` must contain at least one field reference.
+- Each entry in `fields` must reference either `<input_name>.<field_name>` or `derived.<field_name>`.
+- `prefix` defaults to an empty string.
+- `separator` defaults to `|`.
+- `length` defaults to `16` and must be between `8` and `64`.
+- The generated value is `prefix + sha256(canonical_joined_values).hexdigest()[:length]`.
+- Missing, null, or blank source values fail with a mapping error.
+- `generate_id` is deterministic and does not guarantee uniqueness.
+
+`generate_id` is useful when the same source values must always map to the same stable ID across repeated runs.
+
 ### lookup
 
 Looks up a value from a reference CSV.
@@ -882,7 +912,7 @@ Python `eval` must not be used directly.
 
 Phase 1 uses a dedicated safe arithmetic evaluator with a strict allowlist.
 
-The current Phase 1 configuration validation step does not execute expressions. It validates field references in `expression`, `when.if`, `when.then`, `when.default`, `filters.include[].if`, and `filters.exclude[].if`. It validates `checks[].rule` against the reserved summary variables listed above.
+The current Phase 1 configuration validation step does not execute expressions. It validates field references in `expression`, `when.if`, `when.then`, `when.default`, `filters.include[].if`, `filters.exclude[].if`, and `generate_id.fields`. It validates `checks[].rule` against the reserved summary variables listed above.
 
 `when` mapping execution uses a limited parser instead of Python `eval`.
 Supported condition forms are direct comparisons, `in`, `not in`, logical `and` / `or`, `is null`, `is not null`, bare boolean field references against `users.*` or `derived.*`, and parenthesized grouping of those supported forms.

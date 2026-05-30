@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pandas as pd
@@ -545,6 +546,54 @@ def test_derived_expression_rule_works() -> None:
     assert output_df["amount"].tolist() == [200.0, 50.0]
 
 
+def test_generate_id_mapping_rule_works() -> None:
+    output_df = _output_df("mapping_config_generate_id.yml")
+
+    expected_first = _generate_id("UID-", ["u001", "D001"], "::", 20)
+    expected_second = _generate_id("UID-", ["u002", "D002"], "::", 20)
+
+    assert output_df["id"].tolist() == [expected_first, expected_second]
+
+
+def test_generate_id_mapping_is_deterministic() -> None:
+    output_df_first = _output_df("mapping_config_generate_id.yml")
+    output_df_second = _output_df("mapping_config_generate_id.yml")
+
+    assert output_df_first["id"].tolist() == output_df_second["id"].tolist()
+
+
+def test_generate_id_derived_rule_can_be_referenced_by_multiple_outputs() -> None:
+    config = load_config(FIXTURES / "mapping_config_generate_id_derived.yml")
+    input_name, input_config = next(iter(config.inputs.items()))
+    input_df = read_input_csv(input_name, input_config, FIXTURES)
+    reference_dfs = {
+        reference_name: read_reference_csv(reference_name, reference_config, FIXTURES)
+        for reference_name, reference_config in config.references.items()
+    }
+
+    expected_first = _generate_id("DID-", ["u001", "D001"], "-", 24)
+    expected_second = _generate_id("DID-", ["u002", "D002"], "-", 24)
+
+    first_output = build_output_dataframe(config, input_df, reference_dfs, output_name="users_out")
+    second_output = build_output_dataframe(
+        config,
+        input_df,
+        reference_dfs,
+        output_name="users_out_copy",
+    )
+
+    assert first_output["id"].tolist() == [expected_first, expected_second]
+    assert second_output["id"].tolist() == [expected_first, expected_second]
+
+
+def test_generate_id_prefix_separator_and_length_are_reflected() -> None:
+    output_df = _output_df("mapping_config_generate_id.yml")
+
+    assert all(value.startswith("UID-") for value in output_df["id"])
+    assert all(len(value) == 24 for value in output_df["id"])
+    assert output_df.loc[0, "id"][4:] == hashlib.sha256(b"u001::D001").hexdigest()[:20]
+
+
 def test_when_condition_can_reference_derived() -> None:
     output_df = _output_df("mapping_config_derived.yml")
 
@@ -647,6 +696,40 @@ def test_lookup_composite_key_length_mismatch_fails() -> None:
         _output_df("mapping_config_lookup_composite_length_mismatch.yml")
 
 
+def test_generate_id_missing_field_fails() -> None:
+    input_df = pd.DataFrame({"user_id": ["u001"], "department_code": [pd.NA]})
+    rule = MappingRule.model_validate(
+        {
+            "generate_id": {
+                "fields": ["users.user_id", "users.department_code"],
+                "prefix": "UID-",
+                "separator": "::",
+                "length": 20,
+            }
+        }
+    )
+
+    with pytest.raises(MappingError, match="generate_id field is missing"):
+        apply_mapping_rule(rule, input_df, "users", "id", {}, {}, {})
+
+
+def test_generate_id_blank_field_fails() -> None:
+    input_df = pd.DataFrame({"user_id": ["u001"], "department_code": ["   "]})
+    rule = MappingRule.model_validate(
+        {
+            "generate_id": {
+                "fields": ["users.user_id", "users.department_code"],
+                "prefix": "UID-",
+                "separator": "::",
+                "length": 20,
+            }
+        }
+    )
+
+    with pytest.raises(MappingError, match="generate_id field is blank"):
+        apply_mapping_rule(rule, input_df, "users", "id", {}, {}, {})
+
+
 def test_unknown_source_field_fails() -> None:
     config = load_config(FIXTURES / "mapping_config_unknown_source.yml")
     input_name, input_config = next(iter(config.inputs.items()))
@@ -709,3 +792,8 @@ def test_output_csv_writer_cleans_temporary_file_on_failure(
     assert output_path.read_text(encoding="utf-8") == "existing"
     temp_prefix = f".{output_path.name}."
     assert not any(child.name.startswith(temp_prefix) for child in output_path.parent.iterdir())
+
+
+def _generate_id(prefix: str, values: list[str], separator: str, length: int) -> str:
+    digest = hashlib.sha256(separator.join(values).encode("utf-8")).hexdigest()[:length]
+    return f"{prefix}{digest}"

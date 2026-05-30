@@ -98,6 +98,21 @@ class LookupRule(StrictModel):
     default: Any = None
 
 
+class GenerateIdRule(StrictModel):
+    fields: list[str]
+    prefix: str = ""
+    separator: str = "|"
+    length: int = 16
+
+    @model_validator(mode="after")
+    def validate_generate_id_requirements(self) -> GenerateIdRule:
+        if not self.fields:
+            raise ValueError("generate_id requires at least one field")
+        if self.length < 8 or self.length > 64:
+            raise ValueError("length must be between 8 and 64")
+        return self
+
+
 class MappingRule(StrictModel):
     source: str | None = None
     value: Any = None
@@ -105,17 +120,27 @@ class MappingRule(StrictModel):
     map: MapRule | None = None
     when: list[WhenRule] | None = None
     lookup: LookupRule | None = None
+    generate_id: GenerateIdRule | None = None
     expression: str | None = None
     default: Any = None
 
     @model_validator(mode="after")
     def validate_one_rule_type(self) -> MappingRule:
-        rule_keys = {"source", "value", "concat", "map", "when", "lookup", "expression"}
+        rule_keys = {
+            "source",
+            "value",
+            "concat",
+            "map",
+            "when",
+            "lookup",
+            "generate_id",
+            "expression",
+        }
         present = [key for key in rule_keys if key in self.model_fields_set]
         if len(present) != 1:
             raise ValueError(
                 "mapping rule must define exactly one of: "
-                "source, value, concat, map, when, lookup, expression"
+                "source, value, concat, map, when, lookup, generate_id, expression"
             )
         return self
 
@@ -349,6 +374,16 @@ class DatamapxConfig(StrictModel):
                 self._validate_field_reference(
                     lookup_key,
                     f"{context}.lookup.key[{index}]",
+                    input_name,
+                    input_fields,
+                    derived_fields,
+                    errors,
+                )
+        if rule.generate_id is not None:
+            for index, field_ref in enumerate(rule.generate_id.fields):
+                self._validate_field_reference(
+                    field_ref,
+                    f"{context}.generate_id.fields[{index}]",
                     input_name,
                     input_fields,
                     derived_fields,

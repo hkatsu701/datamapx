@@ -38,6 +38,30 @@ def test_load_valid_config() -> None:
     assert list(config.outputs) == ["users_out"]
 
 
+def test_generate_id_mapping_loads() -> None:
+    config = load_config(FIXTURES / "mapping" / "mapping_config_generate_id.yml")
+
+    rule = config.mappings["users_out"]["id"].generate_id
+
+    assert rule is not None
+    assert rule.fields == ["users.user_id", "users.department_code"]
+    assert rule.prefix == "UID-"
+    assert rule.separator == "::"
+    assert rule.length == 20
+
+
+def test_generate_id_derived_loads() -> None:
+    config = load_config(FIXTURES / "mapping" / "mapping_config_generate_id_derived.yml")
+
+    rule = config.derived["stable_id"].generate_id
+
+    assert rule is not None
+    assert rule.fields == ["users.user_id", "users.department_code"]
+    assert rule.prefix == "DID-"
+    assert rule.separator == "-"
+    assert rule.length == 24
+
+
 def test_version_other_than_1_fails() -> None:
     data = _valid_data()
     data["version"] = 2
@@ -127,6 +151,41 @@ def test_runtime_row_limits_must_be_positive(field: str) -> None:
     }
 
     _assert_invalid(data, "must be a positive integer")
+
+
+def test_generate_id_fields_must_not_be_empty() -> None:
+    data = _valid_data()
+    data["mappings"]["users_out"]["id"] = {
+        "generate_id": {
+            "fields": [],
+        }
+    }
+
+    _assert_invalid(data, "generate_id requires at least one field")
+
+
+@pytest.mark.parametrize("length", [7, 65])
+def test_generate_id_length_must_be_within_range(length: int) -> None:
+    data = _valid_data()
+    data["mappings"]["users_out"]["id"] = {
+        "generate_id": {
+            "fields": ["users.user_id"],
+            "length": length,
+        }
+    }
+
+    _assert_invalid(data, "length must be between 8 and 64")
+
+
+def test_generate_id_unknown_field_reference_fails() -> None:
+    data = _valid_data()
+    data["mappings"]["users_out"]["id"] = {
+        "generate_id": {
+            "fields": ["users.unknown_code"],
+        }
+    }
+
+    _assert_invalid(data, "unknown input field 'users.unknown_code'")
 
 
 def test_zenkaku_to_hankaku_normalize_loads() -> None:

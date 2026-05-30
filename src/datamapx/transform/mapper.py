@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any
 
 import pandas as pd
 
-from datamapx.config import DatamapxConfig, LookupRule, MappingRule, ReferenceConfig
+from datamapx.config import (
+    DatamapxConfig,
+    GenerateIdRule,
+    LookupRule,
+    MappingRule,
+    ReferenceConfig,
+)
 from datamapx.transform.conditions import evaluate_condition
 from datamapx.transform.errors import MappingError
 from datamapx.transform.expressions import (
@@ -141,6 +148,14 @@ def apply_mapping_rule(
             input_name,
             derived_values,
         )
+    if rule.generate_id is not None:
+        return _generate_id_series(
+            rule.generate_id,
+            input_df,
+            input_name,
+            output_column,
+            derived_values,
+        )
     if rule.when is not None:
         return _when_series(rule, input_df, input_name, output_column, derived_values)
     if rule.expression is not None:
@@ -217,6 +232,42 @@ def _map_series(
     if default is not None:
         mapped = mapped.where(~unmatched, default)
     return mapped
+
+
+def _generate_id_series(
+    generate_id: GenerateIdRule,
+    input_df: pd.DataFrame,
+    input_name: str,
+    output_column: str,
+    derived_values: dict[str, pd.Series],
+) -> pd.Series:
+    field_series: list[tuple[str, pd.Series]] = []
+    for field_ref in generate_id.fields:
+        series = _reference_series(field_ref, input_df, input_name, output_column, derived_values)
+        if series is None:
+            raise MappingError(f"{output_column}: generate_id field is not defined: {field_ref}")
+        field_series.append((field_ref, series))
+
+    output_values: list[str] = []
+    for row_index in input_df.index:
+        parts = [
+            _generate_id_part(series.loc[row_index], field_ref, output_column)
+            for field_ref, series in field_series
+        ]
+        canonical = generate_id.separator.join(parts)
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[: generate_id.length]
+        output_values.append(f"{generate_id.prefix}{digest}")
+    return pd.Series(output_values, index=input_df.index, dtype="object")
+
+
+def _generate_id_part(value: Any, field_ref: str, output_column: str) -> str:
+    if pd.isna(value):
+        raise MappingError(f"{output_column}: generate_id field is missing: {field_ref}")
+    if isinstance(value, str) and value.strip() == "":
+        raise MappingError(f"{output_column}: generate_id field is blank: {field_ref}")
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    return str(value)
 
 
 def _lookup_series(
@@ -454,6 +505,9 @@ def _derived_dependencies(rule: MappingRule) -> set[str]:
         lookup_keys = [rule.lookup.key] if isinstance(rule.lookup.key, str) else rule.lookup.key
         for lookup_key in lookup_keys:
             _add_derived_reference(lookup_key, dependencies)
+    if rule.generate_id is not None:
+        for field_ref in rule.generate_id.fields:
+            _add_derived_reference(field_ref, dependencies)
     if rule.when is not None:
         for when_rule in rule.when:
             dependencies.update(_derived_references_in_text(when_rule.if_))

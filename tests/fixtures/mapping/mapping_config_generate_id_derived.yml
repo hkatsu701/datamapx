@@ -1,0 +1,162 @@
+version: 1
+project:
+  name: generate_id_derived_mapping
+inputs:
+  users:
+    path: ./input_users_derived.csv
+    schema:
+      user_id:
+        type: string
+      last_name:
+        type: string
+      first_name:
+        type: string
+      price:
+        type: decimal
+      quantity:
+        type: integer
+      status_code:
+        type: string
+      department_code:
+        type: string
+      active:
+        type: boolean
+references:
+  departments:
+    path: ./ref_departments_derived.csv
+    key: department_code
+derived:
+  copied_id:
+    source: users.user_id
+  stable_id:
+    generate_id:
+      prefix: DID-
+      fields:
+        - users.user_id
+        - users.department_code
+      separator: "-"
+      length: 24
+  source_system:
+    value: CRM
+  full_name:
+    concat:
+      values:
+        - users.last_name
+        - " "
+        - users.first_name
+  mapped_status:
+    map:
+      source: users.status_code
+      values:
+        A: active
+        I: inactive
+      default: unknown
+  department_name:
+    lookup:
+      reference: departments
+      key: users.department_code
+      value: department_name
+      on_missing: error
+  active_label:
+    when:
+      - if: users.active == true
+        then: enabled
+      - if: users.active == false
+        then: disabled
+    default: unknown
+  total_amount:
+    expression: users.price * users.quantity
+  amount_with_tax:
+    expression: derived.total_amount * 1.1
+  full_label:
+    concat:
+      values:
+        - derived.full_name
+        - " / "
+        - derived.department_name
+  amount_status:
+    when:
+      - if: derived.total_amount >= 100
+        then: large
+    default: normal
+outputs:
+  users_out:
+    path: ./output/users.csv
+    columns:
+      - id
+      - name
+      - amount
+      - label
+      - amount_with_tax
+      - source_system
+      - status
+      - department_name
+      - active_label
+      - amount_status
+  users_out_copy:
+    path: ./output/users_copy.csv
+    columns:
+      - id
+      - name
+      - amount
+      - label
+      - amount_with_tax
+      - source_system
+      - status
+      - department_name
+      - active_label
+      - amount_status
+mappings:
+  users_out:
+    id:
+      source: derived.stable_id
+    name:
+      source: derived.full_name
+    amount:
+      source: derived.total_amount
+    label:
+      concat:
+        values:
+          - derived.full_name
+          - " / "
+          - users.department_code
+    amount_with_tax:
+      expression: derived.total_amount * 1.1
+    source_system:
+      source: derived.source_system
+    status:
+      source: derived.mapped_status
+    department_name:
+      source: derived.department_name
+    active_label:
+      source: derived.active_label
+    amount_status:
+      source: derived.amount_status
+  users_out_copy:
+    id:
+      source: derived.stable_id
+    name:
+      source: derived.full_name
+    amount:
+      source: derived.total_amount
+    label:
+      concat:
+        values:
+          - derived.full_name
+          - " / "
+          - users.department_code
+    amount_with_tax:
+      expression: derived.total_amount * 1.1
+    source_system:
+      source: derived.source_system
+    status:
+      source: derived.mapped_status
+    department_name:
+      source: derived.department_name
+    active_label:
+      source: derived.active_label
+    amount_status:
+      source: derived.amount_status
+error_handling:
+  error_output: ./output/errors.csv
+  skipped_output: ./output/skipped.csv

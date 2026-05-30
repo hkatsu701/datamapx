@@ -10,7 +10,7 @@
 
 ### Purpose
 
-Validate YAML syntax, schema structure, required sections, field references, output mapping consistency, and Phase 1 limitations.
+Validate YAML syntax, schema structure, required sections, field references, output mapping consistency, and Phase 1 limitations. This includes validating `generate_id.fields` references.
 For `type: date` fields, `date_format` can be used to request strict pandas date parsing.
 
 ### Usage
