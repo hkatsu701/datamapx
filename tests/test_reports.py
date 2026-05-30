@@ -118,6 +118,17 @@ def test_summary_json_includes_dry_run_flags(tmp_path: Path) -> None:
     assert summary["error_handling"]["max_errors"] == config.error_handling.max_errors
 
 
+def test_summary_json_includes_limit_flags(tmp_path: Path) -> None:
+    config = load_config(FIXTURES / "runner" / "runner_config.yml")
+    result = run_dry_run(config, FIXTURES / "runner", limit=2)
+
+    report_paths = write_dry_run_reports(result, config, FIXTURES / "runner", tmp_path)
+
+    summary = json.loads(report_paths.summary_json.read_text(encoding="utf-8"))
+    assert summary["notes"]["limited_run"] is True
+    assert summary["notes"]["limit"] == 2
+
+
 def test_summary_json_includes_check_results(tmp_path: Path) -> None:
     config = load_config(FIXTURES / "runner" / "runner_config.yml")
     config = config.model_copy(
@@ -289,6 +300,25 @@ def test_html_report_is_written_and_escaped(tmp_path: Path) -> None:
     assert "report.html" in html
     assert "Error preview" in html
     assert "Skipped preview" in html
+
+
+def test_html_report_shows_limit_information(tmp_path: Path) -> None:
+    config = load_config(FIXTURES / "runner" / "runner_config.yml")
+    result = run_dry_run(config, FIXTURES / "runner", limit=2)
+
+    report_paths = write_dry_run_reports(
+        result,
+        config,
+        FIXTURES / "runner",
+        tmp_path,
+        html_report=True,
+    )
+
+    assert report_paths.html_report is not None
+    html = report_paths.html_report.read_text(encoding="utf-8")
+    assert "Limited run" in html
+    assert "Limit" in html
+    assert "2" in html
 
 
 def test_errors_csv_failure_keeps_existing_file_and_cleans_temp(

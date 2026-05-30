@@ -234,14 +234,20 @@ def dry_run(
 @app.command("run")
 def run(
     config_path: Path,
+    limit: Annotated[int, typer.Option("--limit")] = None,
     reports_dir: Annotated[Path, typer.Option("--reports-dir")] = None,
     html_report: Annotated[bool, typer.Option("--html-report")] = False,
 ) -> None:
     """Run the full pipeline and write output plus reports."""
 
+    if limit is not None and limit < 1:
+        typer.echo("--limit must be a positive integer", err=True)
+        raise typer.Exit(2)
+
     try:
         result, report_paths = _execute_run_job(
             config_path,
+            limit=limit,
             reports_dir=reports_dir,
             html_report=html_report,
         )
@@ -454,12 +460,13 @@ def run_all(config_path: Path) -> None:
 
 def _execute_run_job(
     config_path: Path,
+    limit: int | None = None,
     reports_dir: Path | None = None,
     *,
     html_report: bool = False,
 ) -> tuple[RunResult, ReportPaths]:
     config = load_config(config_path)
-    result = run_pipeline(config, config_path.parent)
+    result = run_pipeline(config, config_path.parent, limit=limit)
     if result.fatal_error:
         report_paths = write_run_reports(
             result,
@@ -1157,15 +1164,22 @@ def format_dry_run_result(result: DryRunResult) -> str:
 def format_run_result(result: RunResult, report_paths: ReportPaths) -> str:
     """Return a human-readable run summary."""
 
+    limit = result.load_result.limit
     lines = [
         "Run completed",
         "",
         f"Run ID: {result.run_id}",
         f"Project: {result.load_result.project_name}",
         f"Status: {result.status}",
-        "",
-        "Output:" if len(result.output_results) <= 1 else "Outputs:",
     ]
+    if limit is not None:
+        lines.extend(
+            [
+                f"Limit: {limit}",
+                "Limited run: yes",
+            ]
+        )
+    lines.extend(["", "Output:" if len(result.output_results) <= 1 else "Outputs:"])
     if len(result.output_results) <= 1:
         lines.extend(
             [

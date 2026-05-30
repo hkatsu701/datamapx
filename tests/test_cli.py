@@ -190,6 +190,49 @@ def test_run_success(tmp_path: Path) -> None:
     assert "Counts:" in result.output
 
 
+def test_run_limit_limits_output_rows_and_reports_show_limit(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+
+    result = CliRunner().invoke(app, ["run", str(config_path), "--limit", "2"])
+
+    assert result.exit_code == 0
+    assert "Limit: 2" in result.output
+    assert "Limited run: yes" in result.output
+
+    with (tmp_path / "output" / "users_out.csv").open("r", encoding="utf-8") as file:
+        output_rows = list(csv.DictReader(file))
+    assert len(output_rows) == 2
+
+    summary = json.loads((tmp_path / "reports" / "summary.json").read_text(encoding="utf-8"))
+    assert summary["notes"]["limited_run"] is True
+    assert summary["notes"]["limit"] == 2
+
+
+def test_run_limit_with_html_report_shows_limit_in_html(tmp_path: Path) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+
+    result = CliRunner().invoke(
+        app,
+        ["run", str(config_path), "--limit", "2", "--html-report"],
+    )
+
+    assert result.exit_code == 0
+    html = (tmp_path / "reports" / "report.html").read_text(encoding="utf-8")
+    assert "Limited run" in html
+    assert "Limit" in html
+    assert "2" in html
+
+
+@pytest.mark.parametrize("limit", ["0", "-1"])
+def test_run_invalid_limit_exits_2(tmp_path: Path, limit: str) -> None:
+    config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
+
+    result = CliRunner().invoke(app, ["run", str(config_path), "--limit", limit])
+
+    assert result.exit_code == 2
+    assert "--limit must be a positive integer" in result.output
+
+
 def test_run_inspect_displays_runtime_row_limits(tmp_path: Path) -> None:
     config_path = _prepare_run_fixture(tmp_path, "run_config.yml")
     data = yaml.safe_load(config_path.read_text(encoding="utf-8"))

@@ -86,6 +86,21 @@ def build_summary_payload(
         }
         for output_result in result.output_results
     ]
+    limit = load_result.limit
+    notes: dict[str, Any] = {
+        "dry_run": result.dry_run,
+        "output_file_written": result.output_file_written,
+        "checks_passed": not result.has_check_failures,
+        "completed_with_row_errors": result.total_error_count > 0 and not result.fatal_error,
+        "final_outcome": _final_outcome(result),
+        "fatal_error": getattr(result, "fatal_error", False),
+        "stop_reason": getattr(result, "stop_reason", None),
+        "stop_message": getattr(result, "stop_message", None),
+        "max_errors_exceeded": getattr(result, "max_errors_exceeded", False),
+    }
+    if limit is not None:
+        notes["limited_run"] = True
+        notes["limit"] = limit
     return {
         "run_id": result.run_id,
         "project_name": load_result.project_name,
@@ -151,17 +166,7 @@ def build_summary_payload(
             "skipped_csv": str(report_paths.skipped_csv),
             "summary_json": str(report_paths.summary_json),
         },
-        "notes": {
-            "dry_run": result.dry_run,
-            "output_file_written": result.output_file_written,
-            "checks_passed": not result.has_check_failures,
-            "completed_with_row_errors": result.total_error_count > 0 and not result.fatal_error,
-            "final_outcome": _final_outcome(result),
-            "fatal_error": getattr(result, "fatal_error", False),
-            "stop_reason": getattr(result, "stop_reason", None),
-            "stop_message": getattr(result, "stop_message", None),
-            "max_errors_exceeded": getattr(result, "max_errors_exceeded", False),
-        },
+        "notes": notes,
     }
 
 

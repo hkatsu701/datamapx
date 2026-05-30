@@ -61,6 +61,14 @@ def build_html_report(
         ("Config path", payload.get("config_path")),
     ]
     notes = payload.get("notes")
+    limit = _get_nested(payload, "notes", "limit")
+    if limit is not None:
+        summary_items.extend(
+            [
+                ("Limited run", "yes"),
+                ("Limit", limit),
+            ]
+        )
     counts = payload.get("counts")
     reports = payload.get("reports")
 

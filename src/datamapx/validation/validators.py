@@ -99,7 +99,7 @@ def _validate_rows(
 
     for index, row in df.iterrows():
         row_errors: list[ValidationErrorRow] = []
-        for rule in rules:
+        for rule_index, rule in enumerate(rules):
             field_name, value = _resolve_field_value(
                 rule.field,
                 df,

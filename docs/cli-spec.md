@@ -770,10 +770,12 @@ If `runtime.max_input_rows` or `runtime.max_reference_rows` is configured, the c
 
 ```bash
 datamapx run migration.yml
+datamapx run migration.yml --limit 20
 ```
 
 ### Options
 
+- `--limit INTEGER`: maximum number of input rows to load from the migration input CSV. `INTEGER` must be a positive integer. If omitted, all input rows are loaded.
 - `--reports-dir PATH`: override the directory for `errors.csv`, `skipped.csv`, and `summary.json`.
 - `--html-report`: also write `report.html` beside the other reports.
 
@@ -797,6 +799,7 @@ Print run summary:
 The main output CSV is written atomically through a temporary file and then renamed into place. If the write fails, the previous final file is left unchanged and the temporary file is cleaned up when possible.
 When `--html-report` is enabled, `run` also writes `report.html` beside the other reports and prints its path in the `Reports:` block.
 Report files are written atomically through temporary files and then renamed into place when they are produced.
+When `--limit` is used, only the first `N` normalized input rows are loaded from the migration input CSV. Reference CSVs are still loaded fully so duplicate-key and referential-integrity checks continue to see all reference rows. The CLI summary, `summary.json`, and `report.html` show that the execution was limited and include the limit value.
 `runtime.max_output_rows` can stop `run` before the output CSV is written if any output exceeds the limit.
 The stop message identifies the specific `outputs.<name>` target and includes the output row count and configured limit.
 

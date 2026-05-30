@@ -28,6 +28,7 @@ Current release: v0.3.1.
 - Validate a standard Excel design workbook with `validate-design`, which can optionally write `design-summary.json` and `design-errors.csv`.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `generate_id`, `when`, `expression`, and `derived`.
 - Apply filters, validations, and run-level checks before writing the final output.
+- `run` supports `--limit` to load only the first `N` normalized input rows while still reading references fully.
 - Validate `referential_integrity` rules against reference CSV key columns.
 - Write `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html`.
 - Write output CSVs atomically so a failed output write does not overwrite the previous file.
@@ -70,7 +71,7 @@ datamapx dry-run examples/01_basic_mapping/migration.yml --limit 5
 Run the migration and write the main output CSV plus reports:
 
 ```bash
-datamapx run examples/01_basic_mapping/migration.yml
+datamapx run examples/01_basic_mapping/migration.yml --limit 20
 ```
 
 Or create a starter YAML first:

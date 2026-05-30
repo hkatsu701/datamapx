@@ -193,6 +193,38 @@ def test_referential_integrity_input_validation_ignores_missing_values() -> None
     assert result.dataframe["department_code"].iloc[2] == ""
 
 
+def test_referential_integrity_input_validation_is_order_independent() -> None:
+    data = _load_migration_data()
+    data["validations"]["input"] = [
+        {
+            "field": "users.department_code",
+            "rule": "referential_integrity",
+            "reference": "departments",
+            "reference_key": "department_code",
+        },
+        {
+            "field": "users.user_id",
+            "rule": "required",
+        },
+    ]
+    config = DatamapxConfig.model_validate(data)
+    input_df = pd.DataFrame(
+        {
+            "department_code": ["D001", "D999"],
+            "user_id": ["U001", "U002"],
+        }
+    )
+    reference_dfs = {
+        "departments": pd.DataFrame({"department_code": ["D001", "D002"]}),
+    }
+
+    result = validate_input_rows(config, input_df, "users", reference_dfs)
+
+    assert result.error_count == 1
+    assert result.error_rows[0].rule == "referential_integrity"
+    assert result.dataframe["department_code"].tolist() == ["D001"]
+
+
 def test_referential_integrity_output_validation_ignores_missing_values() -> None:
     data = _load_migration_data()
     data["outputs"]["users_out"]["columns"] = ["department_name"]
@@ -225,6 +257,39 @@ def test_referential_integrity_output_validation_ignores_missing_values() -> Non
     assert result.dataframe["department_name"].tolist()[0] == "Sales"
     assert pd.isna(result.dataframe["department_name"].iloc[1])
     assert result.dataframe["department_name"].iloc[2] == ""
+
+
+def test_referential_integrity_output_validation_is_order_independent() -> None:
+    data = _load_migration_data()
+    data["validations"]["output"] = [
+        {
+            "field": "department_name",
+            "rule": "referential_integrity",
+            "reference": "departments",
+            "reference_key": "department_name",
+        },
+        {
+            "field": "status",
+            "rule": "required",
+        },
+    ]
+    config = DatamapxConfig.model_validate(data)
+    output_df = pd.DataFrame(
+        {
+            "department_name": ["Sales", "Unknown"],
+            "status": ["active", "inactive"],
+        }
+    )
+    row_numbers = pd.Series([1, 2], dtype="object")
+    reference_dfs = {
+        "departments": pd.DataFrame({"department_name": ["Sales", "Support"]}),
+    }
+
+    result = validate_output_rows(config, output_df, row_numbers, "users_out", reference_dfs)
+
+    assert result.error_count == 1
+    assert result.error_rows[0].rule == "referential_integrity"
+    assert result.dataframe["department_name"].tolist() == ["Sales"]
 
 
 def test_unsupported_rule_fails() -> None:

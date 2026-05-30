@@ -119,6 +119,7 @@ Completed:
 - `max_output_rows` guardrail
 - `referential_integrity` validation
 - `run-all` v1
+- `run --limit` v1
 - Atomic output CSV writes
 - Atomic report writes
 - CSV column pruning

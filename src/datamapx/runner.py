@@ -285,10 +285,11 @@ def run_dry_run(
 def run_pipeline(
     config: DatamapxConfig,
     base_path: Path | None = None,
+    limit: int | None = None,
 ) -> RunResult:
     """Run the full pipeline and write no files by itself."""
 
-    execution = _execute_pipeline(config, base_path, limit=None)
+    execution = _execute_pipeline(config, base_path, limit)
     return RunResult(
         run_id=execution.run_id,
         started_at=execution.started_at,

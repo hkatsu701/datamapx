@@ -6,7 +6,7 @@ import pytest
 
 from datamapx.config import ValidationRule, load_config
 from datamapx.io.errors import CsvReadError
-from datamapx.runner import run_dry_run, run_load_phase
+from datamapx.runner import run_dry_run, run_load_phase, run_pipeline
 
 FIXTURES = Path(__file__).parent / "fixtures" / "runner"
 MAPPING_FIXTURES = Path(__file__).parent / "fixtures" / "mapping"
@@ -47,6 +47,17 @@ def test_references_are_not_limited() -> None:
     result = run_load_phase(config, FIXTURES, limit=2)
 
     assert result.references[0].rows == 3
+
+
+def test_run_pipeline_limits_input_rows_without_limiting_references() -> None:
+    config = load_config(FIXTURES / "runner_config.yml")
+
+    result = run_pipeline(config, FIXTURES, limit=2)
+
+    assert result.load_result.limit == 2
+    assert result.output_rows == 2
+    assert result.input_rows_before_validation == 2
+    assert result.load_result.references[0].rows == 3
 
 
 def test_reference_duplicate_key_fails() -> None:

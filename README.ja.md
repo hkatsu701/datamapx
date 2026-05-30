@@ -42,6 +42,7 @@ Current release: v0.3.1.
 - 入力・出力 validation
 - `errors.csv` / `skipped.csv` / `summary.json`
 - `validate-config` / `preflight` / `validate-design` / `inspect` / `profile-input` / `dry-run` / `run`（`profile-input` は `--limit`、`--chunk-size`、`--format json` に対応）
+- `run` は `--limit` による限定実行に対応し、入力 CSV の先頭 N 行だけを読み込む
 - `when` / `filters` の条件式で括弧による論理グルーピング
 - `generate-config` による YAML ひな形生成
 
@@ -93,7 +94,7 @@ PYTHONPATH=src python -m datamapx.cli generate-config \
 
 PYTHONPATH=src python -m datamapx.cli validate-config /tmp/generated_migration.yml
 PYTHONPATH=src python -m datamapx.cli dry-run /tmp/generated_migration.yml --limit 5
-PYTHONPATH=src python -m datamapx.cli run /tmp/generated_migration.yml
+PYTHONPATH=src python -m datamapx.cli run /tmp/generated_migration.yml --limit 20
 ```
 
 インストール後は `PYTHONPATH=src` は不要です。
@@ -102,7 +103,7 @@ PYTHONPATH=src python -m datamapx.cli run /tmp/generated_migration.yml
 datamapx generate-config --input ... --output ... --config ...
 datamapx validate-config /tmp/generated_migration.yml
 datamapx dry-run /tmp/generated_migration.yml --limit 5
-datamapx run /tmp/generated_migration.yml
+datamapx run /tmp/generated_migration.yml --limit 20
 ```
 
 ## 7. generate-config で migration.yml を作る
