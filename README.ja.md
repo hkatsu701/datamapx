@@ -6,6 +6,8 @@ DataMapX は、YAML 設定に基づいて CSV を CSV に変換・検証する P
 
 Current release: v0.3.1.
 
+Excel 設計書に進む前の CSV コアエンジン完成範囲は [docs/core-engine-readiness.md](docs/core-engine-readiness.md) にまとめています。
+
 ## 1. DataMapXとは
 
 - 1つの入力CSVと複数の参照CSVを扱えます。

@@ -64,9 +64,21 @@ Completed:
 
 Future candidates:
 
-- Excel parser and intermediate design model
 - `design-to-yaml` CLI
 - manifest and batch/script generation
+
+## Core engine readiness roadmap
+
+Goal: document the completed CSV core engine before moving into Excel design workflows.
+
+Completed:
+
+- `docs/core-engine-readiness.md`
+- CSV core engine commands and Phase 2 CSV features
+
+Future candidates:
+
+- `design-to-yaml` flow after the standard Excel design workbook format is finalized
 
 ## v0.3.0
 

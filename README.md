@@ -8,6 +8,8 @@ It is designed for projects where the migration rules should live in configurati
 
 Current release: v0.3.1.
 
+For a compact summary of the completed CSV core engine scope before Excel design work, see [docs/core-engine-readiness.md](docs/core-engine-readiness.md).
+
 ## What It Can Do
 
 - Read one input CSV and multiple reference CSVs.
