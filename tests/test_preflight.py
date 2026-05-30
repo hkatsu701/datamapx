@@ -100,6 +100,58 @@ def test_preflight_migration_row_guardrails_fail(tmp_path: Path) -> None:
     assert "inputs.users: row count 3 exceeds runtime.max_input_rows 1" in result.output
 
 
+def test_preflight_migration_referential_integrity_success(tmp_path: Path) -> None:
+    config_path = _copy_tree(FIXTURES / "runner", tmp_path / "runner") / "runner_config.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data.setdefault("validations", {})
+    data["validations"]["input"] = [
+        {
+            "field": "users.department_code",
+            "rule": "referential_integrity",
+            "reference": "departments",
+            "reference_key": "department_code",
+        }
+    ]
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["preflight", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Preflight completed: migration" in result.output
+    assert "- validations.input[0]: referential_integrity reference_key resolved" in result.output
+
+
+def test_preflight_migration_referential_integrity_reference_key_missing_fails(
+    tmp_path: Path,
+) -> None:
+    config_path = _copy_tree(FIXTURES / "runner", tmp_path / "runner") / "runner_config.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data.setdefault("validations", {})
+    data["validations"]["input"] = [
+        {
+            "field": "users.department_code",
+            "rule": "referential_integrity",
+            "reference": "departments",
+            "reference_key": "missing_department_code",
+        }
+    ]
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["preflight", str(config_path)])
+
+    assert result.exit_code == 1
+    assert (
+        "validations.input[0]: missing reference column 'missing_department_code'"
+        in result.output
+    )
+
+
 def test_preflight_merge_success(tmp_path: Path) -> None:
     config_path = _copy_tree(FIXTURES / "merge", tmp_path / "merge") / "merge_config.yml"
 

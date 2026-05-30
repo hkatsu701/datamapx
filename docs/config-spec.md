@@ -443,6 +443,7 @@ Phase 1 validation rules:
 - `max`
 - `regex`
 - `length`
+- `referential_integrity`
 
 `validations.input[].field` must reference the single input namespace:
 
@@ -454,6 +455,11 @@ validations:
 ```
 
 `validations.input[].field` must not reference `derived`.
+
+`validations.input[]` and `validations.output[]` also support `referential_integrity`.
+This rule requires `reference` and `reference_key`, checks that non-missing values exist
+in the configured reference key column, and treats missing, null, and blank values as
+success. Use `required` separately if those values must fail.
 
 `validations.output[].output` selects which output CSV the rule applies to.
 When multiple outputs are configured, `validations.output[].output` is required.
@@ -1035,6 +1041,7 @@ Phase 2 preflight checks:
 - `schema` field resolution against raw header columns
 - `required` schema fields must resolve to at least one raw column
 - `source_columns` candidates are all considered raw-column candidates
+- `referential_integrity` validation rules resolve their `reference_key` against reference headers
 - key columns in merge/union inputs and migration references must resolve
 - unpivot input schema and output column layout must resolve
 - aggregate input schema and output column layout must resolve

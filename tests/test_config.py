@@ -188,6 +188,93 @@ def test_generate_id_unknown_field_reference_fails() -> None:
     _assert_invalid(data, "unknown input field 'users.unknown_code'")
 
 
+def test_referential_integrity_rules_load() -> None:
+    data = _valid_data()
+    data["validations"]["input"] = [
+        {
+            "field": "users.department_code",
+            "rule": "referential_integrity",
+            "reference": "departments",
+            "reference_key": "department_code",
+        }
+    ]
+    data["validations"]["output"] = [
+        {
+            "field": "department_name",
+            "rule": "referential_integrity",
+            "reference": "departments",
+            "reference_key": "department_name",
+        }
+    ]
+
+    config = DatamapxConfig.model_validate(data)
+
+    assert config.validations.input[0].rule == "referential_integrity"
+    assert config.validations.input[0].reference == "departments"
+    assert config.validations.input[0].reference_key == "department_code"
+    assert config.validations.output[0].rule == "referential_integrity"
+    assert config.validations.output[0].reference == "departments"
+    assert config.validations.output[0].reference_key == "department_name"
+
+
+def test_referential_integrity_reference_missing_fails() -> None:
+    data = _valid_data()
+    data["validations"]["input"] = [
+        {
+            "field": "users.department_code",
+            "rule": "referential_integrity",
+            "reference_key": "department_code",
+        }
+    ]
+
+    _assert_invalid(data, "referential_integrity validation requires reference")
+
+
+def test_referential_integrity_reference_key_missing_fails() -> None:
+    data = _valid_data()
+    data["validations"]["input"] = [
+        {
+            "field": "users.department_code",
+            "rule": "referential_integrity",
+            "reference": "departments",
+        }
+    ]
+
+    _assert_invalid(data, "referential_integrity validation requires reference_key")
+
+
+def test_referential_integrity_unknown_reference_fails() -> None:
+    data = _valid_data()
+    data["validations"]["input"] = [
+        {
+            "field": "users.department_code",
+            "rule": "referential_integrity",
+            "reference": "unknown_ref",
+            "reference_key": "department_code",
+        }
+    ]
+
+    _assert_invalid(data, "unknown reference 'unknown_ref'")
+
+
+def test_referential_integrity_unknown_reference_key_in_schema_fails() -> None:
+    data = _valid_data()
+    data["references"]["departments"]["schema"] = {
+        "department_code": {"type": "string", "required": True},
+        "department_name": {"type": "string"},
+    }
+    data["validations"]["input"] = [
+        {
+            "field": "users.department_code",
+            "rule": "referential_integrity",
+            "reference": "departments",
+            "reference_key": "unknown_key",
+        }
+    ]
+
+    _assert_invalid(data, "unknown reference field 'unknown_key'")
+
+
 def test_zenkaku_to_hankaku_normalize_loads() -> None:
     config = load_config(FIXTURES / "zenkaku" / "zenkaku_config.yml")
 

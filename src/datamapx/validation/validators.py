@@ -33,6 +33,7 @@ def validate_input_rows(
     config: DatamapxConfig,
     input_df: pd.DataFrame,
     input_name: str,
+    reference_dfs: dict[str, pd.DataFrame] | None = None,
 ) -> ValidationResult:
     """Validate normalized input rows before derived/filter stages."""
 
@@ -44,6 +45,8 @@ def validate_input_rows(
         stage="input_validation",
         input_name=input_name,
         output_columns=None,
+        config=config,
+        reference_dfs=reference_dfs,
     )
 
 
@@ -52,6 +55,7 @@ def validate_output_rows(
     output_df: pd.DataFrame,
     row_numbers: pd.Series,
     output_name: str,
+    reference_dfs: dict[str, pd.DataFrame] | None = None,
 ) -> ValidationResult:
     """Validate mapped output rows before preview/report generation."""
 
@@ -65,6 +69,8 @@ def validate_output_rows(
         input_name=next(iter(config.inputs)),
         output_columns=output_columns,
         output_name=output_name,
+        config=config,
+        reference_dfs=reference_dfs,
     )
 
 
@@ -75,10 +81,18 @@ def _validate_rows(
     stage: ValidationStage,
     input_name: str,
     output_columns: set[str] | None,
+    config: DatamapxConfig,
+    reference_dfs: dict[str, pd.DataFrame] | None = None,
     output_name: str | None = None,
 ) -> ValidationResult:
     error_rows: list[ValidationErrorRow] = []
     invalid_indexes: set[Any] = set()
+    reference_dfs = reference_dfs or {}
+    referential_integrity_values = _prepare_referential_integrity_values(
+        config,
+        rules,
+        reference_dfs,
+    )
 
     for rule_index, rule in enumerate(rules):
         _validate_rule_config(rule, stage, rule_index, output_columns)
@@ -95,7 +109,11 @@ def _validate_rows(
                 stage,
                 output_name,
             )
-            messages = _validate_rule_value(rule, value)
+            messages = _validate_rule_value(
+                rule,
+                value,
+                referential_integrity_values.get(rule_index),
+            )
             for message in messages:
                 row_errors.append(
                     ValidationErrorRow(
@@ -138,6 +156,15 @@ def _validate_rule_config(
         raise ValidationError(f"{stage}[{rule_index}]: regex validation requires pattern")
     if rule.rule == "length" and rule.min is None and rule.max is None:
         raise ValidationError(f"{stage}[{rule_index}]: length validation requires min or max")
+    if rule.rule == "referential_integrity":
+        if not rule.reference:
+            raise ValidationError(
+                f"{stage}[{rule_index}]: referential_integrity validation requires reference"
+            )
+        if not rule.reference_key:
+            raise ValidationError(
+                f"{stage}[{rule_index}]: referential_integrity validation requires reference_key"
+            )
     if output_columns is not None and rule.field not in output_columns:
         raise ValidationError(
             f"{stage}[{rule_index}]: output validation field is not defined in output columns: "
@@ -222,12 +249,28 @@ def _output_validation_rules_for_output(
     return rules
 
 
-def _validate_rule_value(rule: ValidationRule, value: Any) -> list[str]:
+def _validate_rule_value(
+    rule: ValidationRule,
+    value: Any,
+    referential_values: set[Any] | None = None,
+) -> list[str]:
     if rule.rule == "required":
         if _is_missing(value):
             return ["required validation failed"]
         return []
     if _is_missing(value):
+        return []
+    if rule.rule == "referential_integrity":
+        if referential_values is None:
+            raise ValidationError(
+                "referential_integrity validation requires loaded reference values"
+            )
+        if value not in referential_values:
+            return [
+                "referential_integrity validation failed: "
+                f"{value!r} is not present in reference "
+                f"{rule.reference}.{rule.reference_key}"
+            ]
         return []
 
     if rule.rule == "enum":
@@ -291,3 +334,31 @@ def _as_number(value: Any) -> float | int | None:
     if pd.isna(numeric):
         return None
     return numeric
+
+
+def _prepare_referential_integrity_values(
+    config: DatamapxConfig,
+    rules: list[ValidationRule],
+    reference_dfs: dict[str, pd.DataFrame],
+) -> dict[int, set[Any]]:
+    values_by_rule_index: dict[int, set[Any]] = {}
+    for index, rule in enumerate(rules):
+        if rule.rule != "referential_integrity":
+            continue
+        if rule.reference not in config.references:
+            raise ValidationError(
+                "referential_integrity validation unknown reference "
+                f"'{rule.reference}'"
+            )
+        if rule.reference not in reference_dfs:
+            raise ValidationError(
+                f"referential_integrity validation reference is not loaded: {rule.reference}"
+            )
+        reference_df = reference_dfs[rule.reference]
+        if rule.reference_key not in reference_df.columns:
+            raise ValidationError(
+                "referential_integrity validation reference key column is not defined in "
+                f"reference '{rule.reference}': {rule.reference_key}"
+            )
+        values_by_rule_index[index] = set(reference_df[rule.reference_key].dropna().tolist())
+    return values_by_rule_index

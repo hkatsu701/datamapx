@@ -10,7 +10,7 @@
 
 ### Purpose
 
-Validate YAML syntax, schema structure, required sections, field references, output mapping consistency, and Phase 1 limitations. This includes validating `generate_id.fields` references.
+Validate YAML syntax, schema structure, required sections, field references, output mapping consistency, and Phase 1 limitations. This includes validating `generate_id.fields` references and `referential_integrity` references.
 For `type: date` fields, `date_format` can be used to request strict pandas date parsing.
 
 ### Usage
@@ -51,6 +51,7 @@ It supports migration, merge, union, unpivot, aggregate, and run-all configs. Fo
 - `header: true`
 - readable CSV headers
 - schema `required` / `source_columns` resolution
+- `referential_integrity` validation `reference_key` resolution against reference headers
 - key column resolution for merge and union inputs, and reference keys in migration configs
 - unpivot input schema/output consistency for unpivot configs
 - aggregate input schema/output consistency for aggregate configs

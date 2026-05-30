@@ -117,6 +117,7 @@ Completed:
 - HTML report
 - Large CSV guardrails
 - `max_output_rows` guardrail
+- `referential_integrity` validation
 - `run-all` v1
 - Atomic output CSV writes
 - Atomic report writes

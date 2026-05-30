@@ -11,7 +11,14 @@ from typing import Any, Literal
 import yaml
 
 from datamapx.aggregate.config import AggregateConfig, load_aggregate_config
-from datamapx.config import DatamapxConfig, OutputConfig, SchemaFieldConfig, load_config
+from datamapx.config import (
+    DatamapxConfig,
+    OutputConfig,
+    ReferenceConfig,
+    SchemaFieldConfig,
+    ValidationRule,
+    load_config,
+)
 from datamapx.exceptions import ConfigError
 from datamapx.io.errors import CsvReadError, CsvWriteError
 from datamapx.merge.config import MergeConfig, load_merge_config
@@ -76,6 +83,7 @@ def format_preflight_report(report: PreflightReport) -> str:
 def _preflight_migration(config: DatamapxConfig, config_path: Path) -> list[str]:
     base_path = config_path.parent
     lines = ["Checks:", "- config validation: ok"]
+    reference_headers: dict[str, set[str]] = {}
 
     for input_name, input_config in config.inputs.items():
         lines.extend(
@@ -108,6 +116,13 @@ def _preflight_migration(config: DatamapxConfig, config_path: Path) -> list[str]
                 row_limit_name="runtime.max_reference_rows",
             )
         )
+        reference_headers[reference_name] = set(
+            _read_csv_header(
+                _resolve_path(reference_config.path, base_path),
+                reference_config.encoding,
+                reference_config.delimiter,
+            )
+        )
 
     for output_name, output_config in config.outputs.items():
         lines.extend(
@@ -117,6 +132,14 @@ def _preflight_migration(config: DatamapxConfig, config_path: Path) -> list[str]
                 base_path=base_path,
             )
         )
+
+    lines.extend(
+        _preflight_referential_integrity_rules(
+            config,
+            base_path,
+            reference_headers,
+        )
+    )
 
     return lines
 
@@ -320,6 +343,87 @@ def _preflight_output_resource(
     else:
         lines.append(f"- {target}: if_exists=overwrite")
     return lines
+
+
+def _preflight_referential_integrity_rules(
+    config: DatamapxConfig,
+    base_path: Path,
+    reference_headers: dict[str, set[str]],
+) -> list[str]:
+    lines: list[str] = []
+
+    for index, rule in enumerate(config.validations.input):
+        if rule.rule != "referential_integrity":
+            continue
+        lines.extend(
+            _preflight_referential_integrity_rule(
+                target=f"validations.input[{index}]",
+                rule=rule,
+                base_path=base_path,
+                reference_headers=reference_headers,
+                references=config.references,
+            )
+        )
+
+    for index, rule in enumerate(config.validations.output):
+        if rule.rule != "referential_integrity":
+            continue
+        lines.extend(
+            _preflight_referential_integrity_rule(
+                target=f"validations.output[{index}]",
+                rule=rule,
+                base_path=base_path,
+                reference_headers=reference_headers,
+                references=config.references,
+            )
+        )
+
+    return lines
+
+
+def _preflight_referential_integrity_rule(
+    *,
+    target: str,
+    rule: ValidationRule,
+    base_path: Path,
+    reference_headers: dict[str, set[str]],
+    references: dict[str, ReferenceConfig],
+) -> list[str]:
+    reference_name = rule.reference
+    reference_key = rule.reference_key
+    if reference_name not in references:
+        return [f"- {target}: reference '{reference_name}' is unknown"]
+
+    reference_config = references[reference_name]
+    if reference_name not in reference_headers:
+        header_row = _read_csv_header(
+            _resolve_path(reference_config.path, base_path),
+            reference_config.encoding,
+            reference_config.delimiter,
+        )
+        reference_headers[reference_name] = set(header_row)
+
+    header_set = reference_headers[reference_name]
+    if reference_config.fields_schema:
+        field_config = reference_config.fields_schema.get(reference_key)
+        if field_config is None:
+            raise CsvReadError(
+                f"{target}: unknown reference field '{reference_key}' in reference "
+                f"'{reference_name}'"
+            )
+        candidates = field_config.source_columns or [reference_key]
+        resolved = next((candidate for candidate in candidates if candidate in header_set), None)
+        if resolved is None:
+            raise CsvReadError(
+                f"{target}: missing reference column '{reference_key}' "
+                f"(candidates: {', '.join(candidates)})"
+            )
+    elif reference_key not in header_set:
+        raise CsvReadError(
+            f"{target}: missing reference column '{reference_key}' in reference '{reference_name}'"
+        )
+
+    return [f"- {target}: referential_integrity reference_key resolved"]
 
 
 def _validate_schema_header_resolution(

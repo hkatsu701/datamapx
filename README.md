@@ -28,6 +28,7 @@ Current release: v0.3.1.
 - Validate a standard Excel design workbook with `validate-design`, which can optionally write `design-summary.json` and `design-errors.csv`.
 - Map output columns with `source`, `value`, `concat`, `map`, `lookup`, `generate_id`, `when`, `expression`, and `derived`.
 - Apply filters, validations, and run-level checks before writing the final output.
+- Validate `referential_integrity` rules against reference CSV key columns.
 - Write `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html`.
 - Write output CSVs atomically so a failed output write does not overwrite the previous file.
 - Run `generate-config`, `merge`, `union`, `unpivot`, `merge-wizard`, `validate-config`, `preflight`, `validate-design`, `inspect`, `profile-input`, `dry-run`, and `run`.

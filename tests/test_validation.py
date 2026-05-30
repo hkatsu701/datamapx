@@ -2,18 +2,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import yaml
 
 from datamapx.config import DatamapxConfig, load_config
 from datamapx.exceptions import ConfigError
 from datamapx.runner import run_dry_run
+from datamapx.validation import validate_input_rows, validate_output_rows
 
 FIXTURES = Path(__file__).parent / "fixtures" / "validation"
+MIGRATION_FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _load_data() -> dict:
     with (FIXTURES / "validation_config.yml").open("r", encoding="utf-8") as file:
+        return yaml.safe_load(file)
+
+
+def _load_migration_data() -> dict:
+    with (MIGRATION_FIXTURES / "valid_config.yml").open("r", encoding="utf-8") as file:
         return yaml.safe_load(file)
 
 
@@ -154,6 +162,69 @@ def test_length_max_violation_becomes_error_row() -> None:
     result = run_dry_run(config, FIXTURES)
 
     assert any(row.field == "long_text" and row.rule == "length" for row in result.error_rows)
+
+
+def test_referential_integrity_input_validation_ignores_missing_values() -> None:
+    data = _load_migration_data()
+    data["validations"]["input"] = [
+        {
+            "field": "users.department_code",
+            "rule": "referential_integrity",
+            "reference": "departments",
+            "reference_key": "department_code",
+        }
+    ]
+    config = DatamapxConfig.model_validate(data)
+    input_df = pd.DataFrame(
+        {
+            "department_code": ["D001", pd.NA, "", "D999"],
+        }
+    )
+    reference_dfs = {
+        "departments": pd.DataFrame({"department_code": ["D001", "D002"]}),
+    }
+
+    result = validate_input_rows(config, input_df, "users", reference_dfs)
+
+    assert result.error_count == 1
+    assert result.error_rows[0].rule == "referential_integrity"
+    assert result.dataframe["department_code"].tolist()[0] == "D001"
+    assert pd.isna(result.dataframe["department_code"].iloc[1])
+    assert result.dataframe["department_code"].iloc[2] == ""
+
+
+def test_referential_integrity_output_validation_ignores_missing_values() -> None:
+    data = _load_migration_data()
+    data["outputs"]["users_out"]["columns"] = ["department_name"]
+    data["mappings"]["users_out"] = {
+        "department_name": {"source": "users.department_code"}
+    }
+    data["validations"]["output"] = [
+        {
+            "field": "department_name",
+            "rule": "referential_integrity",
+            "reference": "departments",
+            "reference_key": "department_name",
+        }
+    ]
+    config = DatamapxConfig.model_validate(data)
+    output_df = pd.DataFrame(
+        {
+            "department_name": ["Sales", pd.NA, "", "Unknown"],
+        }
+    )
+    row_numbers = pd.Series([1, 2, 3, 4], dtype="object")
+    reference_dfs = {
+        "departments": pd.DataFrame({"department_name": ["Sales", "Support"]}),
+    }
+
+    result = validate_output_rows(config, output_df, row_numbers, "users_out", reference_dfs)
+
+    assert result.error_count == 1
+    assert result.error_rows[0].rule == "referential_integrity"
+    assert result.dataframe["department_name"].tolist()[0] == "Sales"
+    assert pd.isna(result.dataframe["department_name"].iloc[1])
+    assert result.dataframe["department_name"].iloc[2] == ""
 
 
 def test_unsupported_rule_fails() -> None:

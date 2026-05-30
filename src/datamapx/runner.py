@@ -378,6 +378,7 @@ def _execute_pipeline(
         config,
         load_result.input_df,
         input_name,
+        load_result.reference_dfs,
     )
     validation_stop = evaluate_validation_stop_policy(
         config.error_handling,
@@ -482,6 +483,7 @@ def _execute_pipeline(
             output_build_result.output_df,
             output_build_result.output_row_numbers,
             output_name,
+            load_result.reference_dfs,
         )
         output_error_rows = output_error_rows + output_build_result.mapping_error_rows
         output_error_rows = output_error_rows + output_validation_result.error_rows

@@ -158,7 +158,17 @@ class OutputConfig(StrictModel):
 class ValidationRule(StrictModel):
     field: str
     output: str | None = None
-    rule: Literal["required", "enum", "min", "max", "regex", "length"]
+    rule: Literal[
+        "required",
+        "enum",
+        "min",
+        "max",
+        "regex",
+        "length",
+        "referential_integrity",
+    ]
+    reference: str | None = None
+    reference_key: str | None = None
     values: list[Any] | None = None
     value: Any = None
     pattern: str | None = None
@@ -169,6 +179,11 @@ class ValidationRule(StrictModel):
     def validate_rule_requirements(self) -> ValidationRule:
         if self.rule == "enum" and not self.values:
             raise ValueError("enum validation requires values")
+        if self.rule == "referential_integrity":
+            if not self.reference:
+                raise ValueError("referential_integrity validation requires reference")
+            if not self.reference_key:
+                raise ValueError("referential_integrity validation requires reference_key")
         if self.rule in {"min", "max"} and self.value is None:
             raise ValueError(f"{self.rule} validation requires value")
         if self.rule == "regex" and not self.pattern:
@@ -449,6 +464,11 @@ class DatamapxConfig(StrictModel):
                 continue
             if field not in input_fields:
                 errors.append(f"{context}: unknown input field '{rule.field}'")
+            self._validate_referential_integrity_rule(
+                rule,
+                f"validations.input[{index}]",
+                errors,
+            )
 
         for index, rule in enumerate(self.validations.output):
             context = f"validations.output[{index}].field"
@@ -469,6 +489,44 @@ class DatamapxConfig(StrictModel):
                     f"{context}: output validation field is not defined in output columns of "
                     f"{target_output}: {rule.field}"
                 )
+            self._validate_referential_integrity_rule(
+                rule,
+                f"validations.output[{index}]",
+                errors,
+            )
+
+    def _validate_referential_integrity_rule(
+        self,
+        rule: ValidationRule,
+        context: str,
+        errors: list[str],
+    ) -> None:
+        if rule.rule != "referential_integrity":
+            return
+        if not rule.reference:
+            errors.append(
+                f"{context}.reference: referential_integrity validation requires reference"
+            )
+            return
+        if not rule.reference_key:
+            errors.append(
+                f"{context}.reference_key: referential_integrity validation requires "
+                "reference_key"
+            )
+            return
+        if rule.reference not in self.references:
+            errors.append(f"{context}.reference: unknown reference '{rule.reference}'")
+            return
+
+        reference_config = self.references[rule.reference]
+        if (
+            reference_config.fields_schema
+            and rule.reference_key not in reference_config.fields_schema
+        ):
+            errors.append(
+                f"{context}.reference_key: unknown reference field '{rule.reference_key}' "
+                f"in reference '{rule.reference}'"
+            )
 
     def _validate_check_references(
         self,

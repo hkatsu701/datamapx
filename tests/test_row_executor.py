@@ -27,6 +27,7 @@ def test_row_executor_preserves_successful_rows_on_lookup_stop() -> None:
         config,
         load_result.input_df,
         input_name,
+        load_result.reference_dfs,
     )
 
     result = build_rowwise_output(
@@ -52,6 +53,7 @@ def test_row_executor_reports_transform_errors_as_row_errors() -> None:
         config,
         load_result.input_df,
         input_name,
+        load_result.reference_dfs,
     )
 
     result = build_rowwise_output(
