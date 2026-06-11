@@ -1,0 +1,90 @@
+version: 1
+
+project:
+  name: reception_migration
+  description: Create the reception CSV from the normalized source CSV.
+
+inputs:
+  source:
+    path: ./work/INPUT.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      uke_kbn:
+        source_columns: [UKE_KBN]
+        type: string
+        required: true
+        normalize: [trim]
+      uke_kbn_shosai:
+        source_columns: [UKE_KBN_SHOSAI]
+        type: string
+        required: true
+        normalize: [trim]
+      oldreceptionslipnumber__c:
+        source_columns: [OLDRECEPTIONSLIPNUMBER__C]
+        type: string
+        required: true
+        normalize: [trim]
+      inputdate__c:
+        source_columns: [INPUTDATE__C]
+        type: string
+        normalize: [trim]
+      receptiondate__c:
+        source_columns: [RECEPTIONDATE__C]
+        type: string
+        normalize: [trim]
+      mcode__c:
+        source_columns: [MCODE__C]
+        type: string
+        normalize: [trim]
+
+filters:
+  include:
+    - if: source.uke_kbn == "2" and source.uke_kbn_shosai in ["2", "3", "4", "5", "6", "7"]
+      reason: Reception creation target
+
+outputs:
+  reception:
+    path: ./output/受付.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\r\n"
+    if_exists: overwrite
+    columns:
+      - OLDRECEPTIONSLIPNUMBER__C
+      - INPUTDATE__C
+      - RECEPTIONDATE__C
+      - MCODE__C
+
+mappings:
+  reception:
+    OLDRECEPTIONSLIPNUMBER__C:
+      source: source.oldreceptionslipnumber__c
+    INPUTDATE__C:
+      source: source.inputdate__c
+    RECEPTIONDATE__C:
+      source: source.receptiondate__c
+    MCODE__C:
+      source: source.mcode__c
+
+validations:
+  output:
+    - field: OLDRECEPTIONSLIPNUMBER__C
+      rule: required
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/reception/errors.csv
+  skipped_output: ./reports/reception/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./reports/reception/summary.json

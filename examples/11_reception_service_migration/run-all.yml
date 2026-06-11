@@ -1,0 +1,17 @@
+version: 1
+
+project:
+  name: reception_service_migration
+  description: Create reception and service CSV files from one source CSV.
+
+jobs:
+  - name: reception
+    type: run
+    config: ./reception.yml
+    reports_dir: ./reports/reception
+    html_report: true
+  - name: service
+    type: run
+    config: ./service.yml
+    reports_dir: ./reports/service
+    html_report: true

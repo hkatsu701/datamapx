@@ -1,0 +1,272 @@
+version: 1
+
+project:
+  name: service_migration
+  description: Create service.csv from sougou_uketsuke_icz_2024.csv.
+
+inputs:
+  input:
+    path: ./work/sougou_uketsuke_icz_2024.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    schema:
+      oldreceptionslipnumber__c:
+        source_columns: [OLDRECEPTIONSLIPNUMBER__C]
+        type: string
+        required: true
+        normalize: [trim]
+      uke_kbn:
+        source_columns: [UKE_KBN]
+        type: string
+        required: true
+        normalize: [trim]
+      uke_kbn_shosai:
+        source_columns: [UKE_KBN_SHOSAI]
+        type: string
+        required: true
+        normalize: [trim]
+      husan__c:
+        source_columns: [HUSAN__C]
+        type: string
+        normalize: [trim]
+      appliedtemple_jiinno__c:
+        source_columns: [APPLIEDTEMPLE_R.JIINNO__C]
+        type: string
+        normalize: [trim]
+      account_mcode__c:
+        source_columns: [ACCOUNT_R.MCODE__C]
+        type: string
+        normalize: [trim]
+      sampai_ninzu:
+        source_columns: [SAMPAI_NINZU]
+        type: string
+        normalize: [trim]
+      icz_dokkyo_flg:
+        source_columns: [ICZ_DOKKYO_FLG]
+        type: string
+        normalize: [trim]
+      icz_muryo_flg:
+        source_columns: [ICZ_MURYO_FLG]
+        type: string
+        normalize: [trim]
+      icz_m_chiban_no:
+        source_columns: [ICZ_M_CHIBAN_NO]
+        type: string
+        normalize: [trim]
+      icz_bochi_flg:
+        source_columns: [ICZ_BOCHI_FLG]
+        type: string
+        normalize: [trim]
+      icz_b_chiban_no:
+        source_columns: [ICZ_B_CHIBAN_NO]
+        type: string
+        normalize: [trim]
+      dokkyo_icz_gaku:
+        source_columns: [DOKKYO_ICZ_GAKU]
+        type: decimal
+      bochi_icz_gaku:
+        source_columns: [BOCHI_ICZ_GAKU]
+        type: decimal
+      muryo_icz_gaku:
+        source_columns: [MURYO_ICZ_GAKU]
+        type: decimal
+      issued__c:
+        source_columns: [ISSUED__C]
+        type: string
+        normalize: [trim]
+
+references:
+  ref:
+    path: ./work/CHIBAN.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    key: chibanno__c
+    on_duplicate: error
+    schema:
+      recordtype_name:
+        source_columns: [RECORDTYPE.NAME]
+        type: string
+        normalize: [trim]
+      chibanno__c:
+        source_columns: [CHIBANNO__C]
+        type: string
+        required: true
+        normalize: [trim]
+
+derived:
+  dokkyo_flag_value:
+    when:
+      - if: input.icz_dokkyo_flg == "1"
+        then: 1
+    default: 0
+  muryo_flag_value:
+    when:
+      - if: input.icz_muryo_flg == "1"
+        then: 1
+    default: 0
+  bochi_flag_value:
+    when:
+      - if: input.icz_bochi_flg == "1"
+        then: 1
+    default: 0
+  active_icz_flag_count:
+    expression: derived.dokkyo_flag_value + derived.muryo_flag_value + derived.bochi_flag_value
+
+  dokkyo_amount:
+    when:
+      - if: input.dokkyo_icz_gaku is null
+        then: 0
+    default: input.dokkyo_icz_gaku
+  bochi_amount:
+    when:
+      - if: input.bochi_icz_gaku is null
+        then: 0
+    default: input.bochi_icz_gaku
+  muryo_amount:
+    when:
+      - if: input.muryo_icz_gaku is null
+        then: 0
+    default: input.muryo_icz_gaku
+  icz_amount_total:
+    expression: derived.dokkyo_amount + derived.bochi_amount + derived.muryo_amount
+  receipt_type:
+    when:
+      - if: derived.icz_amount_total >= 5000
+        then: "一座教懇志"
+    default: "一般懇志"
+
+  chiban_recordtype_name:
+    lookup:
+      reference: ref
+      key: input.icz_m_chiban_no
+      value: recordtype_name
+      on_missing: default
+      default: ""
+
+filters:
+  include:
+    - if: input.uke_kbn == "1" and input.uke_kbn_shosai in ["4", "5", "7", "9", "10", "12", "14", "16", "18", "20", "22", "23", "24", "25", "26", "29", "30", "31", "33", "34", "35", "37", "38", "39"]
+      reason: Service target for UKE_KBN 1
+    - if: input.uke_kbn == "2" and input.uke_kbn_shosai in ["2", "3", "4", "5", "6", "7"]
+      reason: Service target for UKE_KBN 2
+    - if: input.uke_kbn == "3" and input.uke_kbn_shosai in ["2", "4"]
+      reason: Service target for UKE_KBN 3
+
+outputs:
+  output:
+    path: ./output/service.csv
+    encoding: utf-8-sig
+    delimiter: ","
+    header: true
+    newline: "\r\n"
+    if_exists: overwrite
+    columns:
+      - OLDRECEPTIONSLIPNUMBER__C
+      - HUSAN__C
+      - JIINNO__C
+      - MCODE__C
+      - SAMPAI_NINZU
+      - OLDSERVICESLIPNUMBER__C
+      - ICHIZAKYOOFFICE__C
+      - ICHIZAKYOCEMETERY__C
+      - ICHIZAKYOMURYOJUDO1__C
+      - ICHIZAKYOMURYOJUDO2__C
+      - LOTNUMBER__R.CHIBANNO__C
+      - ISSUED__C
+      - RECEIPTTYPE__C
+      - ICHIZAKYOKONSHIDETAIL__C
+      - IPPANKONSHIDETAIL__C
+
+mappings:
+  output:
+    # This first mapping deliberately has no default. A row with multiple active
+    # ICZ flags becomes a mapping error and is omitted from service.csv.
+    OLDRECEPTIONSLIPNUMBER__C:
+      when:
+        - if: derived.active_icz_flag_count <= 1
+          then: input.oldreceptionslipnumber__c
+    HUSAN__C:
+      when:
+        - if: input.husan__c == "1"
+          then: "TRUE"
+      default: "FALSE"
+    JIINNO__C:
+      source: input.appliedtemple_jiinno__c
+    MCODE__C:
+      source: input.account_mcode__c
+    SAMPAI_NINZU:
+      source: input.sampai_ninzu
+    OLDSERVICESLIPNUMBER__C:
+      concat:
+        values:
+          - input.oldreceptionslipnumber__c
+          - "11"
+    ICHIZAKYOOFFICE__C:
+      when:
+        - if: input.icz_dokkyo_flg == "1"
+          then: "TRUE"
+      default: "FALSE"
+    ICHIZAKYOCEMETERY__C:
+      when:
+        - if: input.icz_bochi_flg == "1"
+          then: "TRUE"
+      default: "FALSE"
+    ICHIZAKYOMURYOJUDO1__C:
+      when:
+        - if: input.icz_muryo_flg == "1" and derived.chiban_recordtype_name == "第一無量寿堂"
+          then: "TRUE"
+      default: "FALSE"
+    ICHIZAKYOMURYOJUDO2__C:
+      when:
+        - if: input.icz_muryo_flg == "1" and derived.chiban_recordtype_name == "第二無量寿堂"
+          then: "TRUE"
+      default: "FALSE"
+    LOTNUMBER__R.CHIBANNO__C:
+      when:
+        - if: input.icz_bochi_flg == "1"
+          then: input.icz_b_chiban_no
+        - if: input.icz_muryo_flg == "1"
+          then: input.icz_m_chiban_no
+      default: null
+    ISSUED__C:
+      source: input.issued__c
+    RECEIPTTYPE__C:
+      source: derived.receipt_type
+    ICHIZAKYOKONSHIDETAIL__C:
+      when:
+        - if: input.icz_dokkyo_flg == "1"
+          then: "読経書"
+        - if: input.icz_muryo_flg == "1"
+          then: "無量寿堂"
+        - if: input.icz_bochi_flg == "1"
+          then: "墓地"
+      default: null
+    IPPANKONSHIDETAIL__C:
+      when:
+        - if: derived.receipt_type == "一般懇志"
+          then: "参拝"
+      default: null
+
+validations:
+  output:
+    - field: OLDRECEPTIONSLIPNUMBER__C
+      rule: required
+    - field: OLDSERVICESLIPNUMBER__C
+      rule: required
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/service/errors.csv
+  skipped_output: ./reports/service/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO
+  summary_output: ./reports/service/summary.json
