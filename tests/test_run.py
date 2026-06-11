@@ -51,6 +51,16 @@ def test_run_writes_main_output_and_reports(tmp_path: Path) -> None:
     assert summary["notes"]["final_outcome"] == "success"
 
 
+def test_run_displays_progress_percentage(tmp_path: Path) -> None:
+    config_path = _prepare_fixture(tmp_path, "run_config.yml")
+
+    result = CliRunner().invoke(app, ["run", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Progress:   0% - Starting migration" in result.output
+    assert "Progress: 100% - Completed" in result.output
+
+
 def test_run_writes_multiple_outputs(tmp_path: Path) -> None:
     config_path = _prepare_fixture(tmp_path, "run_config_multi_output.yml")
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
@@ -25,12 +26,23 @@ from datamapx.transform.expressions import (
 FIELD_REFERENCE_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b")
 
 
+@dataclass
+class MappingExecutionContext:
+    """Caches reusable mapping data for one pipeline execution."""
+
+    lookup_indexes: dict[
+        tuple[str, tuple[str, ...], str],
+        dict[tuple[Any, ...], Any],
+    ] = field(default_factory=dict)
+
+
 def build_output_dataframe(
     config: DatamapxConfig,
     input_df: pd.DataFrame,
     reference_dfs: dict[str, pd.DataFrame] | None = None,
     derived_values: dict[str, pd.Series] | None = None,
     output_name: str | None = None,
+    execution_context: MappingExecutionContext | None = None,
 ) -> pd.DataFrame:
     """Build the single Phase 1 output dataframe from supported mapping rules."""
 
@@ -43,8 +55,9 @@ def build_output_dataframe(
         output_config = config.outputs[output_name]
     output_mappings = config.mappings.get(output_name, {})
     reference_dfs = reference_dfs or {}
+    execution_context = execution_context or MappingExecutionContext()
     derived_values = (
-        compute_derived_fields(config, input_df, reference_dfs)
+        compute_derived_fields(config, input_df, reference_dfs, execution_context)
         if derived_values is None
         else derived_values
     )
@@ -67,6 +80,7 @@ def build_output_dataframe(
             config.references,
             reference_dfs,
             derived_values,
+            execution_context,
         )
     return output_df.reset_index(drop=True)
 
@@ -75,11 +89,13 @@ def compute_derived_fields(
     config: DatamapxConfig,
     input_df: pd.DataFrame,
     reference_dfs: dict[str, pd.DataFrame] | None = None,
+    execution_context: MappingExecutionContext | None = None,
 ) -> dict[str, pd.Series]:
     """Compute derived fields in dependency order."""
 
     input_name = next(iter(config.inputs))
     reference_dfs = reference_dfs or {}
+    execution_context = execution_context or MappingExecutionContext()
     derived_values: dict[str, pd.Series] = {}
     visiting: set[str] = set()
     visited: set[str] = set()
@@ -104,6 +120,7 @@ def compute_derived_fields(
                 config.references,
                 reference_dfs,
                 derived_values,
+                execution_context,
             )
         except MappingError as exc:
             raise MappingError(f"derived.{field_name}: {exc}") from exc
@@ -123,10 +140,12 @@ def apply_mapping_rule(
     reference_configs: dict[str, ReferenceConfig],
     reference_dfs: dict[str, pd.DataFrame],
     derived_values: dict[str, pd.Series] | None = None,
+    execution_context: MappingExecutionContext | None = None,
 ) -> pd.Series:
     """Apply one supported mapping rule."""
 
     derived_values = derived_values or {}
+    execution_context = execution_context or MappingExecutionContext()
     if rule.source is not None:
         return _source_series(rule.source, input_df, input_name, output_column, derived_values)
     if "value" in rule.model_fields_set:
@@ -175,6 +194,7 @@ def apply_mapping_rule(
             reference_configs,
             reference_dfs,
             derived_values,
+            execution_context,
         )
     raise MappingError(f"{output_column}: unsupported mapping rule")
 
@@ -278,6 +298,7 @@ def _lookup_series(
     reference_configs: dict[str, ReferenceConfig],
     reference_dfs: dict[str, pd.DataFrame],
     derived_values: dict[str, pd.Series],
+    execution_context: MappingExecutionContext,
 ) -> pd.Series:
     if lookup.reference not in reference_configs:
         raise MappingError(f"{output_column}: lookup reference is not defined: {lookup.reference}")
@@ -322,10 +343,14 @@ def _lookup_series(
                 f"'{lookup.reference}': {reference_key}"
             )
 
-    lookup_index = {
-        _key_tuple(row, reference_keys): row[lookup.value]
-        for _, row in reference_df.iterrows()
-    }
+    cache_key = (lookup.reference, tuple(reference_keys), lookup.value)
+    lookup_index = execution_context.lookup_indexes.get(cache_key)
+    if lookup_index is None:
+        lookup_index = {
+            _key_tuple(row, reference_keys): row[lookup.value]
+            for _, row in reference_df.iterrows()
+        }
+        execution_context.lookup_indexes[cache_key] = lookup_index
 
     output_values: list[Any] = []
     missing_keys: list[tuple[Any, ...]] = []

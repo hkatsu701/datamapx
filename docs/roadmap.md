@@ -138,10 +138,11 @@ Completed:
 - `unpivot` v1
 - `aggregate` v1
 - `preflight` v1
+- Batched migration execution, reusable lookup indexes, and `run` progress output
 
 Future candidates:
 
-- Improvements for large CSV files
+- Streaming migration for datasets that exceed available memory
 
 ## Phase 3
 

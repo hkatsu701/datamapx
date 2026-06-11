@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Annotated
@@ -244,12 +245,14 @@ def run(
         typer.echo("--limit must be a positive integer", err=True)
         raise typer.Exit(2)
 
+    progress_callback = _create_progress_printer()
     try:
         result, report_paths = _execute_run_job(
             config_path,
             limit=limit,
             reports_dir=reports_dir,
             html_report=html_report,
+            progress_callback=progress_callback,
         )
     except (
         ConfigError,
@@ -464,10 +467,18 @@ def _execute_run_job(
     reports_dir: Path | None = None,
     *,
     html_report: bool = False,
+    progress_callback: Callable[[int, str], None] | None = None,
 ) -> tuple[RunResult, ReportPaths]:
     config = load_config(config_path)
-    result = run_pipeline(config, config_path.parent, limit=limit)
+    result = run_pipeline(
+        config,
+        config_path.parent,
+        limit=limit,
+        progress_callback=progress_callback,
+    )
     if result.fatal_error:
+        if progress_callback is not None:
+            progress_callback(95, "Writing reports")
         report_paths = write_run_reports(
             result,
             config,
@@ -475,8 +486,12 @@ def _execute_run_job(
             reports_dir=reports_dir,
             html_report=html_report,
         )
+        if progress_callback is not None:
+            progress_callback(100, "Finished with errors")
         return result, report_paths
 
+    if progress_callback is not None:
+        progress_callback(95, "Writing output CSV files")
     _precheck_output_writes(result, config)
     for output_result in result.output_results:
         output_config = config.outputs[output_result.name]
@@ -492,6 +507,8 @@ def _execute_run_job(
             replace(output_result, file_written=True) for output_result in result.output_results
         ],
     )
+    if progress_callback is not None:
+        progress_callback(97, "Writing reports")
     report_paths = write_run_reports(
         result,
         config,
@@ -499,7 +516,33 @@ def _execute_run_job(
         reports_dir=reports_dir,
         html_report=html_report,
     )
+    if progress_callback is not None:
+        progress_callback(100, "Completed")
     return result, report_paths
+
+
+def _create_progress_printer() -> Callable[[int, str], None]:
+    last_percent = -1
+    last_message = ""
+
+    def print_progress(percent: int, message: str) -> None:
+        nonlocal last_percent, last_message
+        bounded_percent = max(0, min(100, percent))
+        if last_percent >= 0 and bounded_percent < 100 and bounded_percent == last_percent:
+            return
+        if (
+            last_percent >= 0
+            and bounded_percent < 100
+            and bounded_percent - last_percent < 5
+        ):
+            return
+        if bounded_percent == last_percent and message == last_message:
+            return
+        typer.echo(f"Progress: {bounded_percent:3d}% - {message}")
+        last_percent = bounded_percent
+        last_message = message
+
+    return print_progress
 
 
 def _execute_merge_job(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,7 @@ from datamapx.transform.error_policy import (
     evaluate_validation_stop_policy,
 )
 from datamapx.transform.filters import SkippedRow
+from datamapx.transform.mapper import MappingExecutionContext
 from datamapx.transform.row_executor import (
     build_output_from_prepared_rows,
     prepare_rowwise_inputs,
@@ -188,14 +190,28 @@ class RunResult:
         return self.check_failure_count > 0
 
 
+ProgressCallback = Callable[[int, str], None]
+
+
+def _emit_progress(
+    callback: ProgressCallback | None,
+    percent: int,
+    message: str,
+) -> None:
+    if callback is not None:
+        callback(percent, message)
+
+
 def run_load_phase(
     config: DatamapxConfig,
     base_path: Path | None = None,
     limit: int | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> LoadPhaseResult:
     """Load input and reference CSVs, applying schema and key checks only."""
 
     input_name, input_config = next(iter(config.inputs.items()))
+    _emit_progress(progress_callback, 5, f"Reading input '{input_name}'")
     input_df = read_input_csv(
         input_name,
         input_config,
@@ -203,10 +219,23 @@ def run_load_phase(
         limit=limit,
         max_rows=config.runtime.max_input_rows,
     )
+    _emit_progress(progress_callback, 10, f"Loaded {len(input_df):,} input rows")
 
     reference_summaries: list[ReferenceLoadSummary] = []
     reference_dfs: dict[str, pd.DataFrame] = {}
-    for reference_name, reference_config in config.references.items():
+    reference_count = len(config.references)
+    for reference_index, (reference_name, reference_config) in enumerate(
+        config.references.items(),
+        start=1,
+    ):
+        reference_start_percent = 15 + int(
+            5 * (reference_index - 1) / max(reference_count, 1)
+        )
+        _emit_progress(
+            progress_callback,
+            reference_start_percent,
+            f"Reading reference '{reference_name}'",
+        )
         reference_df = read_reference_csv(
             reference_name,
             reference_config,
@@ -221,6 +250,12 @@ def run_load_phase(
                 rows=len(reference_df),
                 key=reference_config.key,
             )
+        )
+        reference_percent = 15 + int(5 * reference_index / max(reference_count, 1))
+        _emit_progress(
+            progress_callback,
+            reference_percent,
+            f"Loaded reference '{reference_name}' ({len(reference_df):,} rows)",
         )
 
     return LoadPhaseResult(
@@ -243,10 +278,11 @@ def run_dry_run(
     config: DatamapxConfig,
     base_path: Path | None = None,
     limit: int | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> DryRunResult:
     """Run load phase and supported mappings without writing output files."""
 
-    execution = _execute_pipeline(config, base_path, limit)
+    execution = _execute_pipeline(config, base_path, limit, progress_callback)
     return DryRunResult(
         run_id=execution.run_id,
         started_at=execution.started_at,
@@ -286,10 +322,11 @@ def run_pipeline(
     config: DatamapxConfig,
     base_path: Path | None = None,
     limit: int | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> RunResult:
     """Run the full pipeline and write no files by itself."""
 
-    execution = _execute_pipeline(config, base_path, limit)
+    execution = _execute_pipeline(config, base_path, limit, progress_callback)
     return RunResult(
         run_id=execution.run_id,
         started_at=execution.started_at,
@@ -368,18 +405,31 @@ def _execute_pipeline(
     config: DatamapxConfig,
     base_path: Path | None,
     limit: int | None,
+    progress_callback: ProgressCallback | None,
 ) -> ExecutionResult:
     started_at_dt = datetime.now()
     started_at = _timestamp(started_at_dt)
     run_id = _resolve_run_id(config.runtime.run_id, started_at_dt)
-    load_result = run_load_phase(config, base_path, limit)
+    _emit_progress(progress_callback, 0, "Starting migration")
+    load_result = run_load_phase(
+        config,
+        base_path,
+        limit,
+        progress_callback=progress_callback,
+    )
     input_name = next(iter(config.inputs))
     primary_output_name = next(iter(config.outputs))
+    _emit_progress(progress_callback, 25, "Validating input rows")
     input_validation_result = validate_input_rows(
         config,
         load_result.input_df,
         input_name,
         load_result.reference_dfs,
+    )
+    _emit_progress(
+        progress_callback,
+        30,
+        f"Input validation completed ({input_validation_result.rows_after_validation:,} rows)",
     )
     validation_stop = evaluate_validation_stop_policy(
         config.error_handling,
@@ -406,12 +456,26 @@ def _execute_pipeline(
             check_results=[],
         )
 
+    execution_context = MappingExecutionContext()
+    preparation_total = max(input_validation_result.rows_after_validation, 1)
     row_preparation = prepare_rowwise_inputs(
         config=config,
         input_df=input_validation_result.dataframe,
         input_name=input_name,
         reference_dfs=load_result.reference_dfs,
         base_error_count=len(input_validation_result.error_rows),
+        execution_context=execution_context,
+        progress_callback=lambda processed, total: _emit_progress(
+            progress_callback,
+            30 + int(30 * processed / max(total, 1)),
+            f"Preparing rows ({processed:,}/{total:,})",
+        ),
+    )
+    _emit_progress(
+        progress_callback,
+        60,
+        f"Row preparation completed ({row_preparation.input_rows_after_filter:,}/"
+        f"{preparation_total:,} rows retained)",
     )
     if row_preparation.stop_info is not None:
         finished_at = _timestamp(datetime.now())
@@ -441,7 +505,18 @@ def _execute_pipeline(
     last_output_preview_df = pd.DataFrame()
     last_output_name = primary_output_name
 
-    for output_name, output_config in config.outputs.items():
+    output_count = len(config.outputs)
+    for output_index, (output_name, output_config) in enumerate(
+        config.outputs.items(),
+        start=1,
+    ):
+        output_start = 60 + int(25 * (output_index - 1) / max(output_count, 1))
+        output_span = max(1, int(25 / max(output_count, 1)))
+        _emit_progress(
+            progress_callback,
+            output_start,
+            f"Building output '{output_name}'",
+        )
         output_build_result = build_output_from_prepared_rows(
             config=config,
             prepared_rows=row_preparation.prepared_rows,
@@ -451,6 +526,18 @@ def _execute_pipeline(
             base_error_count=len(input_validation_result.error_rows)
             + len(row_preparation.mapping_error_rows)
             + len(output_error_rows),
+            execution_context=execution_context,
+            progress_callback=lambda processed,
+            total,
+            start=output_start,
+            span=output_span,
+            name=output_name: (
+                _emit_progress(
+                    progress_callback,
+                    start + int(span * processed / max(total, 1)),
+                    f"Building output '{name}' ({processed:,}/{total:,})",
+                )
+            ),
         )
         if output_build_result.stop_info is not None:
             output_error_rows = output_error_rows + output_build_result.mapping_error_rows
@@ -485,6 +572,11 @@ def _execute_pipeline(
             output_build_result.output_row_numbers,
             output_name,
             load_result.reference_dfs,
+        )
+        _emit_progress(
+            progress_callback,
+            output_start + output_span,
+            f"Output '{output_name}' completed ({len(output_validation_result.dataframe):,} rows)",
         )
         output_error_rows = output_error_rows + output_build_result.mapping_error_rows
         output_error_rows = output_error_rows + output_validation_result.error_rows
@@ -604,6 +696,7 @@ def _execute_pipeline(
         "skipped_rows": len(row_preparation.skipped_rows),
     }
     check_results = evaluate_checks(config.checks, check_context)
+    _emit_progress(progress_callback, 90, "Pipeline processing completed")
     status = (
         "completed_with_check_failures"
         if any(not check.passed for check in check_results)

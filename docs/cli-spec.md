@@ -783,6 +783,7 @@ datamapx run migration.yml --limit 20
 
 Print run summary:
 
+- progress percentage and current phase while the command is running
 - `run_id`
 - input rows
 - output rows
@@ -795,6 +796,10 @@ Print run summary:
 - final status
 - error details
 
+Progress is printed as `Progress: NN% - phase`. It covers input/reference loading,
+validation, row preparation, output mapping, CSV writing, and report writing. The percentage
+shows pipeline progress rather than an exact remaining-time estimate.
+
 `run` always writes the main output CSV and the report files when execution completes successfully. Validation error rows do not make the command fail if the configured policy is `output_error`.
 The main output CSV is written atomically through a temporary file and then renamed into place. If the write fails, the previous final file is left unchanged and the temporary file is cleaned up when possible.
 When `--html-report` is enabled, `run` also writes `report.html` beside the other reports and prints its path in the `Reports:` block.
@@ -804,6 +809,12 @@ When `--limit` is used, only the first `N` normalized input rows are loaded from
 The stop message identifies the specific `outputs.<name>` target and includes the output row count and configured limit.
 
 The summary file includes row-category breakdowns for validation errors, mapping errors, lookup missing errors, and transform errors, plus `notes.final_outcome` for the overall result label.
+
+Lookup indexes are built once per execution and reused. Derived fields, filters, and mappings use
+whole-dataframe execution when possible. If a mapping error must be attributed to individual rows,
+the affected batch falls back to row-level execution so existing error-report behavior is preserved.
+The command still loads migration inputs and references into memory; datasets that exceed available
+memory require a future streaming migration implementation.
 
 Checks are evaluated during `run`. If any check fails, the command exits with code `1` after the output and report files are written.
 When row-level errors exist, `run` also prints an `Error details:` block with row numbers, fields, rules, messages, and row values.

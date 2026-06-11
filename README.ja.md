@@ -135,6 +135,14 @@ main output CSV と以下のレポートを出力します。
 - `summary.json`
 - `report.html`（`--html-report` 指定時のみ）
 
+実行中は、読み込み、validation、変換、出力CSV書き込み、report書き込みの進捗を
+`Progress: NN% - 処理内容`形式で標準出力へ表示します。
+
+lookup用の参照インデックスは実行中に再利用され、通常のderived、filter、mappingは
+DataFrame単位で一括処理されます。行別エラーの特定が必要な場合のみ、該当処理を
+行単位へ切り替えます。なお、`run`は入力・参照CSVをメモリへ読み込む方式のため、
+利用可能メモリを超えるデータには将来のstreaming実行対応が必要です。
+
 ## 11. 出力ファイル
 
 - main output CSV: 変換後の本体CSV

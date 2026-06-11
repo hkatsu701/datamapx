@@ -10,9 +10,11 @@ from datamapx.config import MappingRule, load_config
 from datamapx.io.csv_reader import read_input_csv, read_reference_csv
 from datamapx.io.csv_writer import write_output_csv
 from datamapx.io.errors import CsvWriteError
+from datamapx.transform import mapper
 from datamapx.transform.errors import MappingError
 from datamapx.transform.expressions import evaluate_expression_series
 from datamapx.transform.mapper import (
+    MappingExecutionContext,
     apply_mapping_rule,
     build_output_dataframe,
     compute_derived_fields,
@@ -616,6 +618,37 @@ def test_lookup_mapping_gets_value_by_single_key() -> None:
     output_df = _output_df("mapping_config_lookup.yml")
 
     assert output_df["department_name"].tolist() == ["Sales", "Support", "Unknown"]
+
+
+def test_lookup_index_is_built_once_per_execution(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = load_config(FIXTURES / "mapping_config_lookup.yml")
+    input_name, input_config = next(iter(config.inputs.items()))
+    input_df = read_input_csv(input_name, input_config, FIXTURES)
+    reference_dfs = {
+        reference_name: read_reference_csv(reference_name, reference_config, FIXTURES)
+        for reference_name, reference_config in config.references.items()
+    }
+    context = MappingExecutionContext()
+    key_tuple_calls = 0
+    original_key_tuple = mapper._key_tuple
+
+    def count_key_tuples(row: pd.Series, keys: list[str]) -> tuple[object, ...]:
+        nonlocal key_tuple_calls
+        key_tuple_calls += 1
+        return original_key_tuple(row, keys)
+
+    monkeypatch.setattr(mapper, "_key_tuple", count_key_tuples)
+
+    for index in input_df.index:
+        build_output_dataframe(
+            config,
+            input_df.loc[[index]],
+            reference_dfs,
+            execution_context=context,
+        )
+
+    reference_rows = len(next(iter(reference_dfs.values())))
+    assert key_tuple_calls == reference_rows
 
 
 def test_lookup_mapping_gets_value_by_composite_key() -> None:

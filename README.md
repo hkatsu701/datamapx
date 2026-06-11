@@ -119,6 +119,9 @@ datamapx generate-config \
 - `profile-input` shows an enhanced profile for the normalized input dataframe, with optional `--limit` sampling, `--chunk-size` chunked profiling, and `--format json` output.
 - `dry-run` executes the pipeline in memory and shows previews.
 - `run` writes the main output CSV plus `errors.csv`, `skipped.csv`, and `summary.json`.
+  It prints pipeline progress percentages while running, reuses lookup indexes, and executes
+  derived fields, filters, and mappings in dataframe batches when row-level error isolation is not
+  required.
 
 ### Example
 
