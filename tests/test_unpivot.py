@@ -65,6 +65,26 @@ def test_load_unpivot_config_rejects_unknown_schema_columns(tmp_path: Path) -> N
         load_unpivot_config(config_path)
 
 
+def test_load_unpivot_config_rejects_unknown_filter_field(tmp_path: Path) -> None:
+    config_path = _copy_tree(FIXTURES, tmp_path / "fixture") / "unpivot_config.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["filters"] = {
+        "exclude": [
+            {
+                "if": "input.unknown_field is null",
+                "reason": "invalid row",
+            }
+        ]
+    }
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="unknown input field"):
+        load_unpivot_config(config_path)
+
+
 def test_unpivot_pipeline_expands_rows(tmp_path: Path) -> None:
     config_path = _copy_tree(FIXTURES, tmp_path / "fixture") / "unpivot_config.yml"
     config = load_unpivot_config(config_path)
@@ -88,6 +108,39 @@ def test_unpivot_pipeline_expands_rows(tmp_path: Path) -> None:
     assert result.status == "completed"
     assert result.output_rows == 3
     assert result.skipped_count == 1
+
+
+def test_unpivot_pipeline_applies_filters_before_expanding_rows(tmp_path: Path) -> None:
+    fixture = _copy_tree(FIXTURES, tmp_path / "fixture")
+    input_path = fixture / "input_payments_wide.csv"
+    input_path.write_text(
+        input_path.read_text(encoding="utf-8") + "C003,,\n",
+        encoding="utf-8",
+    )
+    config_path = fixture / "unpivot_config.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["filters"] = {
+        "exclude": [
+            {
+                "if": "input.amount_2023 is null and input.amount_2024 is null",
+                "reason": "All amount columns are blank",
+            }
+        ]
+    }
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    config = load_unpivot_config(config_path)
+
+    result = run_unpivot_pipeline(config, config_path)
+
+    assert result.output_rows == 3
+    assert result.skipped_count == 2
+    assert any(
+        row.row_number == 3 and row.reason == "All amount columns are blank"
+        for row in result.skipped_rows
+    )
 
 
 def test_unpivot_pipeline_keeps_null_values_when_configured(tmp_path: Path) -> None:
@@ -144,6 +197,37 @@ def test_unpivot_cli_success_writes_output_and_reports(tmp_path: Path) -> None:
     )
     assert summary["notes"]["unpivot"] is True
     assert summary["counts"]["output_rows"] == 3
+
+
+def test_unpivot_cli_filters_rows_and_reports_skip_reason(tmp_path: Path) -> None:
+    config_path = _copy_tree(FIXTURES, tmp_path / "fixture") / "unpivot_config.yml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["filters"] = {
+        "exclude": [
+            {
+                "if": "input.customer_id == 'C002'",
+                "reason": "Customer excluded before unpivot",
+            }
+        ]
+    }
+    config_path.write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(app, ["unpivot", str(config_path)])
+
+    assert result.exit_code == 0
+    output_df = pd.read_csv(
+        config_path.parent / "output" / "payments_long.csv",
+        dtype="string",
+    )
+    assert output_df["customer_id"].tolist() == ["C001", "C001"]
+    skipped_df = pd.read_csv(
+        config_path.parent / "reports" / "skipped.csv",
+        dtype="string",
+    )
+    assert "Customer excluded before unpivot" in skipped_df["reason"].tolist()
 
 
 def test_unpivot_cli_reports_dir_override(tmp_path: Path) -> None:

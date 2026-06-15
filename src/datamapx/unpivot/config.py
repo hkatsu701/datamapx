@@ -9,7 +9,9 @@ import yaml
 from pydantic import Field, ValidationError, model_validator
 
 from datamapx.config import (
+    FIELD_REFERENCE_RE,
     ErrorHandlingConfig,
+    FiltersConfig,
     InputConfig,
     OutputConfig,
     ProjectConfig,
@@ -56,6 +58,7 @@ class UnpivotConfig(StrictModel):
     version: Literal[1]
     project: ProjectConfig
     input_: InputConfig = Field(alias="input")
+    filters: FiltersConfig = Field(default_factory=FiltersConfig)
     unpivot: UnpivotSettings
     output: OutputConfig
     error_handling: ErrorHandlingConfig
@@ -96,10 +99,34 @@ class UnpivotConfig(StrictModel):
                     "unpivot.value_columns: unknown input schema fields: "
                     + ", ".join(missing_value_columns)
                 )
+            self._validate_filter_references(schema_fields, errors)
 
         if errors:
             raise ValueError("; ".join(errors))
         return self
+
+    def _validate_filter_references(
+        self,
+        schema_fields: set[str],
+        errors: list[str],
+    ) -> None:
+        for section_name, rules in (
+            ("include", self.filters.include),
+            ("exclude", self.filters.exclude),
+        ):
+            for index, rule in enumerate(rules):
+                context = f"filters.{section_name}[{index}].if"
+                for match in FIELD_REFERENCE_RE.finditer(rule.if_):
+                    namespace, raw_field = match.groups()
+                    field = raw_field.strip("\"'")
+                    if namespace != "input":
+                        errors.append(
+                            f"{context}: unknown field namespace '{namespace}'"
+                        )
+                    elif field not in schema_fields:
+                        errors.append(
+                            f"{context}: unknown input field 'input.{field}'"
+                        )
 
 
 def load_unpivot_config(path: str | Path) -> UnpivotConfig:

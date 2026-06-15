@@ -108,7 +108,7 @@ datamapx generate-config \
 - `migration-wizard` interactively generates a migration YAML scaffold with explicit output column count and names, input column read settings, reference column read settings, advanced support for `lookup`, `derived`, `validations`, `filters`, `checks`, output settings, error handling, runtime settings, and a final review screen with limited redo.
 - `merge` combines multiple CSV inputs into a staging CSV.
 - `union` appends same-format CSV inputs into a single CSV while enforcing required keys and duplicate-key checks.
-- `unpivot` expands one schema-normalized CSV from wide form to long form.
+- `unpivot` expands one schema-normalized CSV from wide form to long form and can filter input rows before expansion.
 - `run-all` runs multiple existing YAML jobs sequentially and stops at the first failure.
 - `preflight` checks config files in read-only mode before execution and does not write outputs, reports, or logs.
 - `merge-wizard` interactively generates a merge YAML scaffold with numbered selections, fixed steps, rename confirmation, optional purpose-based templates, retry prompts for invalid input, a natural-language final review, and a limited back step from the final review. Input previews and numbered choices use the same ordering, and long labels wrap for readability.

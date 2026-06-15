@@ -389,6 +389,11 @@ input:
     amount_2024:
       type: decimal
 
+filters:
+  exclude:
+    - if: input.amount_2023 is null and input.amount_2024 is null
+      reason: All amount columns are blank
+
 unpivot:
   id_columns: [customer_id]
   variable_column: year
@@ -406,6 +411,8 @@ output:
 
 - Exactly one input CSV is supported.
 - The input schema must be defined so the normalized dataframe can be pruned and validated before unpivoting.
+- `filters.include` and `filters.exclude` are applied after schema normalization and before unpivot expansion.
+- Filtered rows are written to `skipped.csv`; `filters.exclude[].reason` controls the recorded reason.
 - `output.columns` must match `[id_columns..., variable_column, value_column]` exactly.
 - `drop_null_values: true` drops rows whose unpivoted value is null or blank.
 - `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html` are written for the unpivot command.

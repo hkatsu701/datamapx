@@ -12,8 +12,10 @@ import pandas as pd
 from datamapx.io.csv_reader import ROW_NUMBER_COLUMN, apply_schema, read_csv_frame
 from datamapx.io.csv_writer import resolve_output_path
 from datamapx.io.errors import CsvReadError
+from datamapx.transform.errors import MappingError
+from datamapx.transform.filters import apply_filters
 from datamapx.unpivot.config import UnpivotConfig
-from datamapx.unpivot.errors import UnpivotErrorRow, UnpivotSkippedRow
+from datamapx.unpivot.errors import UnpivotError, UnpivotErrorRow, UnpivotSkippedRow
 
 
 @dataclass(frozen=True)
@@ -69,9 +71,26 @@ def run_unpivot_pipeline(
         path=config.input_.path,
         rows_loaded=len(input_df),
     )
+    try:
+        filter_result = apply_filters(
+            config,
+            input_df,
+            input_name,
+            {},
+        )
+    except MappingError as exc:
+        raise UnpivotError(str(exc)) from exc
+    input_df = filter_result.input_df
 
     output_records: list[dict[str, Any]] = []
-    skipped_rows: list[UnpivotSkippedRow] = []
+    skipped_rows = [
+        UnpivotSkippedRow(
+            row_number=int(row.row_number),
+            reason=row.reason,
+            row_json=row.normalized_row,
+        )
+        for row in filter_result.skipped_rows
+    ]
     error_rows: list[UnpivotErrorRow] = []
     id_columns = list(config.unpivot.id_columns)
     variable_column = config.unpivot.variable_column
@@ -131,7 +150,7 @@ def run_unpivot_pipeline(
         inputs=[input_summary],
         error_rows=error_rows,
         skipped_rows=skipped_rows,
-        input_rows=len(input_df),
+        input_rows=input_summary.rows_loaded,
         output_rows=len(output_df),
         error_count=len(error_rows),
         skipped_count=len(skipped_rows),

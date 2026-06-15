@@ -35,7 +35,7 @@ Excel 設計書に進む前の CSV コアエンジン完成範囲は [docs/core-
 - `source` / `value` / `concat` / `map` / `lookup` / `generate_id` / `when` / `expression` / `derived`
 - `merge` による複数CSVの staging 化
 - `union` による同一フォーマットCSVの縦結合
-- `unpivot` による wide CSV から long CSV への展開
+- `unpivot` による wide CSV から long CSV への展開（展開前の入力フィルタに対応）
 - `run-all` による既存 YAML ジョブの順次実行（先頭から順に失敗時停止）
 - `preflight` による config の read-only 事前確認
 - `migration-wizard` による migration.yml の対話生成（出力列数・列名の明示入力、詳細設定、保存前レビューつき）
