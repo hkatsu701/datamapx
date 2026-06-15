@@ -613,7 +613,8 @@ Rules:
 - `id_columns` are preserved as-is in the output.
 - `value_columns` maps raw wide-column names to the label written into `variable_column`.
 - `output.columns` must match `[id_columns..., variable_column, value_column]` exactly.
-- `drop_null_values: true` drops rows whose unpivoted value is null or blank.
+- `drop_null_values: true` omits output records whose unpivoted value is null or blank. These omitted values are not counted as skipped input rows.
+- `skipped_rows` counts input rows removed by `filters`; it does not count individual null value columns omitted during unpivot expansion.
 - `errors.csv`, `skipped.csv`, `summary.json`, and optional `report.html` are written for the unpivot command.
 - `runtime.max_output_rows` stops the command with exit code `1` when the expanded output exceeds the configured limit.
 - `if_exists: error` prevents overwriting an existing output CSV.

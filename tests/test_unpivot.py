@@ -107,7 +107,8 @@ def test_unpivot_pipeline_expands_rows(tmp_path: Path) -> None:
     )
     assert result.status == "completed"
     assert result.output_rows == 3
-    assert result.skipped_count == 1
+    assert result.skipped_count == 0
+    assert result.skipped_rows == []
 
 
 def test_unpivot_pipeline_applies_filters_before_expanding_rows(tmp_path: Path) -> None:
@@ -136,7 +137,7 @@ def test_unpivot_pipeline_applies_filters_before_expanding_rows(tmp_path: Path) 
     result = run_unpivot_pipeline(config, config_path)
 
     assert result.output_rows == 3
-    assert result.skipped_count == 2
+    assert result.skipped_count == 1
     assert any(
         row.row_number == 3 and row.reason == "All amount columns are blank"
         for row in result.skipped_rows

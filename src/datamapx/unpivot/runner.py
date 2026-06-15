@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from datamapx.io.csv_reader import ROW_NUMBER_COLUMN, apply_schema, read_csv_frame
+from datamapx.io.csv_reader import apply_schema, read_csv_frame
 from datamapx.io.csv_writer import resolve_output_path
 from datamapx.io.errors import CsvReadError
 from datamapx.transform.errors import MappingError
@@ -98,18 +98,9 @@ def run_unpivot_pipeline(
 
     for _, row in input_df.iterrows():
         base_row = {column: row[column] for column in id_columns}
-        row_number = int(row[ROW_NUMBER_COLUMN])
-        row_json = _row_json(row)
         for source_column, variable_value in config.unpivot.value_columns.items():
             value = row[source_column]
             if config.unpivot.drop_null_values and _is_nullish(value):
-                skipped_rows.append(
-                    UnpivotSkippedRow(
-                        row_number=row_number,
-                        reason=f"Null or blank value dropped from {source_column}",
-                        row_json=row_json,
-                    )
-                )
                 continue
             output_records.append(
                 {
@@ -190,14 +181,6 @@ def _load_unpivot_input(
         schema=input_config.fields_schema,
     )
     return apply_schema(raw_df, input_config.fields_schema, input_name)
-
-
-def _row_json(row: pd.Series) -> dict[str, Any]:
-    return {
-        column: value
-        for column, value in row.to_dict().items()
-        if column != ROW_NUMBER_COLUMN
-    }
 
 
 def _is_nullish(value: Any) -> bool:
