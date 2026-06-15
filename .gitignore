@@ -18,3 +18,6 @@ docs/pm-checklist.md
 docs/developer-checklist.md
 docs/qa-checklist.md
 docs/release-checklist.md
+
+# Customer-specific migration artifacts must remain local.
+examples/11_reception_service_migration/
