@@ -55,6 +55,8 @@ It supports migration, merge, union, unpivot, aggregate, and run-all configs. Fo
 - key column resolution for merge and union inputs, and reference keys in migration configs
 - unpivot input schema/output consistency for unpivot configs
 - aggregate input schema/output consistency for aggregate configs
+- match input schema/output consistency for match configs
+- consolidate input schema/output consistency for consolidate configs
 - output path parent directory writability or creatability
 - `if_exists: error` output conflicts
 - `runtime.max_input_rows` / `runtime.max_reference_rows` guardrails when configured
@@ -69,6 +71,8 @@ datamapx preflight merge.yml
 datamapx preflight union.yml
 datamapx preflight unpivot.yml
 datamapx preflight aggregate.yml
+datamapx preflight match.yml
+datamapx preflight consolidate.yml
 datamapx preflight run-all.yml
 ```
 
@@ -193,6 +197,68 @@ Next steps:
 
 - `0`: config generated successfully
 - `1`: CSV read failure, output overwrite conflict, or generated config write failure
+- `2`: invalid CLI usage
+
+## datamapx match match.yml
+
+### Purpose
+
+Assign deterministic match identifiers to rows whose configured input fields match exactly.
+This command is intended for strict grouping, not fuzzy matching.
+
+### Usage
+
+```bash
+datamapx match match.yml
+datamapx match match.yml --reports-dir ./reports/match
+datamapx match match.yml --html-report
+```
+
+### Expected output
+
+On success:
+
+```text
+Match completed
+```
+
+On failure, print the first configuration or runtime error and exit with code `1`.
+
+### Exit code policy
+
+- `0`: match completed and output/report files were written
+- `1`: invalid config, CSV read/write error, or match runtime failure
+- `2`: invalid CLI usage
+
+## datamapx consolidate consolidate.yml
+
+### Purpose
+
+Collapse grouped input rows into one parent CSV plus one or more child CSV outputs.
+This command is intended for deterministic post-match consolidation such as parent-child migration reshaping.
+
+### Usage
+
+```bash
+datamapx consolidate consolidate.yml
+datamapx consolidate consolidate.yml --reports-dir ./reports/consolidate
+datamapx consolidate consolidate.yml --html-report
+```
+
+### Expected output
+
+On success:
+
+```text
+Consolidate completed
+```
+
+On failure, print the first configuration or runtime error and exit with code `1`.
+
+### Exit code policy
+
+- `0`: consolidate completed and output/report files were written
+- `1`: invalid config, CSV read/write error, or consolidate runtime failure
 - `2`: invalid CLI usage
 
 ## datamapx migration-wizard

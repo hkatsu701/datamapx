@@ -21,6 +21,16 @@ Phase 1 does not support multiple input joins in the migration pipeline.
 
 The separate `merge` command uses its own YAML configuration to combine multiple CSV files into a staging CSV before the main `run` pipeline is executed.
 The separate `union` command uses its own YAML configuration to vertically append same-format CSV inputs with key validation and report output.
+The separate `match` command uses its own YAML configuration to assign deterministic group IDs from exact-match keys.
+The separate `consolidate` command uses its own YAML configuration to collapse grouped rows into parent and child CSV outputs.
+
+For `consolidate`, parent output columns currently support these rules:
+
+- `first`: use the first non-null value in input order
+- `last`: use the last non-null value in input order
+- `sum`: sum numeric values
+- `count`: count non-null values for the referenced field
+- `require_same`: require all non-null values in the group to match, otherwise fail
 
 ## 2. Full YAML example
 

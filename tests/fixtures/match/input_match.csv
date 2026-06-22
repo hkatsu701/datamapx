@@ -1,0 +1,4 @@
+record_id,key_1,key_2,key_3,key_4,amount,person
+1,A,X,2024,T1,100,Alice
+2,A,X,2024,T1,200,Alice
+3,B,Y,2024,T2,150,Bob

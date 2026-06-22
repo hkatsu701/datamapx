@@ -237,11 +237,43 @@ def test_preflight_aggregate_success(tmp_path: Path) -> None:
     assert not (config_path.parent / "logs").exists()
 
 
+def test_preflight_match_success(tmp_path: Path) -> None:
+    config_path = _copy_tree(FIXTURES / "match", tmp_path / "match") / "match_config.yml"
+
+    result = CliRunner().invoke(app, ["preflight", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Preflight completed: match" in result.output
+    assert "- input: header readable" in result.output
+    assert "- output: output directory is available" in result.output
+    assert not (config_path.parent / "output").exists()
+    assert not (config_path.parent / "reports").exists()
+
+
+def test_preflight_consolidate_success(tmp_path: Path) -> None:
+    config_path = (
+        _copy_tree(FIXTURES / "consolidate", tmp_path / "consolidate")
+        / "consolidate_config.yml"
+    )
+
+    result = CliRunner().invoke(app, ["preflight", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Preflight completed: consolidate" in result.output
+    assert "- input: header readable" in result.output
+    assert "- consolidate.parent.output: output directory is available" in result.output
+    assert "- consolidate.children[0].output: output directory is available" in result.output
+    assert not (config_path.parent / "output").exists()
+    assert not (config_path.parent / "reports").exists()
+
+
 def test_preflight_run_all_success(tmp_path: Path) -> None:
     run_config = _copy_tree(FIXTURES / "run", tmp_path / "run")
     merge_config = _copy_tree(FIXTURES / "merge", tmp_path / "merge")
     union_config = _copy_tree(FIXTURES / "union", tmp_path / "union")
     aggregate_config = _copy_tree(FIXTURES / "aggregate", tmp_path / "aggregate")
+    match_config = _copy_tree(FIXTURES / "match", tmp_path / "match")
+    consolidate_config = _copy_tree(FIXTURES / "consolidate", tmp_path / "consolidate")
     config_path = tmp_path / "run-all.yml"
     _write_run_all_config(
         config_path,
@@ -270,6 +302,16 @@ def test_preflight_run_all_success(tmp_path: Path) -> None:
                 "config": "./aggregate/aggregate_config.yml",
                 "reports_dir": "./aggregate_reports",
             },
+            {
+                "name": "match_stage",
+                "type": "match",
+                "config": "./match/match_config.yml",
+            },
+            {
+                "name": "consolidate_stage",
+                "type": "consolidate",
+                "config": "./consolidate/consolidate_config.yml",
+            },
         ],
     )
 
@@ -277,14 +319,18 @@ def test_preflight_run_all_success(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert "Preflight completed: run-all" in result.output
-    assert "job 1/4: migration [run]" in result.output
-    assert "job 2/4: merge_stage [merge]" in result.output
-    assert "job 3/4: union_stage [union]" in result.output
-    assert "job 4/4: aggregate_stage [aggregate]" in result.output
+    assert "job 1/6: migration [run]" in result.output
+    assert "job 2/6: merge_stage [merge]" in result.output
+    assert "job 3/6: union_stage [union]" in result.output
+    assert "job 4/6: aggregate_stage [aggregate]" in result.output
+    assert "job 5/6: match_stage [match]" in result.output
+    assert "job 6/6: consolidate_stage [consolidate]" in result.output
     assert not (run_config / "output").exists()
     assert not (merge_config / "output").exists()
     assert not (union_config / "output").exists()
     assert not (aggregate_config / "output").exists()
+    assert not (match_config / "output").exists()
+    assert not (consolidate_config / "output").exists()
     assert not (tmp_path / "merge_reports").exists()
     assert not (tmp_path / "union_reports").exists()
     assert not (tmp_path / "aggregate_reports").exists()

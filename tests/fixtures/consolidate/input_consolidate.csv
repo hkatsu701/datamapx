@@ -1,0 +1,4 @@
+uketsuke_id,MATCH_NO,uketsuke_date,uketsukesha,kingaku,kcode,biko
+1,GROUP000001,2024-01-01,Alice,100,12345,first note
+2,GROUP000001,2024-01-01,Alice,200,12346,last note
+3,GROUP000002,2024-01-02,Bob,150,12347,solo note

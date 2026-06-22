@@ -1,0 +1,69 @@
+version: 1
+
+project:
+  name: match_sample
+
+input:
+  path: ./input_match.csv
+  encoding: utf-8-sig
+  delimiter: ","
+  header: true
+  schema:
+    record_id:
+      type: string
+      required: true
+    key_1:
+      type: string
+      required: true
+    key_2:
+      type: string
+      required: true
+    key_3:
+      type: string
+      required: true
+    key_4:
+      type: string
+      required: true
+    amount:
+      type: decimal
+    person:
+      type: string
+
+match:
+  keys: [key_1, key_2, key_3, key_4]
+  output_column: MATCH_NO
+  id_prefix: GROUP
+  id_padding: 6
+  assign_singletons: true
+  on_missing_key: error
+
+output:
+  path: ./output/matched.csv
+  encoding: utf-8-sig
+  delimiter: ","
+  header: true
+  newline: "\n"
+  if_exists: error
+  columns:
+    - record_id
+    - key_1
+    - key_2
+    - key_3
+    - key_4
+    - amount
+    - person
+    - MATCH_NO
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO

@@ -1,0 +1,99 @@
+version: 1
+
+project:
+  name: consolidate_sample
+
+input:
+  path: ./input_consolidate.csv
+  encoding: utf-8-sig
+  delimiter: ","
+  header: true
+  schema:
+    uketsuke_id:
+      type: string
+      required: true
+    MATCH_NO:
+      type: string
+      required: true
+    uketsuke_date:
+      type: string
+      required: true
+    uketsukesha:
+      type: string
+      required: true
+    kingaku:
+      type: decimal
+      required: true
+    kcode:
+      type: string
+      required: true
+    biko:
+      type: string
+
+consolidate:
+  group_by: [MATCH_NO]
+  parent:
+    output:
+      path: ./output/Reception.csv
+      encoding: utf-8-sig
+      delimiter: ","
+      header: true
+      newline: "\n"
+      if_exists: error
+      columns:
+        - reception_id
+        - match_no
+        - uketsuke_date
+        - uketsukesha
+        - total_kingaku
+        - merged_count
+        - last_biko
+    columns:
+      reception_id:
+        first: uketsuke_id
+      match_no:
+        first: MATCH_NO
+      uketsuke_date:
+        require_same: uketsuke_date
+      uketsukesha:
+        require_same: uketsukesha
+      total_kingaku:
+        sum: kingaku
+      merged_count:
+        count: uketsuke_id
+      last_biko:
+        last: biko
+  children:
+    - name: kojin
+      output:
+        path: ./output/kojin.csv
+        encoding: utf-8-sig
+        delimiter: ","
+        header: true
+        newline: "\n"
+        if_exists: error
+        columns:
+          - reception_id
+          - kcode
+          - match_no
+      columns:
+        reception_id:
+          parent_value: reception_id
+        kcode:
+          source: kcode
+        match_no:
+          source: MATCH_NO
+
+error_handling:
+  on_validation_error: output_error
+  on_lookup_missing: output_error
+  on_transform_error: output_error
+  max_errors: 1000
+  error_output: ./reports/errors.csv
+  skipped_output: ./reports/skipped.csv
+  include_original_row: true
+
+runtime:
+  run_id: auto
+  log_dir: ./logs
+  log_level: INFO

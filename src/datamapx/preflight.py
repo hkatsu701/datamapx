@@ -19,14 +19,25 @@ from datamapx.config import (
     ValidationRule,
     load_config,
 )
+from datamapx.consolidate.config import ConsolidateConfig, load_consolidate_config
 from datamapx.exceptions import ConfigError
 from datamapx.io.errors import CsvReadError, CsvWriteError
+from datamapx.match.config import MatchConfig, load_match_config
 from datamapx.merge.config import MergeConfig, load_merge_config
 from datamapx.run_all import RunAllConfig, load_run_all_config, resolve_run_all_path
 from datamapx.union.config import UnionConfig, load_union_config
 from datamapx.unpivot.config import UnpivotConfig, load_unpivot_config
 
-PreflightKind = Literal["migration", "merge", "union", "unpivot", "aggregate", "run-all"]
+PreflightKind = Literal[
+    "migration",
+    "merge",
+    "union",
+    "unpivot",
+    "aggregate",
+    "match",
+    "consolidate",
+    "run-all",
+]
 
 
 @dataclass(frozen=True)
@@ -62,6 +73,14 @@ def run_preflight(config_path: str | Path) -> PreflightReport:
     if kind == "aggregate":
         config = load_aggregate_config(path)
         lines = _preflight_aggregate(config, path)
+        return PreflightReport(config_type=kind, config_path=path, lines=lines)
+    if kind == "match":
+        config = load_match_config(path)
+        lines = _preflight_match(config, path)
+        return PreflightReport(config_type=kind, config_path=path, lines=lines)
+    if kind == "consolidate":
+        config = load_consolidate_config(path)
+        lines = _preflight_consolidate(config, path)
         return PreflightReport(config_type=kind, config_path=path, lines=lines)
 
     config = load_config(path)
@@ -257,6 +276,70 @@ def _preflight_aggregate(config: AggregateConfig, config_path: Path) -> list[str
             base_path=base_path,
         )
     )
+    return lines
+
+
+def _preflight_match(config: MatchConfig, config_path: Path) -> list[str]:
+    base_path = config_path.parent
+    lines = ["Checks:", "- config validation: ok"]
+
+    lines.extend(
+        _preflight_csv_resource(
+            target="input",
+            path=config.input_.path,
+            encoding=config.input_.encoding,
+            delimiter=config.input_.delimiter,
+            header=config.input_.header,
+            base_path=base_path,
+            schema=config.input_.fields_schema,
+            key_fields=None,
+            row_limit=config.runtime.max_input_rows,
+            row_limit_name="runtime.max_input_rows",
+        )
+    )
+    lines.extend(
+        _preflight_output_resource(
+            target="output",
+            output_config=config.output,
+            base_path=base_path,
+        )
+    )
+    return lines
+
+
+def _preflight_consolidate(config: ConsolidateConfig, config_path: Path) -> list[str]:
+    base_path = config_path.parent
+    lines = ["Checks:", "- config validation: ok"]
+
+    lines.extend(
+        _preflight_csv_resource(
+            target="input",
+            path=config.input_.path,
+            encoding=config.input_.encoding,
+            delimiter=config.input_.delimiter,
+            header=config.input_.header,
+            base_path=base_path,
+            schema=config.input_.fields_schema,
+            key_fields=None,
+            row_limit=config.runtime.max_input_rows,
+            row_limit_name="runtime.max_input_rows",
+        )
+    )
+    lines.extend(
+        _preflight_output_resource(
+            target="consolidate.parent.output",
+            output_config=config.consolidate.parent.output,
+            base_path=base_path,
+        )
+    )
+    for index, child in enumerate(config.consolidate.children):
+        lines.extend(
+            _preflight_output_resource(
+                target=f"consolidate.children[{index}].output",
+                output_config=child.output,
+                base_path=base_path,
+            )
+        )
     return lines
 
 
@@ -558,6 +641,10 @@ def _detect_config_kind(path: Path) -> PreflightKind:
         return "merge"
     if "union" in raw_config:
         return "union"
+    if {"input", "match", "output"}.issubset(raw_config):
+        return "match"
+    if {"input", "consolidate"}.issubset(raw_config):
+        return "consolidate"
     if {"input", "unpivot", "output"}.issubset(raw_config):
         return "unpivot"
     if {"input", "aggregate", "output"}.issubset(raw_config):

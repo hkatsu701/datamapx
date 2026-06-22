@@ -61,6 +61,29 @@ def test_load_run_all_config_accepts_aggregate_job(tmp_path: Path) -> None:
     assert [job.type for job in config.jobs] == ["aggregate"]
 
 
+def test_load_run_all_config_accepts_match_and_consolidate_jobs(tmp_path: Path) -> None:
+    config_path = _write_run_all_config(
+        tmp_path,
+        jobs=[
+            {
+                "name": "match_stage",
+                "type": "match",
+                "config": "./match.yml",
+            },
+            {
+                "name": "consolidate_stage",
+                "type": "consolidate",
+                "config": "./consolidate.yml",
+            },
+        ],
+    )
+
+    config = load_run_all_config(config_path)
+
+    assert [job.name for job in config.jobs] == ["match_stage", "consolidate_stage"]
+    assert [job.type for job in config.jobs] == ["match", "consolidate"]
+
+
 def test_load_run_all_config_rejects_empty_jobs(tmp_path: Path) -> None:
     config_path = _write_run_all_config(tmp_path, jobs=[])
 
